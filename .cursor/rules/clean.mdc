@@ -1,0 +1,5 @@
+---
+globs: *.py,*.ipynb
+alwaysApply: false
+---
+Follow the Clean Code principles specified in the files `docs/rules/CLEAN_CODE.md` and `docs/rules/CLEAN_DOC.md`.
