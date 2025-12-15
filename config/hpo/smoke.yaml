@@ -1,5 +1,6 @@
 # HPO Configuration - Smoke Test
 # Quick validation run with minimal search
+# Mirrors prod.yaml structure but with fewer trials for faster execution
 
 search_space:
   backbone:
@@ -13,14 +14,29 @@ search_space:
   
   batch_size:
     type: "choice"
-    values: [8, 16]
+    values: [8, 16]  # Fewer options than prod (which has [8, 16, 32])
+  
+  dropout:
+    type: "uniform"
+    min: 0.1
+    max: 0.3
+  
+  weight_decay:
+    type: "loguniform"
+    min: 0.001
+    max: 0.1
 
 sampling:
   algorithm: "random"
-  max_trials: 4
-  timeout_minutes: 30
+  max_trials: 4  # Much fewer than prod (which has 50)
+  timeout_minutes: 60  # Reduced since image preparation is done separately
+
+early_termination:
+  policy: "bandit"
+  evaluation_interval: 1
+  slack_factor: 0.2
+  delay_evaluation: 2
 
 objective:
   metric: "macro-f1"
   goal: "maximize"
-
