@@ -1,0 +1,25 @@
+{
+  "trial_name": "sincere_onion_jxjs9zm1pr_0",
+  "trial_id": "/subscriptions/a23fa87c-802c-4fdf-9e59-e3d7969bcf31/resourceGroups/resume_ner_2025-12-14-13-17-35/providers/Microsoft.MachineLearningServices/workspaces/resume-ner-ws/jobs/sincere_onion_jxjs9zm1pr_0",
+  "backbone": "deberta",
+  "hyperparameters": {
+    "learning_rate": "1.0000268243753498",
+    "batch_size": "4",
+    "dropout": "0.14430746590491816",
+    "weight_decay": "1.0846340242099708",
+    "epochs": "2",
+    "backbone": "microsoft/deberta-v3-base"
+  },
+  "metrics": {
+    "macro-f1": 0.056306306306306314,
+    "macro-f1-span": 0.30959752321981426,
+    "loss": 135.18899536132812
+  },
+  "dataset_version": "v2.1",
+  "selection_criteria": {
+    "metric": "macro-f1",
+    "goal": "maximize",
+    "best_value": 0.056306306306306314,
+    "backbone": "deberta"
+  }
+}
