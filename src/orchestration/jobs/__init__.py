@@ -18,6 +18,14 @@ from .conversion import (
     create_conversion_job,
     validate_conversion_job,
 )
+from .local_sweeps import (
+    run_local_hpo_sweep,
+    translate_search_space_to_optuna,
+)
+from .local_selection import (
+    select_best_configuration_across_studies,
+    extract_best_config_from_study,
+)
 
 __all__ = [
     "create_search_space",
@@ -32,5 +40,9 @@ __all__ = [
     "get_checkpoint_output_from_training_job",
     "create_conversion_job",
     "validate_conversion_job",
+    "run_local_hpo_sweep",
+    "translate_search_space_to_optuna",
+    "select_best_configuration_across_studies",
+    "extract_best_config_from_study",
 ]
 
