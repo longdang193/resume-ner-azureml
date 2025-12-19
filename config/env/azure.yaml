@@ -1,0 +1,32 @@
+# Execution Environment - Azure ML
+
+compute:
+  training_cluster: "cpu-cluster"  # Changed from "gpu-cluster"
+  conversion_cluster: "cpu-cluster"
+
+storage:
+  workspace_datastore: "workspaceblobstore"
+  output_datastore: "workspaceblobstore"
+
+workspace:
+  name: "resume-ner-ws"
+
+logging:
+  experiment_name: "resume-ner-experiment"
+  log_to_azure_ml: true
+  log_to_local: false
+
+monitoring:
+  enable_mlflow: true
+  enable_azure_ml_monitoring: true
+
+environment:
+  # Optional overrides for the training environment definition. All of these
+  # have sensible defaults in code, so this section can be omitted entirely.
+  name: "resume-ner-training"
+  conda_file: "environment/conda.yaml"
+  docker_image: "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04:latest"
+  warmup:
+    display_name: "environment-warmup"
+    history_limit: 10
+
