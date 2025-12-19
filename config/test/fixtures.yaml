@@ -1,0 +1,114 @@
+# Test data fixtures configuration
+# Used by pytest fixtures in tests/conftest.py
+
+sample_data:
+  resume_entries:
+    - text: "John Doe is a software engineer with 5 years of experience."
+      annotations:
+        - [0, 8, "PERSON"]
+        - [30, 48, "JOB_TITLE"]
+        - [54, 55, "EXPERIENCE"]
+    - text: "Jane Smith worked at Microsoft from 2020 to 2023."
+      annotations:
+        - [0, 10, "PERSON"]
+        - [22, 31, "ORG"]
+        - [37, 41, "DATE"]
+        - [45, 49, "DATE"]
+    - text: "Python, Java, and SQL are my main skills."
+      annotations:
+        - [0, 6, "SKILL"]
+        - [8, 12, "SKILL"]
+        - [21, 24, "SKILL"]
+
+label_mappings:
+  standard:
+    O: 0
+    PERSON: 1
+    ORG: 2
+    JOB_TITLE: 3
+    SKILL: 4
+    DATE: 5
+    EXPERIENCE: 6
+
+entity_types:
+  standard: ["PERSON", "ORG", "JOB_TITLE", "SKILL", "DATE", "EXPERIENCE"]
+
+mock_configs:
+  experiment:
+    experiment_name: "test_experiment"
+    data_config: "data/resume_tiny.yaml"
+    model_config: "model/distilbert.yaml"
+    train_config: "train.yaml"
+    hpo_config: "hpo/smoke.yaml"
+    env_config: "env/local.yaml"
+  
+  data:
+    version: "1.0"
+    schema:
+      entity_types: ["PERSON", "ORG", "JOB_TITLE", "SKILL", "DATE", "EXPERIENCE"]
+  
+  model:
+    backbone: "distilbert-base-uncased"
+    dropout: 0.1
+  
+  training:
+    epochs: 1
+    batch_size: 2
+    learning_rate: 2e-5
+    weight_decay: 0.01
+  
+  hpo:
+    search_space:
+      learning_rate:
+        type: "loguniform"
+        min: 1e-5
+        max: 5e-5
+    sampling:
+      algorithm: "random"
+      max_trials: 2
+  
+  env:
+    environment_type: "local"
+  
+  # Test file references for coverage tracking
+  test_files:
+    orchestration:
+      - "test_data_assets.py"
+      - "test_naming.py"
+      - "test_config_loader.py"
+      - "test_environment.py"
+      - "test_data_asset_references.py"
+    orchestration_jobs:
+      - "test_conversion_checkpoint_resolution.py"
+      - "test_runtime.py"
+      - "test_local_sweeps.py"
+      - "test_selection.py"
+      - "test_sweeps.py"
+      - "test_training.py"
+      - "test_local_selection.py"
+    training:
+      - "test_metrics.py"
+      - "test_cv_utils.py"
+      - "test_data.py"
+      - "test_config.py"
+      - "test_trainer.py"
+      - "test_evaluator.py"
+      - "test_logging.py"
+      - "test_utils.py"
+      - "test_tokenizer_offset_mapping.py"
+      - "test_trainer_oom_prevention.py"
+    platform_adapters:
+      - "test_adapters.py"
+      - "test_checkpoint_resolver.py"
+      - "test_logging_adapter.py"
+      - "test_mlflow_context.py"
+      - "test_outputs.py"
+    shared:
+      - "test_yaml_utils.py"
+      - "test_json_cache.py"
+    integration:
+      - "test_train.py"
+      - "test_troubleshooting_fixes.py"
+    root:
+      - "test_convert_to_onnx.py"
+

@@ -1,0 +1,41 @@
+# Test execution settings and thresholds
+# Used for configuring pytest behavior and coverage requirements
+
+coverage:
+  overall_threshold: 80
+  module_thresholds:
+    training: 85
+    orchestration: 75
+    platform_adapters: 90
+    shared: 95
+    convert_to_onnx: 70
+    environment: 70
+    train: 70
+    data_assets: 80
+    conversion: 80
+    runtime: 80
+    local_sweeps: 75
+    selection: 75
+    sweeps: 75
+    training_jobs: 80
+    naming: 80
+    logging: 80
+    utils: 80
+
+markers:
+  unit:
+    description: "Unit tests (fast, isolated)"
+  integration:
+    description: "Integration tests (slower, may require external resources)"
+  slow:
+    description: "Slow tests that take significant time"
+    timeout: 300
+
+performance:
+  slow_test_threshold: 1.0
+  timeout_default: 60
+
+parallel:
+  enabled: false
+  workers: "auto"
+
