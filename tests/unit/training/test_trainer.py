@@ -71,7 +71,7 @@ class TestPrepareDataLoaders:
         mock_tokenizer = MagicMock()
         label2id = {"O": 0, "PERSON": 1}
         train_indices = [0, 2]
-        val_indices = [0]
+        val_indices = [1]
         
         mock_train_ds = MagicMock()
         mock_val_ds = MagicMock()
@@ -88,6 +88,17 @@ class TestPrepareDataLoaders:
         
         assert train_loader == mock_train_loader
         assert val_loader == mock_val_loader
+        # Verify that ResumeNERDataset was called twice (train and val)
+        assert mock_dataset_class.call_count == 2
+        # First call should be for train data (indices 0, 2 -> test1, test3)
+        train_call_args = mock_dataset_class.call_args_list[0][0][0]
+        assert len(train_call_args) == 2
+        assert train_call_args[0]["text"] == "test1"
+        assert train_call_args[1]["text"] == "test3"
+        # Second call should be for val data (index 1 -> test2, from original train_data)
+        val_call_args = mock_dataset_class.call_args_list[1][0][0]
+        assert len(val_call_args) == 1
+        assert val_call_args[0]["text"] == "test2"
 
     @patch("training.trainer.ResumeNERDataset")
     @patch("training.trainer.DataLoader")
@@ -194,6 +205,61 @@ class TestPrepareDataLoaders:
         
         assert train_loader == mock_train_loader
         assert val_loader == mock_val_loader
+
+    @patch("training.trainer.ResumeNERDataset")
+    @patch("training.trainer.DataLoader")
+    @patch("training.trainer.DataCollatorForTokenClassification")
+    def test_prepare_data_loaders_kfold_cv_val_from_train_data(self, mock_collator_class, mock_loader_class, mock_dataset_class):
+        """Test that k-fold CV validation data comes from original train_data, not val_data.
+        
+        This test verifies the fix for IndexError when val_data is empty but val_indices are provided.
+        """
+        from training.trainer import prepare_data_loaders
+        
+        config = {
+            "model": {
+                "preprocessing": {"max_length": 128},
+                "backbone": "distilbert-base-uncased",
+            },
+            "training": {"batch_size": 8},
+        }
+        # Simulate k-fold CV scenario: val_data is empty, but val_indices point to train_data
+        dataset = {
+            "train": [
+                {"text": "train0", "annotations": []},
+                {"text": "train1", "annotations": []},
+                {"text": "train2", "annotations": []},
+                {"text": "train3", "annotations": []},
+                {"text": "train4", "annotations": []},
+            ],
+            "validation": [],  # Empty validation data (common in k-fold CV)
+        }
+        mock_tokenizer = MagicMock()
+        label2id = {"O": 0, "PERSON": 1}
+        # Fold 0: train on indices [1,2,3,4], validate on index [0]
+        train_indices = [1, 2, 3, 4]
+        val_indices = [0]
+        
+        mock_train_ds = MagicMock()
+        mock_val_ds = MagicMock()
+        mock_dataset_class.side_effect = [mock_train_ds, mock_val_ds]
+        
+        mock_train_loader = MagicMock()
+        mock_val_loader = MagicMock()
+        mock_loader_class.side_effect = [mock_train_loader, mock_val_loader]
+        
+        # This should not raise IndexError
+        train_loader, val_loader = prepare_data_loaders(
+            config, dataset, mock_tokenizer, label2id,
+            train_indices=train_indices, val_indices=val_indices
+        )
+        
+        assert train_loader == mock_train_loader
+        assert val_loader == mock_val_loader
+        # Verify that validation dataset was created successfully
+        # This test verifies the fix: val_indices should index into original train_data,
+        # not val_data (which is empty). Without the fix, this would raise IndexError.
+        assert mock_dataset_class.call_count == 2
 
 
 class TestCreateOptimizerAndScheduler:
