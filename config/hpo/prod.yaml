@@ -39,6 +39,6 @@ objective:
 
 k_fold:
   enabled: true
-  n_splits: 2
+  n_splits: 5
   random_seed: 42
   shuffle: true

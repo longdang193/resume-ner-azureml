@@ -32,7 +32,7 @@ def _import_optuna():
 
 
 def translate_search_space_to_optuna(
-    hpo_config: Dict[str, Any], trial: Any
+    hpo_config: Dict[str, Any], trial: Any, exclude_params: Optional[List[str]] = None
 ) -> Dict[str, Any]:
     """
     Translate HPO config search space to Optuna trial suggestions.
@@ -40,14 +40,20 @@ def translate_search_space_to_optuna(
     Args:
         hpo_config: HPO configuration dictionary with search_space.
         trial: Optuna trial object for suggesting values.
+        exclude_params: Optional list of parameter names to exclude from search space.
 
     Returns:
         Dictionary of hyperparameter values for this trial.
     """
     search_space = hpo_config["search_space"]
     params: Dict[str, Any] = {}
+    exclude_set = set(exclude_params or [])
 
     for name, spec in search_space.items():
+        # Skip excluded parameters (e.g., "backbone" when it's fixed per study)
+        if name in exclude_set:
+            continue
+
         p_type = spec["type"]
         if p_type == "choice":
             params[name] = trial.suggest_categorical(name, spec["values"])
@@ -175,11 +181,14 @@ def run_training_trial(
 
     # Create MLflow experiment if it doesn't exist
     mlflow.set_experiment(mlflow_experiment_name)
-    
+
     # Set environment variables for output and MLflow (train.py will use these)
     env = os.environ.copy()
+    # Note: AzureMLOutputPathResolver converts output_name to uppercase, so use CHECKPOINT
+    env["AZURE_ML_OUTPUT_CHECKPOINT"] = str(trial_output_dir)
+    # Also set lowercase for backward compatibility
     env["AZURE_ML_OUTPUT_checkpoint"] = str(trial_output_dir)
-    
+
     # Pass MLflow tracking URI and experiment name to subprocess
     mlflow_tracking_uri = mlflow.get_tracking_uri()
     if mlflow_tracking_uri:
@@ -203,20 +212,50 @@ def run_training_trial(
 
     # Try to read metrics from metrics.json file (created by train.py)
     # This is more reliable than querying MLflow
+    # IMPORTANT: Always check trial-specific location first to avoid reading wrong metrics
     metrics_file = trial_output_dir / "metrics.json"
+
+    # If trial-specific file doesn't exist, check if metrics were saved to default location
+    # This can happen if the platform adapter doesn't properly detect AZURE_ML_OUTPUT_checkpoint
+    if not metrics_file.exists():
+        # Check if train.py saved to default outputs directory (due to platform adapter behavior)
+        default_metrics = Path(root_dir) / "outputs" / "metrics.json"
+        if default_metrics.exists():
+            # Only use this as a last resort - it might be from a different trial!
+            # Print a clear warning
+            print(
+                f"WARNING: Trial-specific metrics not found at {metrics_file}")
+            print(f"  Falling back to default location: {default_metrics}")
+            print(f"  This may read metrics from a different trial!")
+            metrics_file = default_metrics
+
     if metrics_file.exists():
         try:
             import json
             with open(metrics_file, "r") as f:
                 metrics = json.load(f)
                 if objective_metric in metrics:
-                    return float(metrics[objective_metric])
+                    metric_value = float(metrics[objective_metric])
+                    # Debug: print which file was read
+                    file_mtime = os.path.getmtime(metrics_file)
+                    print(
+                        f"Read {objective_metric}={metric_value} from {metrics_file} (modified: {file_mtime})")
+                    return metric_value
                 else:
                     print(
                         f"Warning: Objective metric '{objective_metric}' not found in metrics.json")
                     print(f"Available metrics: {list(metrics.keys())}")
+                    print(f"Metrics file location: {metrics_file}")
         except Exception as e:
-            print(f"Warning: Could not read metrics.json: {e}")
+            print(
+                f"Warning: Could not read metrics.json from {metrics_file}: {e}")
+    else:
+        print(
+            f"ERROR: metrics.json not found at expected location: {trial_output_dir / 'metrics.json'}")
+        print(f"  Trial output dir: {trial_output_dir}")
+        print(f"  Root dir: {root_dir}")
+        print(
+            f"  AZURE_ML_OUTPUT_checkpoint env var: {os.environ.get('AZURE_ML_OUTPUT_checkpoint', 'NOT SET')}")
 
     # Fallback: try to read from MLflow
     try:
@@ -277,7 +316,7 @@ def run_training_trial_with_cv(
         - fold_metrics: List of metrics for each fold
     """
     fold_metrics = []
-    
+
     for fold_idx, (train_indices, val_indices) in enumerate(fold_splits):
         # Run training for this fold
         fold_metric = run_training_trial(
@@ -293,10 +332,10 @@ def run_training_trial_with_cv(
             fold_splits_file=fold_splits_file,
         )
         fold_metrics.append(fold_metric)
-    
+
     # Calculate average metric
     average_metric = np.mean(fold_metrics)
-    
+
     return average_metric, fold_metrics
 
 
@@ -338,21 +377,21 @@ def create_local_hpo_objective(
             # Create new splits and save them
             from training.data import load_dataset
             from training.cv_utils import create_kfold_splits, save_fold_splits
-            
+
             dataset = load_dataset(dataset_path)
             train_data = dataset.get("train", [])
-            
+
             k_fold_config = hpo_config.get("k_fold", {})
             random_seed = k_fold_config.get("random_seed", 42)
             shuffle = k_fold_config.get("shuffle", True)
-            
+
             fold_splits = create_kfold_splits(
                 dataset=train_data,
                 k=k_folds,
                 random_seed=random_seed,
                 shuffle=shuffle,
             )
-            
+
             # Save splits for reproducibility
             save_fold_splits(
                 fold_splits,
@@ -366,7 +405,10 @@ def create_local_hpo_objective(
 
     def objective(trial: Any) -> float:
         # Sample hyperparameters
-        trial_params = translate_search_space_to_optuna(hpo_config, trial)
+        # Exclude "backbone" from search space since it's fixed per study
+        trial_params = translate_search_space_to_optuna(
+            hpo_config, trial, exclude_params=["backbone"])
+        # Set the fixed backbone for this study
         trial_params["backbone"] = backbone
         trial_params["trial_number"] = trial.number
 
@@ -385,12 +427,13 @@ def create_local_hpo_objective(
                 fold_splits=fold_splits,
                 fold_splits_file=fold_splits_file,
             )
-            
+
             # Log CV statistics to trial user attributes
             trial.set_user_attr("cv_mean", float(average_metric))
             trial.set_user_attr("cv_std", float(np.std(fold_metrics)))
-            trial.set_user_attr("cv_fold_metrics", [float(m) for m in fold_metrics])
-            
+            trial.set_user_attr("cv_fold_metrics", [
+                                float(m) for m in fold_metrics])
+
             metric_value = average_metric
         else:
             # Run single training (no CV)

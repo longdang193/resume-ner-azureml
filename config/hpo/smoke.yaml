@@ -1,7 +1,7 @@
 search_space:
   backbone:
     type: "choice"
-    values: ["deberta"]  # ["distilbert", "deberta"]
+    values: ["distilbert", "deberta"]
   
   learning_rate:
     type: "loguniform"
@@ -39,6 +39,6 @@ objective:
 
 k_fold:
   enabled: true
-  n_splits: 2
+  n_splits: 3
   random_seed: 42
   shuffle: true
