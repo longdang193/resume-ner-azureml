@@ -1,2 +1,2 @@
-"""Test fixtures package."""
+"""Test fixtures and helper utilities for HPO pipeline testing."""
 

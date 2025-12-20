@@ -32,6 +32,11 @@ dependencies:
     - onnxruntime  # For Phase 2 inference (ONNX model serving)
     - onnx>=1.16.0  # Required for ONNX export/validation + onnxruntime quantization tooling
     - onnxscript>=0.1.0  # Required by PyTorch's ONNX export (torch.onnx.export) in PyTorch 2.6+
+    # Testing dependencies
+    - pytest>=7.0.0
+    - pytest-cov>=4.0.0
+    - pytest-mock>=3.10.0
+    - pytest-xdist>=3.0.0  # Optional: parallel test execution
 
 
 

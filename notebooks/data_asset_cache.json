@@ -1,8 +1,8 @@
 {
   "name": "resume-ner-data-tiny-short",
-  "version": "v2.1",
+  "version": "v2.2",
   "asset_paths": {
-    "asset_uri": "azureml:resume-ner-data-tiny-short:v2.1",
-    "datastore_path": "azureml://datastores/workspaceblobstore/paths/LocalUpload/3232563f3982da9961ea618d65a32a106230b55248141ce91a9158d93c07e092/dataset_tiny"
+    "asset_uri": "azureml:resume-ner-data-tiny-short:v2.2",
+    "datastore_path": "azureml://datastores/workspaceblobstore/paths/LocalUpload/5e79991c1c42a8888c43689351b73e21e7ca7bd77d75cf11e094a28e2b53caa1/dataset_tiny"
   }
 }

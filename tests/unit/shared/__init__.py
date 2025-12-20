@@ -1,2 +1,0 @@
-"""Shared utilities tests package."""
-

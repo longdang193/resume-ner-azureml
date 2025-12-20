@@ -1,8 +1,10 @@
 name: resume-ner-data-tiny-short
-version: v2.2
-description: Tiny smoke-test subset of Resume NER dataset (short-text version for
-  fast orchestration tests)
-local_path: "../dataset_tiny"
+version: v3
+description: "Tiny smoke-test subset of Resume NER dataset \n(short-text version for\
+  \ fast orchestration tests). \nIncludes multiple random variants with different\
+  \ seeds for broader test coverage.\n"
+local_path: ../dataset_tiny
+seed: 0  # Seed number for dataset subdirectory (seed0, seed1, etc.)
 schema:
   format: json
   annotation_format: character_spans

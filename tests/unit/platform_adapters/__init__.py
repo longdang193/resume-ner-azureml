@@ -1,2 +1,0 @@
-"""Platform adapters tests package."""
-

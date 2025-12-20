@@ -230,7 +230,7 @@ class ResumeNERDataset(Dataset):
         if type(text) is not str:
             text = str(text)
 
-        # CRITICAL FIX: Handle case where normalize_text might return a list/tuple
+        # Handle case where normalize_text might return a list/tuple
         # The tokenizer expects a single string, not a sequence
         if isinstance(text, (list, tuple)):
             # If text is a list/tuple, join it into a string

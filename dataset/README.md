@@ -1,6 +1,7 @@
 # Resume NER Training Dataset
 
 ## Overview
+
 This dataset contains 5,960 standardized resume samples for Named Entity Recognition (NER) training, combining four high-quality resume datasets:
 
 - **Kaggle ATS Dataset**: 220 samples - Resume scoring with entity annotations
@@ -9,7 +10,9 @@ This dataset contains 5,960 standardized resume samples for Named Entity Recogni
 - **Doccano Dataset**: 545 samples - Professional CVs in Doccano format
 
 ## Data Format
+
 Each sample contains:
+
 ```json
 {
   "text": "Full resume text content...",
@@ -21,6 +24,7 @@ Each sample contains:
 ```
 
 ## Entity Labels (14 categories)
+
 - **SKILL**: Technical skills, tools, and competencies (549,465 instances)
 - **DESIGNATION**: Job titles and positions (4,301 instances)
 - **LOCATION**: Cities, states, and geographical locations (4,073 instances)
@@ -37,17 +41,21 @@ Each sample contains:
 - **OTHER**: Miscellaneous entities (10,267 instances)
 
 ## Usage
+
 Perfect for training NER models on resume data. All annotations are:
+
 - ✅ Standardized to consistent format
 - ✅ Validated for text alignment
 - ✅ Ready for immediate training use
 - ✅ Compatible with HuggingFace transformers
 
 ## Source Datasets
+
 - [Kaggle ATS Dataset](https://www.kaggle.com/datasets/mgmitesh/ats-scoring-dataset)
 - [HuggingFace NER Dataset](https://huggingface.co/datasets/Mehyaar/Annotated_NER_PDF_Resumes)
 - [Resume Corpus Dataset](https://github.com/vrundag91/Resume-Corpus-Dataset)
 - [Doccano Dataset](https://github.com/juanfpinzon/resume-dataset)
 
 ## License
+
 MIT License - Use freely for research and commercial purposes.

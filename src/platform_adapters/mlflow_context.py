@@ -40,11 +40,10 @@ class LocalMLflowContextManager(MLflowContextManager):
         """Return MLflow start_run context manager for local execution."""
         import mlflow
         import os
-        
+
         # Set experiment from environment variable if provided
         experiment_name = os.environ.get("MLFLOW_EXPERIMENT_NAME")
         if experiment_name:
             mlflow.set_experiment(experiment_name)
-        
-        return mlflow.start_run()
 
+        return mlflow.start_run()
