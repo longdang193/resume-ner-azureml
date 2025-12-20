@@ -1,0 +1,30 @@
+# Dataset Creation Configuration
+# Used by tests/00_make_tiny_dataset.ipynb to create tiny smoke test datasets
+
+# Source data (paths relative to project root)
+raw_data_dir: "dataset"
+raw_train_file: "train.json"
+
+# Output paths (paths relative to project root)
+base_dataset_dir: "dataset_tiny"
+
+# Dataset parameters
+num_train_samples: 8
+num_val_samples: 2
+max_text_length_chars: 2500
+# Number of random datasets to create (all use random sampling with different seeds)
+# Datasets will be created as seed0, seed1, seed2, ..., seed{N-1}
+num_datasets: 5
+
+# Config file paths (paths relative to project root)
+base_config_path: "config/data/resume_v1.yaml"
+tiny_config_path: "config/data/resume_tiny.yaml"
+
+# Generated config metadata
+dataset_name: "resume-ner-data-tiny-short"
+dataset_version: "v3"
+dataset_description: |
+  Tiny smoke-test subset of Resume NER dataset 
+  (short-text version for fast orchestration tests). 
+  Includes multiple random variants with different seeds for broader test coverage.
+

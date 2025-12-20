@@ -1,0 +1,28 @@
+# HPO Pipeline Test Configuration
+# Central configuration for HPO pipeline integration tests
+
+hpo_pipeline_tests:
+  defaults:
+    random_seed: 42
+    minimal_k_folds: 2
+    backbones: ["distilbert", "deberta"]  # List of backbones to test
+    metric_decimal_places: 4
+    separator_width: 60
+    very_small_validation_threshold: 2
+  
+  # HPO overrides (applied after loading HPO config from configs.hpo_config)
+  hpo_overrides:
+    max_trials: 2  # Override max_trials (null = use value from HPO config file)
+  
+  datasets:
+    deterministic_path: "dataset_tiny"
+    random_seeds: [0, 1, 2, 3, 4]
+  
+  output:
+    base_dir: "outputs/hpo_tests"
+    mlflow_dir: "mlruns"
+  
+  configs:
+    hpo_config: "hpo/smoke.yaml"
+    train_config: "train.yaml"
+
