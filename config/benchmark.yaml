@@ -1,0 +1,31 @@
+# Benchmarking configuration for inference performance measurement
+
+benchmarking:
+  # Batch sizes to test during benchmarking
+  batch_sizes: [1, 8, 16]
+  
+  # Number of iterations per batch size for statistical significance
+  iterations: 100
+  
+  # Number of warmup iterations before measurement
+  warmup_iterations: 10
+  
+  # Maximum sequence length for benchmarking
+  max_length: 512
+  
+  # Device preference (null = auto-detect, "cuda", or "cpu")
+  device: null
+  
+  # Test data source (relative to config dir or absolute path)
+  # Can reference data config's test split or use separate test file
+  # If null, will try dataset/test.json, then dataset/validation.json
+  test_data: null
+
+# Output configuration
+output:
+  # Filename for benchmark results
+  filename: "benchmark.json"
+  
+  # Whether to save human-readable summary
+  save_summary: true
+
