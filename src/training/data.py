@@ -3,7 +3,9 @@
 import json
 import re
 from pathlib import Path
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
+
+from sklearn.model_selection import train_test_split
 
 from torch.utils.data import Dataset
 import torch
@@ -39,7 +41,13 @@ def load_dataset(data_path: str) -> Dict[str, Any]:
         with open(val_file, "r", encoding="utf-8") as f:
             val_data = json.load(f)
 
-    return {"train": train_data, "validation": val_data}
+    test_file = data_path_obj / "test.json"
+    test_data = []
+    if test_file.exists():
+        with open(test_file, "r", encoding="utf-8") as f:
+            test_data = json.load(f)
+
+    return {"train": train_data, "validation": val_data, "test": test_data}
 
 
 def build_label_list(data_config: Dict[str, Any]) -> List[str]:
@@ -54,6 +62,111 @@ def build_label_list(data_config: Dict[str, Any]) -> List[str]:
     """
     entity_types = data_config.get("schema", {}).get("entity_types", [])
     return ["O"] + sorted(entity_types)
+
+
+def _compute_entity_presence_labels(
+    dataset: List[Dict[str, Any]],
+    entity_types: Optional[List[str]] = None,
+) -> List[tuple]:
+    """
+    Compute per-document entity presence labels for stratification.
+
+    Each label is a tuple of entity types present in the document. This helps
+    keep rare entity types represented in each split/fold.
+    """
+    labels: List[tuple] = []
+    for sample in dataset:
+        annotations = sample.get("annotations", []) or []
+        present = []
+        for ann in annotations:
+            if not isinstance(ann, (list, tuple)) or len(ann) < 3:
+                continue
+            ent = ann[2]
+            if entity_types and ent not in entity_types:
+                continue
+            present.append(ent)
+        labels.append(tuple(sorted(set(present))))
+    return labels
+
+
+def split_train_test(
+    dataset: List[Dict[str, Any]],
+    train_ratio: float = 0.8,
+    stratified: bool = False,
+    random_seed: int = 42,
+    entity_types: Optional[List[str]] = None,
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """
+    Split dataset into train and test sets, with optional stratification.
+
+    Args:
+        dataset: Full dataset samples.
+        train_ratio: Proportion of data to use for training (0-1).
+        stratified: If True, stratify by entity presence.
+        random_seed: Random seed for reproducibility.
+        entity_types: Optional entity type whitelist for stratification labels.
+
+    Returns:
+        (train_data, test_data)
+    """
+    if not 0 < train_ratio < 1:
+        raise ValueError("train_ratio must be between 0 and 1 (exclusive).")
+
+    test_size = 1.0 - train_ratio
+
+    stratify_labels = None
+    if stratified:
+        entity_presence_tuples = _compute_entity_presence_labels(dataset, entity_types)
+        # Convert tuples to strings for sklearn compatibility
+        # Tuples can't be directly used as stratify labels because they have variable lengths
+        stratify_labels = [",".join(sorted(present)) if present else "none" 
+                          for present in entity_presence_tuples]
+        
+        # Check if stratification is feasible
+        # Sklearn requires at least 2 samples per class for stratified splitting
+        from collections import Counter
+        label_counts = Counter(stratify_labels)
+        unique_classes = len(set(stratify_labels))
+        min_class_count = min(label_counts.values()) if label_counts else 0
+        
+        # If all labels are identical or any class has < 2 samples, disable stratification
+        if unique_classes <= 1 or min_class_count < 2:
+            if stratified:  # Only warn if user explicitly requested stratification
+                import warnings
+                warnings.warn(
+                    f"Stratified splitting not feasible: "
+                    f"{unique_classes} unique classes, "
+                    f"minimum class count: {min_class_count}. "
+                    f"Falling back to non-stratified splitting.",
+                    UserWarning
+                )
+            stratify_labels = None
+
+    train_data, test_data = train_test_split(
+        dataset,
+        test_size=test_size,
+        random_state=random_seed,
+        shuffle=True,
+        stratify=stratify_labels,
+    )
+
+    return list(train_data), list(test_data)
+
+
+def save_split_files(
+    output_dir: Path,
+    train_data: List[Dict[str, Any]],
+    test_data: List[Dict[str, Any]],
+) -> None:
+    """
+    Persist train/test splits to disk.
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    with open(output_dir / "train.json", "w", encoding="utf-8") as f:
+        json.dump(train_data, f, ensure_ascii=False, indent=2)
+    with open(output_dir / "test.json", "w", encoding="utf-8") as f:
+        json.dump(test_data, f, ensure_ascii=False, indent=2)
 
 
 def normalize_text(raw_text: Any) -> str:
