@@ -46,7 +46,7 @@ src/
 | ----------------- | ----------------------------------------- |
 | `data/*.yaml` | Dataset contract (name, version, schema) |
 | `model/*.yaml` | Model architecture–specific settings |
-| `train.yaml` | Global training defaults |
+| `train.yaml` | Global training defaults (including distributed settings) |
 | `hpo/*.yaml` | HPO search strategies (smoke, prod, etc.) |
 | `env/*.yaml` | Execution environment (compute, logging) |
 | `monitoring.yaml` | Metrics and alert thresholds |
@@ -102,6 +102,32 @@ This ensures every model artifact is fully traceable to its configuration.
 * Model architecture
 * Training hyperparameters
 * Dataset schema
+
+## Distributed Training Configuration
+
+Multi-GPU / distributed training is configured **declaratively** in `config/train.yaml`
+under the `distributed` section. Example:
+
+```yaml
+training:
+  # ...
+
+distributed:
+  enabled: false         # Set true to enable multi-GPU / DDP
+  backend: "nccl"        # Typically 'nccl' for GPUs
+  world_size: "auto"     # 'auto' uses all visible GPUs; or set an int
+```
+
+These settings are:
+
+* **Read once** via `training.config.build_training_config`.
+* Resolved into a small `ResolvedDistributedConfig` dataclass.
+* Passed to `training.distributed.create_run_context`, which decides whether to
+  use CPU, single-GPU, or (later) DDP based on both config and hardware.
+
+Notebooks and orchestration code **do not** hard-code device or DDP behavior;
+they only consume the centralized config. This keeps device selection and
+distributed strategy consistent across local, Colab, and Kaggle environments.
 
 ## Secrets
 

@@ -1,7 +1,8 @@
 """Configuration loading and building utilities."""
 
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+from dataclasses import dataclass
 import argparse
 
 from shared.yaml_utils import load_yaml
@@ -43,12 +44,59 @@ def build_training_config(args: argparse.Namespace, config_dir: Path) -> Dict[st
     config = {
         "data": data_config,
         "model": model_config,
-        "training": train_config["training"].copy(),
+        "training": train_config.get("training", {}).copy(),
+        # Expose distributed section (if present) at top level so orchestration
+        # and training logic can consume it without hard-coding defaults.
+        "distributed": train_config.get("distributed", {}).copy(),
     }
     
     _apply_argument_overrides(args, config)
     
     return config
+
+
+@dataclass
+class ResolvedDistributedConfig:
+    """Resolved distributed training configuration.
+
+    This is a thin, centralized representation of DDP-related knobs, derived
+    from YAML config plus (later) environment detection. It deliberately does
+    not perform any torch.distributed calls; those belong in a dedicated
+    distributed helper module.
+    """
+
+    enabled: bool
+    backend: str
+    world_size: Optional[int]
+
+
+def resolve_distributed_config(config: Dict[str, Any]) -> ResolvedDistributedConfig:
+    """Resolve the distributed config section into a simple dataclass.
+
+    Args:
+        config: Top-level training config returned by build_training_config.
+
+    Returns:
+        ResolvedDistributedConfig with basic, YAML-driven settings.
+    """
+    dist_cfg = (config.get("distributed") or {}).copy()
+
+    enabled = bool(dist_cfg.get("enabled", False))
+    backend = dist_cfg.get("backend", "nccl")
+    world_size_raw = dist_cfg.get("world_size", "auto")
+
+    world_size: Optional[int]
+    if isinstance(world_size_raw, int):
+        world_size = world_size_raw
+    else:
+        # 'auto' or any non-int value means: decide based on hardware later.
+        world_size = None
+
+    return ResolvedDistributedConfig(
+        enabled=enabled,
+        backend=backend,
+        world_size=world_size,
+    )
 
 
 def _apply_argument_overrides(args: argparse.Namespace, config: Dict[str, Any]) -> None:

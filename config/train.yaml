@@ -33,3 +33,9 @@ checkpointing:
   save_total_limit: 3
   load_best_model_at_end: true
 
+# Distributed training configuration (centralized, optional)
+distributed:
+  enabled: false         # Set true to enable multi-GPU / DDP
+  backend: "nccl"        # Typically 'nccl' for GPUs
+  world_size: "auto"     # 'auto' = use all visible GPUs; or set an int
+

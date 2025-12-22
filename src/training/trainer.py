@@ -15,6 +15,7 @@ from .data import ResumeNERDataset, build_label_list
 from .model import create_model_and_tokenizer
 from .evaluator import evaluate_model
 from .cv_utils import load_fold_splits, get_fold_data
+from .distributed import RunContext, create_run_context
 
 # Default constants (can be overridden via config)
 DEFAULT_VAL_SPLIT_DIVISOR = 10
@@ -49,13 +50,13 @@ def prepare_data_loaders(
     # Get original data before any modifications
     original_train_data = dataset.get("train", [])
     val_data = dataset.get("validation", [])
-    
+
     # Handle fold-based CV: validation indices refer to original train_data
     if val_indices is not None:
         # For k-fold CV, validation data comes from original train_data using val_indices
         # val_indices are indices into the original train_data before splitting
         val_data = [original_train_data[i] for i in val_indices]
-    
+
     # Handle fold-based CV: use provided indices for training data
     train_data = original_train_data
     if train_indices is not None:
@@ -81,12 +82,12 @@ def prepare_data_loaders(
         batch_size = deberta_max_batch_size
 
     train_ds = ResumeNERDataset(train_data, tokenizer, max_length, label2id)
-    
+
     data_collator = DataCollatorForTokenClassification(tokenizer)
     train_loader = DataLoader(
         train_ds, batch_size=batch_size, shuffle=True, collate_fn=data_collator
     )
-    
+
     # Create validation loader only if validation data exists
     if val_data:
         val_ds = ResumeNERDataset(val_data, tokenizer, max_length, label2id)
@@ -141,7 +142,7 @@ def run_training_loop(
     scheduler,
     epochs: int,
     max_grad_norm: float,
-    device: torch.device,
+    context: RunContext,
 ) -> None:
     """
     Run the training loop for specified epochs.
@@ -156,6 +157,7 @@ def run_training_loop(
         device: Device to run training on.
     """
     model.train()
+    device = context.device
     for _ in range(epochs):
         for batch in train_loader:
             batch = {k: v.to(device) for k, v in batch.items()}
@@ -211,16 +213,25 @@ def train_model(
     id2label = {i: l for l, i in label2id.items()}
 
     model, tokenizer, device = create_model_and_tokenizer(
-        config, label2id, id2label)
-    
+        config, label2id, id2label
+    )
+
+    # Resolve run context from centralized distributed config and hardware.
+    # For now this always returns a single-process context; DDP support will
+    # be added in training.distributed without changing trainer logic.
+    from .config import resolve_distributed_config
+
+    dist_cfg = resolve_distributed_config(config)
+    context = create_run_context(dist_cfg)
+
     # Handle k-fold CV: load fold splits if specified
     train_indices = None
     val_indices = None
     use_all_data = config["training"].get("use_all_data", False)
-    
+
     fold_idx = config["training"].get("fold_idx")
     fold_splits_file = config["training"].get("fold_splits_file")
-    
+
     if fold_idx is not None and fold_splits_file:
         # Load fold splits and extract current fold
         splits, _ = load_fold_splits(Path(fold_splits_file))
@@ -230,7 +241,7 @@ def train_model(
                 f"Expected 0 to {len(splits) - 1}"
             )
         train_indices, val_indices = splits[fold_idx]
-    
+
     train_loader, val_loader = prepare_data_loaders(
         config, dataset, tokenizer, label2id,
         train_indices=train_indices,
@@ -245,17 +256,24 @@ def train_model(
         model, config, total_steps
     )
 
-    run_training_loop(model, train_loader, optimizer,
-                      scheduler, epochs, max_grad_norm, device)
+    run_training_loop(
+        model,
+        train_loader,
+        optimizer,
+        scheduler,
+        epochs,
+        max_grad_norm,
+        context,
+    )
 
     # Evaluate only if validation loader exists
     if val_loader is not None:
-        metrics = evaluate_model(model, val_loader, device, id2label)
+        metrics = evaluate_model(model, val_loader, context.device, id2label)
     else:
         # No validation set (final training on all data)
         # Return empty metrics or training-only metrics
         metrics = {"note": "No validation set - training on all data"}
-    
+
     save_checkpoint(model, tokenizer, output_dir)
 
     return metrics
