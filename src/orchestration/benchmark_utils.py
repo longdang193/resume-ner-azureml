@@ -33,7 +33,7 @@ def run_benchmarking(
         max_length: Maximum sequence length.
         device: Device to use (None = auto-detect).
         benchmark_script_path: Path to benchmark script. If None, will try to find
-            it at src/benchmarks/benchmark_inference.py relative to project_root.
+            it at benchmarks/benchmark_inference.py relative to project_root.
         project_root: Project root directory. Required if benchmark_script_path is None.
 
     Returns:
@@ -43,7 +43,8 @@ def run_benchmarking(
     if benchmark_script_path is None:
         if project_root is None:
             raise ValueError("Either benchmark_script_path or project_root must be provided")
-        benchmark_script = project_root / "src" / "benchmarks" / "benchmark_inference.py"
+        # Benchmarks live at <project_root>/benchmarks, not under src/
+        benchmark_script = project_root / "benchmarks" / "benchmark_inference.py"
     else:
         benchmark_script = benchmark_script_path
 
