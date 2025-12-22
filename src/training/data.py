@@ -116,19 +116,20 @@ def split_train_test(
 
     stratify_labels = None
     if stratified:
-        entity_presence_tuples = _compute_entity_presence_labels(dataset, entity_types)
+        entity_presence_tuples = _compute_entity_presence_labels(
+            dataset, entity_types)
         # Convert tuples to strings for sklearn compatibility
         # Tuples can't be directly used as stratify labels because they have variable lengths
-        stratify_labels = [",".join(sorted(present)) if present else "none" 
-                          for present in entity_presence_tuples]
-        
+        stratify_labels = [",".join(sorted(present)) if present else "none"
+                           for present in entity_presence_tuples]
+
         # Check if stratification is feasible
         # Sklearn requires at least 2 samples per class for stratified splitting
         from collections import Counter
         label_counts = Counter(stratify_labels)
         unique_classes = len(set(stratify_labels))
         min_class_count = min(label_counts.values()) if label_counts else 0
-        
+
         # If all labels are identical or any class has < 2 samples, disable stratification
         if unique_classes <= 1 or min_class_count < 2:
             if stratified:  # Only warn if user explicitly requested stratification
@@ -163,11 +164,17 @@ def save_split_files(
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    # Use errors="replace" to avoid UnicodeEncodeError on malformed surrogate pairs
-    with open(output_dir / "train.json", "w", encoding="utf-8", errors="replace") as f:
-        json.dump(train_data, f, ensure_ascii=False, indent=2)
-    with open(output_dir / "test.json", "w", encoding="utf-8", errors="replace") as f:
-        json.dump(test_data, f, ensure_ascii=False, indent=2)
+    # Serialize with defensive encoding to handle malformed surrogate pairs
+    def _dump_safe(data: List[Dict[str, Any]], path: Path) -> None:
+        # Convert to JSON string first
+        content = json.dumps(data, ensure_ascii=False, indent=2)
+        # Encode/decode with errors="replace" to strip/replace invalid surrogates
+        content = content.encode("utf-8", errors="replace").decode("utf-8", errors="replace")
+        with open(path, "w", encoding="utf-8", errors="replace") as f:
+            f.write(content)
+
+    _dump_safe(train_data, output_dir / "train.json")
+    _dump_safe(test_data, output_dir / "test.json")
 
 
 def normalize_text(raw_text: Any) -> str:
