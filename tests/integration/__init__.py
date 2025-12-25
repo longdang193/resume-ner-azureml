@@ -1,2 +1,1 @@
-"""Integration tests for HPO pipeline."""
-
+"""Integration tests package."""

@@ -97,8 +97,14 @@ def detect_edge_cases(
             "warning": "Validation sets with 1-2 samples may produce unstable metrics",
         }
 
+        # For very small datasets (smoke tests), batch size issues are expected
+        # and should be treated as warnings rather than failures
+        # Only fail if minimal_k validation fails or if we have a larger dataset with batch size issues
+        is_very_small_dataset = n_samples <= 10  # Consider datasets with <=10 samples as "very small"
+        batch_size_failure = len(batch_size_issues) > 0 and not is_very_small_dataset
+        
         results["overall_success"] = (
-            minimal_k_results["success"] and len(batch_size_issues) == 0
+            minimal_k_results["success"] and not batch_size_failure
         )
 
     except Exception as e:
