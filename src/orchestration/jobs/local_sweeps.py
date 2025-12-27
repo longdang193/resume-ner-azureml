@@ -6,11 +6,14 @@ from shared.json_cache import save_json
 import os
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, List, Tuple
 
 import mlflow
 import numpy as np
+
+from .checkpoint_manager import resolve_storage_path, get_storage_uri
 
 # Lazy import optuna - only import when actually needed for local execution
 # This prevents optuna from being required when using Azure ML orchestration
@@ -138,9 +141,12 @@ def run_training_trial(
     # Build command arguments
     # Derive project root from config_dir (config_dir is ROOT_DIR / "config")
     root_dir = config_dir.parent
+    # Run train.py as a module to allow relative imports to work
+    # This requires src/ to be in PYTHONPATH (set in env below)
     args = [
         sys.executable,
-        str(root_dir / "src" / "train.py"),
+        "-m",
+        "training.train",
         "--data-asset",
         dataset_path,
         "--config-dir",
@@ -172,11 +178,13 @@ def run_training_trial(
     if fold_splits_file is not None:
         args.extend(["--fold-splits-file", str(fold_splits_file)])
 
-    # Set output directory
+    # Set output directory with unique run ID to prevent overwriting
     output_dir.mkdir(parents=True, exist_ok=True)
+    run_id = trial_params.get('run_id', '')
+    run_suffix = f"_{run_id}" if run_id else ""
     fold_suffix = f"_fold{fold_idx}" if fold_idx is not None else ""
     trial_output_dir = output_dir / \
-        f"trial_{trial_params.get('trial_number', 'unknown')}{fold_suffix}"
+        f"trial_{trial_params.get('trial_number', 'unknown')}{run_suffix}{fold_suffix}"
     trial_output_dir.mkdir(parents=True, exist_ok=True)
 
     # Create MLflow experiment if it doesn't exist
@@ -195,6 +203,34 @@ def run_training_trial(
         env["MLFLOW_TRACKING_URI"] = mlflow_tracking_uri
     env["MLFLOW_EXPERIMENT_NAME"] = mlflow_experiment_name
 
+    # Pass parent run ID if we're in an active MLflow run
+    # The subprocess will create a nested child run using this parent run ID
+    try:
+        active_run = mlflow.active_run()
+        if active_run is not None:
+            parent_run_id = active_run.info.run_id
+            env["MLFLOW_PARENT_RUN_ID"] = parent_run_id
+            # Also pass trial number for run naming
+            env["MLFLOW_TRIAL_NUMBER"] = str(
+                trial_params.get("trial_number", "unknown"))
+            print(
+                f"  [MLflow] Passing parent run ID to trial: {parent_run_id[:12]}... (trial {trial_params.get('trial_number', 'unknown')})")
+        else:
+            print(
+                f"  [MLflow] Warning: No active MLflow run - trials will be independent runs")
+    except Exception as e:
+        # If MLflow is not available or no active run, continue without parent run ID
+        print(f"  [MLflow] Warning: Could not get active run ID: {e}")
+        pass
+
+    # Add src directory to PYTHONPATH to allow relative imports in train.py
+    src_dir = str(root_dir / "src")
+    current_pythonpath = env.get("PYTHONPATH", "")
+    if current_pythonpath:
+        env["PYTHONPATH"] = f"{src_dir}{os.pathsep}{current_pythonpath}"
+    else:
+        env["PYTHONPATH"] = src_dir
+
     # Run training (train.py will handle MLflow logging internally)
     result = subprocess.run(
         args,
@@ -203,6 +239,43 @@ def run_training_trial(
         capture_output=True,
         text=True,
     )
+
+    # Print subprocess output for debugging (especially MLflow context manager output)
+    # Check both stdout and stderr for MLflow-related messages
+    mlflow_lines_found = False
+    if result.stdout:
+        # Filter and print relevant MLflow debug output
+        for line in result.stdout.split('\n'):
+            line_lower = line.lower()
+            if '[mlflow' in line_lower or 'mlflow' in line_lower or 'mlflow_context' in line_lower:
+                print(f"  [Subprocess STDOUT] {line}")
+                mlflow_lines_found = True
+
+    if result.stderr:
+        # Also check stderr for MLflow messages
+        for line in result.stderr.split('\n'):
+            line_lower = line.lower()
+            if '[mlflow' in line_lower or 'mlflow' in line_lower or 'mlflow_context' in line_lower:
+                print(f"  [Subprocess STDERR] {line}")
+                mlflow_lines_found = True
+
+    # If no MLflow output found, print a warning and show first few lines of stderr for debugging
+    if not mlflow_lines_found and result.returncode == 0:
+        print(f"  [MLflow Debug] ⚠ No MLflow debug output found in subprocess")
+        print(
+            f"  [MLflow Debug] This may indicate the context manager isn't being called")
+        if result.stderr:
+            stderr_lines = result.stderr.split('\n')
+            print(f"  [MLflow Debug] First 10 lines of stderr:")
+            for line in stderr_lines[:10]:
+                if line.strip():
+                    print(f"    {line}")
+        if result.stdout:
+            stdout_lines = result.stdout.split('\n')
+            print(f"  [MLflow Debug] First 10 lines of stdout:")
+            for line in stdout_lines[:10]:
+                if line.strip():
+                    print(f"    {line}")
 
     if result.returncode != 0:
         print(f"Trial failed with return code {result.returncode}")
@@ -348,6 +421,7 @@ def create_local_hpo_objective(
     objective_metric: str = "macro-f1",
     k_folds: Optional[int] = None,
     fold_splits_file: Optional[Path] = None,
+    run_id: Optional[str] = None,
 ) -> Callable[[Any], float]:
     """
     Create Optuna objective function for local HPO.
@@ -412,6 +486,11 @@ def create_local_hpo_objective(
         # Set the fixed backbone for this study
         trial_params["backbone"] = backbone
         trial_params["trial_number"] = trial.number
+        trial_params["run_id"] = run_id  # Pass run_id to trial functions
+
+        # Don't create child runs in parent process - let subprocess create them
+        # This avoids issues with ended runs and ensures training logs to the correct run
+        # We'll pass the parent run ID and let the subprocess create nested child runs
 
         # Run training with or without CV
         if fold_splits is not None:
@@ -451,16 +530,21 @@ def create_local_hpo_objective(
 
         # Store additional metrics in trial user attributes for callback display
         # Try to read full metrics from the trial output directory
+        # Use run_id from closure (parameter) - it was set in trial_params at line 432
+        # Use closure variable directly to avoid UnboundLocalError
+        run_suffix = f"_{run_id}" if run_id else ""
         if fold_splits is not None:
             # CV: read from last fold's output (fold indices are 0-based, so last is len(fold_splits)-1)
-            # Fold output directory format: trial_{number}_fold{fold_idx}
+            # Fold output directory format: trial_{number}_{run_id}_fold{fold_idx}
             last_fold_idx = len(fold_splits) - 1
             trial_output_dir = output_base_dir / \
-                f"trial_{trial.number}_fold{last_fold_idx}"
+                f"trial_{trial.number}{run_suffix}_fold{last_fold_idx}"
             metrics_file = trial_output_dir / "metrics.json"
         else:
             # Single training: read from trial output directory
-            trial_output_dir = output_base_dir / f"trial_{trial.number}"
+            # Format: trial_{number}_{run_id}
+            trial_output_dir = output_base_dir / \
+                f"trial_{trial.number}{run_suffix}"
             metrics_file = trial_output_dir / "metrics.json"
 
         if metrics_file.exists():
@@ -506,6 +590,7 @@ def run_local_hpo_sweep(
     mlflow_experiment_name: str,
     k_folds: Optional[int] = None,
     fold_splits_file: Optional[Path] = None,
+    checkpoint_config: Optional[Dict[str, Any]] = None,
 ) -> Any:
     """
     Run a local hyperparameter optimization sweep using Optuna.
@@ -518,6 +603,10 @@ def run_local_hpo_sweep(
         train_config: Training configuration dictionary.
         output_dir: Base output directory for all trials.
         mlflow_experiment_name: MLflow experiment name.
+        k_folds: Optional number of k-folds for cross-validation.
+        fold_splits_file: Optional path to fold splits file.
+        checkpoint_config: Optional checkpoint configuration dict with 'enabled', 
+                          'storage_path', and 'auto_resume' keys.
 
     Returns:
         Optuna study object with completed trials.
@@ -539,18 +628,97 @@ def run_local_hpo_sweep(
     else:
         sampler = RandomSampler()  # Default to random
 
-    # Create study
-    # Print study creation message explicitly to ensure visibility
-    print(f"\n[HPO] Starting optimization for {backbone}...")
-    study = optuna.create_study(
-        direction=direction,
-        sampler=sampler,
-        pruner=pruner,
-        study_name=f"hpo_{backbone}",
+    # Resolve checkpoint storage if enabled
+    checkpoint_config = checkpoint_config or {}
+    storage_path = resolve_storage_path(
+        output_dir=output_dir,
+        checkpoint_config=checkpoint_config,
+        backbone=backbone,
     )
+    storage_uri = get_storage_uri(storage_path)
+
+    # Determine if we should resume
+    auto_resume = checkpoint_config.get(
+        "auto_resume", True) if checkpoint_config.get("enabled", False) else False
+    should_resume = auto_resume and storage_path is not None and storage_path.exists()
+
+    # Generate unique run ID (timestamp-based) to prevent overwriting on reruns
+    # This is used for both study naming and MLflow run naming
+    run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Create or load study
+    # Use unique study name when starting fresh to avoid conflicts
+    # When resuming, use the base name to load existing study
+    if should_resume:
+        # Use base name to resume existing study
+        study_name = f"hpo_{backbone}"
+    else:
+        # Use unique name for fresh start
+        study_name = f"hpo_{backbone}_{run_id}"
+
+    if should_resume:
+        print(
+            f"\n[HPO] Resuming optimization for {backbone} from checkpoint...")
+        print(f"  Checkpoint: {storage_path}")
+        try:
+            study = optuna.create_study(
+                direction=direction,
+                sampler=sampler,
+                pruner=pruner,
+                study_name=study_name,
+                storage=storage_uri,
+                load_if_exists=True,
+            )
+            # Count completed trials
+            completed_trials = len([
+                t for t in study.trials
+                if t.state == optuna.trial.TrialState.COMPLETE
+            ])
+            print(
+                f"  Loaded {len(study.trials)} existing trials ({completed_trials} completed)")
+        except Exception as e:
+            print(f"  Warning: Could not load checkpoint: {e}")
+            print(f"  Creating new study instead...")
+            # Use unique study name when resume fails
+            study_name = f"hpo_{backbone}_{run_id}"
+            study = optuna.create_study(
+                direction=direction,
+                sampler=sampler,
+                pruner=pruner,
+                study_name=study_name,
+                storage=storage_uri,
+                load_if_exists=False,
+            )
+            should_resume = False
+    else:
+        if storage_uri:
+            print(
+                f"\n[HPO] Starting optimization for {backbone} with checkpointing...")
+            print(f"  Checkpoint: {storage_path}")
+        else:
+            print(f"\n[HPO] Starting optimization for {backbone}...")
+        study = optuna.create_study(
+            direction=direction,
+            sampler=sampler,
+            pruner=pruner,
+            study_name=study_name,
+            storage=storage_uri,
+            load_if_exists=False,
+        )
 
     # Get objective metric name
     objective_metric = hpo_config["objective"]["metric"]
+
+    # Run ID was already generated above for study naming
+    # Print it here for user visibility
+    print(f"  Run ID: {run_id} (prevents overwriting on reruns)")
+
+    # Set MLflow experiment (safe to call even if already set)
+    try:
+        mlflow.set_experiment(mlflow_experiment_name)
+    except Exception as e:
+        print(f"  Warning: Could not set MLflow experiment: {e}")
+        print("  Continuing without MLflow tracking...")
 
     # Create objective function
     objective = create_local_hpo_objective(
@@ -564,6 +732,7 @@ def run_local_hpo_sweep(
         objective_metric=objective_metric,
         k_folds=k_folds,
         fold_splits_file=fold_splits_file,
+        run_id=run_id,
     )
 
     # Create callback to display additional metrics after each trial
@@ -572,6 +741,10 @@ def run_local_hpo_sweep(
         # Import optuna for TrialState enum
         optuna_module, _, _, _ = _import_optuna()
         if trial.state == optuna_module.trial.TrialState.COMPLETE:
+            # Print clearer value with metric name (Optuna's default shows "value" which is unclear)
+            # Format: metric_name=value (e.g., macro-f1=0.838824)
+            print(f"  {objective_metric}={trial.value:.6f}")
+
             attrs = trial.user_attrs
             extra_info = []
 
@@ -588,16 +761,135 @@ def run_local_hpo_sweep(
             if extra_info:
                 print(f"  Additional metrics: {' | '.join(extra_info)}")
 
-    # Run optimization
+    # Calculate remaining trials
     max_trials = hpo_config["sampling"]["max_trials"]
     timeout_seconds = hpo_config["sampling"]["timeout_minutes"] * 60
 
-    study.optimize(
-        objective,
-        n_trials=max_trials,
-        timeout=timeout_seconds,
-        show_progress_bar=True,
-        callbacks=[trial_complete_callback],
-    )
+    # Create MLflow parent run for HPO sweep
+    mlflow_run_name = f"hpo_{backbone}_{run_id}"
+
+    # Log MLflow tracking URI for debugging
+    tracking_uri = mlflow.get_tracking_uri()
+    if tracking_uri:
+        # Check if it's actually Azure ML (starts with azureml://)
+        if tracking_uri.lower().startswith("azureml://"):
+            print(f"  ✓ Using Azure ML Workspace for MLflow tracking")
+            print(f"    Tracking URI: {tracking_uri}")
+        elif tracking_uri.startswith("sqlite://") or tracking_uri.startswith("file://"):
+            print(f"  ⚠ Using LOCAL MLflow tracking (not Azure ML)")
+            print(f"    Tracking URI: {tracking_uri}")
+            print(f"    To use Azure ML, ensure:")
+            print(f"      1. config/mlflow.yaml has azure_ml.enabled: true")
+            print(
+                f"      2. Environment variables are set: AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP")
+            print(
+                f"      3. Azure ML SDK is installed: pip install azure-ai-ml azure-identity azureml-mlflow")
+        else:
+            print(f"  Using MLflow tracking: {tracking_uri}")
+    else:
+        print("  Warning: MLflow tracking URI not set")
+
+    try:
+        with mlflow.start_run(run_name=mlflow_run_name):
+            # Log HPO parameters
+            mlflow.log_param("backbone", backbone)
+            mlflow.log_param("max_trials", max_trials)
+            mlflow.log_param("study_name", study_name)
+            mlflow.log_param("objective_metric", objective_metric)
+            mlflow.log_param("checkpoint_enabled",
+                             checkpoint_config.get("enabled", False))
+
+            # Log checkpoint path (even if disabled, log None)
+            if storage_path is not None:
+                mlflow.log_param("checkpoint_path",
+                                 str(storage_path.resolve()))
+            else:
+                mlflow.log_param("checkpoint_path", None)
+
+            # Log checkpoint storage type
+            mlflow.log_param("checkpoint_storage_type",
+                             "sqlite" if storage_path else None)
+
+            # Log resume status
+            mlflow.log_param("resumed_from_checkpoint", should_resume)
+
+            if should_resume:
+                # Count only completed trials (not FAILED, PRUNED, etc.)
+                completed_trials = len([
+                    t for t in study.trials
+                    if t.state == optuna.trial.TrialState.COMPLETE
+                ])
+                remaining_trials = max(0, max_trials - completed_trials)
+
+                if remaining_trials > 0:
+                    print(
+                        f"  Running {remaining_trials} more trials (already completed {completed_trials}/{max_trials})")
+                    study.optimize(
+                        objective,
+                        n_trials=remaining_trials,
+                        timeout=timeout_seconds,
+                        show_progress_bar=True,
+                        callbacks=[trial_complete_callback],
+                    )
+                else:
+                    print(f"  All {max_trials} trials already completed!")
+            else:
+                # Run all trials
+                study.optimize(
+                    objective,
+                    n_trials=max_trials,
+                    timeout=timeout_seconds,
+                    show_progress_bar=True,
+                    callbacks=[trial_complete_callback],
+                )
+
+            # Log final metrics after optimization
+            completed_trials = len([
+                t for t in study.trials
+                if t.state == optuna.trial.TrialState.COMPLETE
+            ])
+            mlflow.log_metric("n_trials", len(study.trials))
+            mlflow.log_metric("n_completed_trials", completed_trials)
+
+            if study.best_trial is not None and study.best_value is not None:
+                # Log only the metric-specific name to avoid duplication
+                # (Optuna already prints "Best value" in console output)
+                mlflow.log_metric(f"best_{objective_metric}", study.best_value)
+                # Log best hyperparameters
+                for param_name, param_value in study.best_params.items():
+                    mlflow.log_param(f"best_{param_name}", param_value)
+    except Exception as e:
+        # Gracefully handle MLflow failures - don't fail HPO if MLflow is unavailable
+        print(f"  Warning: MLflow tracking failed: {e}")
+        print("  Continuing HPO without MLflow tracking...")
+
+        # Run optimization without MLflow context
+        if should_resume:
+            completed_trials = len([
+                t for t in study.trials
+                if t.state == optuna.trial.TrialState.COMPLETE
+            ])
+            remaining_trials = max(0, max_trials - completed_trials)
+
+            if remaining_trials > 0:
+                print(
+                    f"  Running {remaining_trials} more trials (already completed {completed_trials}/{max_trials})")
+                study.optimize(
+                    objective,
+                    n_trials=remaining_trials,
+                    timeout=timeout_seconds,
+                    show_progress_bar=True,
+                    callbacks=[trial_complete_callback],
+                )
+            else:
+                print(f"  All {max_trials} trials already completed!")
+        else:
+            study.optimize(
+                objective,
+                n_trials=max_trials,
+                timeout=timeout_seconds,
+                show_progress_bar=True,
+                callbacks=[trial_complete_callback],
+            )
 
     return study

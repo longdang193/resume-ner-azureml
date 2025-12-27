@@ -1,0 +1,29 @@
+# MLflow Tracking Configuration
+# This file centralizes MLflow tracking settings for all platforms
+
+# Azure ML Workspace Configuration (for unified tracking)
+# If enabled, all platforms will use Azure ML Workspace for MLflow tracking
+# If disabled or unavailable, each platform uses local SQLite tracking
+azure_ml:
+  enabled: true  # Set to true to enable Azure ML Workspace tracking
+  workspace_name: "resume-ner-ws"  # Must match config/infrastructure.yaml
+  # Credentials are loaded from environment variables:
+  # - AZURE_SUBSCRIPTION_ID
+  # - AZURE_RESOURCE_GROUP
+  # - DefaultAzureCredential is used for authentication
+
+# Local Tracking Configuration (fallback when Azure ML is disabled/unavailable)
+local:
+  # Platform-specific paths are automatically resolved:
+  # - Colab: /content/drive/MyDrive/resume-ner-mlflow/mlflow.db (if Drive mounted)
+  #          /content/mlflow.db (if Drive not mounted)
+  # - Kaggle: /kaggle/working/mlflow.db
+  # - Local: ./mlruns/mlflow.db
+  # No configuration needed - paths are platform-aware
+
+# Experiment Naming
+# Experiment names are built from experiment config and stage
+# Format: "{experiment_name}-{stage}-{backbone}"
+# Example: "resume_ner_baseline-hpo-distilbert"
+# This is handled automatically by build_mlflow_experiment_name()
+

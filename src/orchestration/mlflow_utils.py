@@ -16,6 +16,11 @@ def setup_mlflow_for_stage(
     Args:
         experiment_name: MLflow experiment name.
         tracking_uri: Optional tracking URI (uses default if None).
+    
+    Note:
+        For cross-platform tracking with Azure ML workspace support,
+        consider using `shared.mlflow_setup.setup_mlflow_cross_platform()`
+        instead, which provides platform-aware setup with Azure ML fallback.
     """
     if tracking_uri:
         mlflow.set_tracking_uri(tracking_uri)
