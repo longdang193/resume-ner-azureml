@@ -181,6 +181,22 @@ patterns:
   # Location: outputs/cache/final_training/
   final_training_cache_file: "final_training_{backbone}_{run_id}_{timestamp}.json"
 
+  # New patterns for fingerprint-based paths (v2)
+  # Final training with fingerprints
+  final_training_v2: "{environment}/{model}/spec_{spec_fp}_exec_{exec_fp}/v{variant}"
+  
+  # Conversion with parent reference
+  conversion_v2: "{environment}/{model}/{parent_training_id}/conv_{conv_fp}"
+  
+  # Best config with spec_fp
+  best_config_v2: "{model}/spec_{spec_fp}"
+  
+  # HPO with environment
+  hpo_v2: "{environment}/{model}/trial_{trial_id}"
+  
+  # Benchmarking with environment
+  benchmarking_v2: "{environment}/{model}/trial_{trial_id}"
+
 # ----------------------------------------------------------------------------
 # Cache File Strategies
 # ----------------------------------------------------------------------------
@@ -331,4 +347,58 @@ drive:
   # Optional: Auto-restore from Drive on startup (default: false)
   # When enabled, checks Drive for missing local files and restores them
   auto_restore_on_startup: false
+
+# ----------------------------------------------------------------------------
+# Variant Configuration
+# ----------------------------------------------------------------------------
+# Configuration for variant system (v1, v2, etc.) to support force_new and retries.
+#
+# Variants allow multiple runs with the same spec_fp + exec_fp without overwriting.
+# This is essential for:
+#   - force_new scenarios (explicitly create new run)
+#   - Retries after interruptions
+#   - Testing different seeds with same config
+#
+variants:
+  final_training:
+    enabled: true
+    default: 1
+    auto_increment: true  # Automatically increment for force_new
+
+# ----------------------------------------------------------------------------
+# Index Configuration
+# ----------------------------------------------------------------------------
+# Configuration for index files that enable fast lookup by spec_fp, env, model.
+#
+# Index files are stored in outputs/cache/ and provide:
+#   - Fast lookup: Find all runs with matching spec_fp
+#   - Cross-platform comparison: Group by spec_fp across environments
+#   - Model organization: Find all runs for a specific model
+#
+indexes:
+  final_training:
+    enabled: true
+    filename: "final_training_index.json"
+    max_entries: 100  # Maximum entries in main entries list
+    max_per_spec_fp: 20  # Maximum entries per spec_fp
+    max_per_env: 50  # Maximum entries per environment
+    max_per_model: 50  # Maximum entries per model
+  
+  conversion:
+    enabled: true
+    filename: "conversion_index.json"
+    max_entries: 100
+    max_per_spec_fp: 20
+    max_per_env: 50
+    max_per_model: 50
+  
+  hpo:
+    enabled: false  # HPO uses trial-based organization, index optional
+    filename: "hpo_index.json"
+    max_entries: 200
+  
+  benchmarking:
+    enabled: false  # Benchmarking uses trial-based organization, index optional
+    filename: "benchmarking_index.json"
+    max_entries: 200
 

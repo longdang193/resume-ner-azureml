@@ -7,10 +7,10 @@ from typing import Optional
 
 def detect_platform() -> str:
     """
-    Detect execution platform: 'colab', 'kaggle', or 'local'.
+    Detect execution platform: 'colab', 'kaggle', 'azure', or 'local'.
     
     Returns:
-        Platform identifier string: 'colab', 'kaggle', or 'local'
+        Platform identifier string: 'colab', 'kaggle', 'azure', or 'local'
     """
     # Check for Google Colab
     if "COLAB_GPU" in os.environ or "COLAB_TPU" in os.environ:
@@ -19,6 +19,10 @@ def detect_platform() -> str:
     # Check for Kaggle
     if "KAGGLE_KERNEL_RUN_TYPE" in os.environ:
         return "kaggle"
+    
+    # Check for Azure ML
+    if "AZURE_ML_RUN_ID" in os.environ or "AZURE_ML_OUTPUT_DIR" in os.environ:
+        return "azure"
     
     # Default to local
     return "local"

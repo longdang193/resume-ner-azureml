@@ -6,6 +6,7 @@ from datetime import datetime
 
 from orchestration.paths import resolve_output_path
 from shared.json_cache import load_json, save_json
+from shared.platform_detection import detect_platform
 
 
 def get_metadata_file_path(
@@ -275,4 +276,387 @@ def get_conversion_onnx_path(
     if onnx_path_str:
         return Path(onnx_path_str)
     return None
+
+
+# ============================================================================
+# Fingerprint-based metadata functions (new centralized naming system)
+# ============================================================================
+
+def save_metadata_with_fingerprints(
+    root_dir: Path,
+    config_dir: Path,
+    context: "NamingContext",
+    metadata_content: Dict[str, Any],
+    status_updates: Optional[Dict[str, Any]] = None,
+    **additional_metadata
+) -> Path:
+    """
+    Save metadata with fingerprints using NamingContext (wrapper function).
+    
+    This is a convenience wrapper that builds the metadata path from the context
+    and extracts fingerprint information automatically.
+    
+    Args:
+        root_dir: Project root directory.
+        config_dir: Config directory.
+        context: NamingContext with all fingerprint information.
+        metadata_content: Metadata content to save.
+        status_updates: Optional status updates by stage.
+        **additional_metadata: Additional metadata fields.
+    
+    Returns:
+        Path to saved metadata file.
+    """
+    from .naming_centralized import build_output_path
+    
+    # Build output directory from context
+    output_dir = build_output_path(root_dir, context)
+    
+    # Metadata file is always metadata.json in the output directory
+    metadata_path = output_dir / "metadata.json"
+    
+    # Extract fingerprint information from context
+    spec_fp = context.spec_fp
+    exec_fp = context.exec_fp
+    variant = context.variant
+    environment = context.environment
+    model = context.model
+    
+    # Extract parent HPO trial from metadata_content if available
+    parent_hpo_trial = metadata_content.get("trial_id") or metadata_content.get("trial_name")
+    
+    # Merge metadata_content into additional_metadata
+    merged_metadata = {**additional_metadata, **metadata_content}
+    
+    # Call the low-level save function
+    return _save_metadata_with_fingerprints_impl(
+        metadata_path=metadata_path,
+        spec_fp=spec_fp,
+        exec_fp=exec_fp,
+        variant=variant,
+        environment=environment,
+        model=model,
+        parent_hpo_trial=parent_hpo_trial,
+        status=status_updates,
+        **merged_metadata
+    )
+
+
+def _save_metadata_with_fingerprints_impl(
+    metadata_path: Path,
+    spec_fp: Optional[str] = None,
+    exec_fp: Optional[str] = None,
+    variant: int = 1,
+    environment: Optional[str] = None,
+    model: Optional[str] = None,
+    parent_hpo_trial: Optional[str] = None,
+    lineage: Optional[Dict[str, Any]] = None,
+    status: Optional[Dict[str, Any]] = None,
+    **additional_metadata
+) -> Path:
+    """
+    Internal implementation for saving metadata with fingerprints.
+    
+    Args:
+        metadata_path: Path to metadata.json file.
+        spec_fp: Specification fingerprint.
+        exec_fp: Execution fingerprint.
+        variant: Variant number (for final_training).
+        environment: Execution environment (auto-detected if None).
+        model: Model backbone name.
+        parent_hpo_trial: Parent HPO trial identifier.
+        lineage: Lineage information (e.g., {"hpo_trial": "...", "best_config_source": "..."}).
+        status: Status updates by stage.
+        **additional_metadata: Additional metadata fields.
+    
+    Returns:
+        Path to saved metadata file.
+    """
+    if environment is None:
+        environment = detect_platform()
+    
+    # Load existing metadata or create new
+    metadata = load_json(metadata_path, default={})
+    
+    # Update fingerprint-based identity
+    if spec_fp:
+        metadata["spec_fp"] = spec_fp
+    if exec_fp:
+        metadata["exec_fp"] = exec_fp
+    if variant:
+        metadata["variant"] = variant
+    metadata["environment"] = environment
+    
+    if model:
+        metadata["model"] = model
+    
+    # Update lineage
+    if lineage:
+        if "lineage" not in metadata:
+            metadata["lineage"] = {}
+        metadata["lineage"].update(lineage)
+    
+    if parent_hpo_trial:
+        metadata["parent_hpo_trial"] = parent_hpo_trial
+        if "lineage" not in metadata:
+            metadata["lineage"] = {}
+        metadata["lineage"]["hpo_trial"] = parent_hpo_trial
+    
+    # Update status
+    if status:
+        if "status" not in metadata:
+            metadata["status"] = {}
+        for stage, updates in status.items():
+            if stage not in metadata["status"]:
+                metadata["status"][stage] = {}
+            metadata["status"][stage].update(updates)
+            
+            # Add timestamps for completion
+            if "completed" in updates and updates["completed"]:
+                metadata["status"][stage]["completed_at"] = datetime.now().isoformat()
+            if "artifacts_uploaded" in updates and updates.get("artifacts_uploaded"):
+                metadata["status"][stage]["artifacts_uploaded_at"] = datetime.now().isoformat()
+    
+    # Add timestamps
+    if "created_at" not in metadata:
+        metadata["created_at"] = datetime.now().isoformat()
+    metadata["last_updated"] = datetime.now().isoformat()
+    
+    # Add additional metadata
+    metadata.update(additional_metadata)
+    
+    # Ensure directory exists
+    metadata_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    save_json(metadata_path, metadata)
+    return metadata_path
+
+
+def save_metadata_with_fingerprints(
+    root_dir: Path,
+    config_dir: Path,
+    context: "NamingContext",
+    metadata_content: Dict[str, Any],
+    status_updates: Optional[Dict[str, Any]] = None,
+    **additional_metadata
+) -> Path:
+    """
+    Save metadata with fingerprints using NamingContext (wrapper function).
+    
+    This is a convenience wrapper that builds the metadata path from the context
+    and extracts fingerprint information automatically.
+    
+    Args:
+        root_dir: Project root directory.
+        config_dir: Config directory.
+        context: NamingContext with all fingerprint information.
+        metadata_content: Metadata content to save.
+        status_updates: Optional status updates by stage.
+        **additional_metadata: Additional metadata fields.
+    
+    Returns:
+        Path to saved metadata file.
+    """
+    from .naming_centralized import build_output_path
+    
+    # Build output directory from context
+    output_dir = build_output_path(root_dir, context)
+    
+    # Metadata file is always metadata.json in the output directory
+    metadata_path = output_dir / "metadata.json"
+    
+    # Extract fingerprint information from context
+    spec_fp = context.spec_fp
+    exec_fp = context.exec_fp
+    variant = context.variant
+    environment = context.environment
+    model = context.model
+    
+    # Extract parent HPO trial from metadata_content if available
+    parent_hpo_trial = metadata_content.get("trial_id") or metadata_content.get("trial_name")
+    
+    # Merge metadata_content into additional_metadata
+    merged_metadata = {**additional_metadata, **metadata_content}
+    
+    # Call the actual save function
+    return save_metadata_with_fingerprints(
+        metadata_path=metadata_path,
+        spec_fp=spec_fp,
+        exec_fp=exec_fp,
+        variant=variant,
+        environment=environment,
+        model=model,
+        parent_hpo_trial=parent_hpo_trial,
+        status=status_updates,
+        **merged_metadata
+    )
+
+
+def save_metadata_with_fingerprints_low_level(
+    metadata_path: Path,
+    spec_fp: Optional[str] = None,
+    exec_fp: Optional[str] = None,
+    variant: int = 1,
+    environment: Optional[str] = None,
+    model: Optional[str] = None,
+    parent_hpo_trial: Optional[str] = None,
+    lineage: Optional[Dict[str, Any]] = None,
+    status: Optional[Dict[str, Any]] = None,
+    **additional_metadata
+) -> Path:
+    """
+    Save metadata with fingerprint-based identity (low-level function).
+    
+    This is the low-level function that actually saves the metadata.
+    Use save_metadata_with_fingerprints() for the high-level wrapper.
+    
+    Args:
+        metadata_path: Path to metadata.json file.
+        spec_fp: Specification fingerprint.
+        exec_fp: Execution fingerprint.
+        variant: Variant number (for final_training).
+        environment: Execution environment (auto-detected if None).
+        model: Model backbone name.
+        parent_hpo_trial: Parent HPO trial identifier.
+        lineage: Lineage information (e.g., {"hpo_trial": "...", "best_config_source": "..."}).
+        status: Status updates by stage.
+        **additional_metadata: Additional metadata fields.
+    
+    Returns:
+        Path to saved metadata file.
+    """
+    if environment is None:
+        environment = detect_platform()
+    
+    # Load existing metadata or create new
+    metadata = load_json(metadata_path, default={})
+    
+    # Update fingerprint-based identity
+    if spec_fp:
+        metadata["spec_fp"] = spec_fp
+    if exec_fp:
+        metadata["exec_fp"] = exec_fp
+    if variant:
+        metadata["variant"] = variant
+    metadata["environment"] = environment
+    
+    if model:
+        metadata["model"] = model
+    
+    # Update lineage
+    if lineage:
+        if "lineage" not in metadata:
+            metadata["lineage"] = {}
+        metadata["lineage"].update(lineage)
+    
+    if parent_hpo_trial:
+        metadata["parent_hpo_trial"] = parent_hpo_trial
+        if "lineage" not in metadata:
+            metadata["lineage"] = {}
+        metadata["lineage"]["hpo_trial"] = parent_hpo_trial
+    
+    # Update status
+    if status:
+        if "status" not in metadata:
+            metadata["status"] = {}
+        for stage, updates in status.items():
+            if stage not in metadata["status"]:
+                metadata["status"][stage] = {}
+            metadata["status"][stage].update(updates)
+            
+            # Add timestamps for completion
+            if "completed" in updates and updates["completed"]:
+                metadata["status"][stage]["completed_at"] = datetime.now().isoformat()
+            if "artifacts_uploaded" in updates and updates.get("artifacts_uploaded"):
+                metadata["status"][stage]["artifacts_uploaded_at"] = datetime.now().isoformat()
+    
+    # Add timestamps
+    if "created_at" not in metadata:
+        metadata["created_at"] = datetime.now().isoformat()
+    metadata["last_updated"] = datetime.now().isoformat()
+    
+    # Add additional metadata
+    metadata.update(additional_metadata)
+    
+    # Ensure directory exists
+    metadata_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    save_json(metadata_path, metadata)
+    return metadata_path
+
+
+def load_metadata_by_fingerprints(
+    metadata_path: Path,
+    spec_fp: Optional[str] = None,
+    exec_fp: Optional[str] = None,
+    variant: Optional[int] = None
+) -> Optional[Dict[str, Any]]:
+    """
+    Load metadata by fingerprints.
+    
+    Args:
+        metadata_path: Path to metadata.json file.
+        spec_fp: Optional spec_fp to filter by.
+        exec_fp: Optional exec_fp to filter by.
+        variant: Optional variant to filter by.
+    
+    Returns:
+        Metadata dictionary or None if not found or doesn't match filters.
+    """
+    metadata = load_json(metadata_path, default=None)
+    if not metadata:
+        return None
+    
+    # Apply filters if provided
+    if spec_fp and metadata.get("spec_fp") != spec_fp:
+        return None
+    if exec_fp and metadata.get("exec_fp") != exec_fp:
+        return None
+    if variant is not None and metadata.get("variant") != variant:
+        return None
+    
+    return metadata
+
+
+def find_metadata_by_spec_fp(
+    root_dir: Path,
+    spec_fp: str,
+    process_type: str = "final_training"
+) -> list[Dict[str, Any]]:
+    """
+    Find all metadata files with matching spec_fp.
+    
+    This searches for metadata.json files in the output directories
+    and returns those matching the spec_fp.
+    
+    Args:
+        root_dir: Project root directory.
+        spec_fp: Specification fingerprint to search for.
+        process_type: Process type to search (final_training, conversion, etc.).
+    
+    Returns:
+        List of metadata dictionaries matching spec_fp.
+    """
+    results = []
+    base_path = root_dir / "outputs"
+    
+    if process_type == "final_training":
+        search_path = base_path / "final_training"
+    elif process_type == "conversion":
+        search_path = base_path / "conversion"
+    elif process_type == "hpo":
+        search_path = base_path / "hpo"
+    elif process_type == "benchmarking":
+        search_path = base_path / "benchmarking"
+    else:
+        return results
+    
+    # Search for metadata.json files
+    for metadata_file in search_path.rglob("metadata.json"):
+        metadata = load_json(metadata_file, default=None)
+        if metadata and metadata.get("spec_fp") == spec_fp:
+            metadata["_metadata_path"] = str(metadata_file)
+            results.append(metadata)
+    
+    return results
 

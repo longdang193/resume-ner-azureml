@@ -8,6 +8,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Optional, List
+import time
 
 import mlflow
 from shared.logging_utils import get_logger
@@ -1598,11 +1599,45 @@ class MLflowConversionTracker:
                 # Use standard MLflow for non-Azure ML backends
                 if onnx_model_path and onnx_model_path.exists():
                     artifact_name = onnx_model_path.name
-                    mlflow.log_artifact(str(onnx_model_path),
-                                        artifact_path=artifact_name)
+                    # Add retry logic for artifact upload (handles SSL/network timeouts)
+                    max_retries = 3
+                    retry_delay = 2  # seconds
+                    for attempt in range(max_retries):
+                        try:
+                            mlflow.log_artifact(str(onnx_model_path),
+                                                artifact_path=artifact_name)
+                            logger.debug(f"Successfully uploaded {artifact_name} to MLflow")
+                            break
+                        except Exception as upload_err:
+                            if attempt < max_retries - 1:
+                                wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
+                                logger.warning(
+                                    f"Failed to upload {artifact_name} (attempt {attempt + 1}/{max_retries}): {upload_err}. "
+                                    f"Retrying in {wait_time}s..."
+                                )
+                                time.sleep(wait_time)
+                            else:
+                                logger.warning(f"Failed to upload {artifact_name} after {max_retries} attempts: {upload_err}")
 
                 if conversion_log_path and conversion_log_path.exists():
-                    mlflow.log_artifact(str(conversion_log_path),
-                                        artifact_path="conversion_log.txt")
+                    # Add retry logic for log upload
+                    max_retries = 3
+                    retry_delay = 2  # seconds
+                    for attempt in range(max_retries):
+                        try:
+                            mlflow.log_artifact(str(conversion_log_path),
+                                                artifact_path="conversion_log.txt")
+                            logger.debug("Successfully uploaded conversion_log.txt to MLflow")
+                            break
+                        except Exception as upload_err:
+                            if attempt < max_retries - 1:
+                                wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
+                                logger.warning(
+                                    f"Failed to upload conversion_log.txt (attempt {attempt + 1}/{max_retries}): {upload_err}. "
+                                    f"Retrying in {wait_time}s..."
+                                )
+                                time.sleep(wait_time)
+                            else:
+                                logger.warning(f"Failed to upload conversion_log.txt after {max_retries} attempts: {upload_err}")
         except Exception as e:
             logger.warning(f"Could not log conversion results to MLflow: {e}")

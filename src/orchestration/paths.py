@@ -506,3 +506,55 @@ def get_drive_backup_path(
     drive_path = drive_base / base_outputs / relative_path
 
     return drive_path
+
+
+# ============================================================================
+# New centralized naming system (v2) - fingerprint-based paths
+# ============================================================================
+
+def resolve_output_path_v2(
+    root_dir: Path,
+    context: Any,  # NamingContext from naming_centralized
+    base_outputs: str = "outputs"
+) -> Path:
+    """
+    Resolve output path using new centralized naming system (v2).
+
+    This is the new path resolution that uses fingerprint-based identity
+    and environment-aware organization. The old resolve_output_path() remains
+    for backward compatibility.
+
+    Args:
+        root_dir: Project root directory.
+        context: NamingContext with all required information.
+        base_outputs: Base outputs directory name (default: "outputs").
+
+    Returns:
+        Resolved path following new structure.
+
+    Examples:
+        # HPO
+        context = NamingContext(
+            process_type="hpo",
+            model="distilbert",
+            environment="local",
+            trial_id="trial_1_20251229_100000"
+        )
+        path = resolve_output_path_v2(ROOT_DIR, context)
+        # -> outputs/hpo/local/distilbert/trial_1_20251229_100000/
+
+        # Final training
+        context = NamingContext(
+            process_type="final_training",
+            model="distilbert",
+            environment="local",
+            spec_fp="abc123...",
+            exec_fp="xyz789...",
+            variant=1
+        )
+        path = resolve_output_path_v2(ROOT_DIR, context)
+        # -> outputs/final_training/local/distilbert/spec_abc123..._exec_xyz789.../v1/
+    """
+    from .naming_centralized import build_output_path
+
+    return build_output_path(root_dir, context, base_outputs)
