@@ -26,6 +26,14 @@ from .paths import (
     get_drive_backup_base,
     get_drive_backup_path,
 )
+from .drive_backup import (
+    DriveBackupStore,
+    BackupResult,
+    BackupAction,
+    EnsureLocalOptions,
+    mount_colab_drive,
+    create_colab_store,
+)
 from .naming import get_stage_config, build_aml_experiment_name, build_mlflow_experiment_name
 from .fingerprints import (
     compute_spec_fp,
@@ -84,6 +92,13 @@ __all__ = [
     "load_cache_file",
     "get_drive_backup_base",
     "get_drive_backup_path",
+    # Drive backup exports
+    "DriveBackupStore",
+    "BackupResult",
+    "BackupAction",
+    "EnsureLocalOptions",
+    "mount_colab_drive",
+    "create_colab_store",
     # Other exports
     "get_stage_config",
     "build_aml_experiment_name",

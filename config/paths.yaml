@@ -68,11 +68,11 @@ outputs:
   benchmarking: "benchmarking"    # Benchmarking results: outputs/benchmarking/{environment}/{model}/trial_{trial_id}/
   
   # Training outputs
-  final_training: "final_training"        # Final training: outputs/final_training/{backbone}_{run_id}/
+  final_training: "final_training"        # Final training: outputs/final_training/{environment}/{model}/spec_{spec_fp}_exec_{exec_fp}/v{variant}/
   dry_run: "dry_run"                      # Dry run/test training outputs
   
   # Model conversion outputs
-  conversion: "conversion"        # ONNX conversions: outputs/conversion/{backbone}_{run_id}/
+  conversion: "conversion"        # ONNX conversions: outputs/conversion/{environment}/{model}/{parent_training_id}/conv_{conv_fp}/
   
   # Cache directories (for metadata and cache files)
   cache: "cache"                  # Cache files: outputs/cache/{cache_type}/
@@ -304,24 +304,30 @@ cache_strategies:
 # Configuration for Google Drive backup when running in Google Colab.
 # The backup mirrors the entire local outputs/ directory structure.
 #
-# Local structure:
+# Local structure (v2 with environment):
 #   outputs/
-#     ├── hpo/
-#     ├── final_training/
-#     ├── conversion/
+#     ├── hpo/{environment}/{model}/trial_{trial_id}/...
+#     ├── benchmarking/{environment}/{model}/trial_{trial_id}/...
+#     ├── final_training/{environment}/{model}/spec_{spec_fp}_exec_{exec_fp}/v{variant}/...
+#     ├── conversion/{environment}/{model}/{parent_training_id}/conv_{conv_fp}/...
 #     └── cache/
+#         ├── best_configurations/{model}/spec_{spec_fp}/...
+#         └── final_training/...
 #
-# Drive structure (mirrors local):
+# Drive structure (mirrors local exactly):
 #   /content/drive/MyDrive/{backup_base_dir}/outputs/
-#     ├── hpo/
-#     ├── final_training/
-#     ├── conversion/
+#     ├── hpo/{environment}/{model}/trial_{trial_id}/...
+#     ├── benchmarking/{environment}/{model}/trial_{trial_id}/...
+#     ├── final_training/{environment}/{model}/spec_{spec_fp}_exec_{exec_fp}/v{variant}/...
+#     ├── conversion/{environment}/{model}/{parent_training_id}/conv_{conv_fp}/...
 #     └── cache/
+#         ├── best_configurations/{model}/spec_{spec_fp}/...
+#         └── final_training/...
 #
 # Usage:
 #   from orchestration.paths import get_drive_backup_path, get_drive_backup_base
 #   drive_path = get_drive_backup_path(ROOT_DIR, CONFIG_DIR, local_output_path)
-#   # Returns: /content/drive/MyDrive/resume-ner-checkpoints/outputs/hpo/...
+#   # Example: Returns /content/drive/MyDrive/resume-ner-checkpoints/outputs/hpo/local/distilbert/trial_0_20260101_161725/refit/checkpoint/
 #
 drive:
   # Google Drive mount point (standard Colab location)
