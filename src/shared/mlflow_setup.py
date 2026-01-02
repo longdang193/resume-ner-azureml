@@ -249,49 +249,110 @@ def create_ml_client_from_config(
     client_id = os.getenv("AZURE_CLIENT_ID")
     client_secret = os.getenv("AZURE_CLIENT_SECRET")
     tenant_id = os.getenv("AZURE_TENANT_ID")
+    
+    logger.warning(
+        f"[DEBUG] Initial env check - "
+        f"subscription_id: {bool(subscription_id)}, "
+        f"resource_group: {bool(resource_group)}, "
+        f"client_id: {bool(client_id)}, "
+        f"client_secret: {bool(client_secret)}, "
+        f"tenant_id: {bool(tenant_id)}"
+    )
 
-    # If environment variables not set, try loading from config.env file (in project root)
-    if not subscription_id or not resource_group or not (client_id and client_secret and tenant_id):
-        project_root = config_dir.parent
-        config_env_path = project_root / "config.env"
-        if config_env_path.exists():
+    # Detect platform early to determine if we need to load from config.env
+    platform = detect_platform()
+    logger.debug(f"Detected platform: {platform}")
+
+    # Always try to load from config.env if we're in Colab/Kaggle or if credentials are missing
+    # In Colab/Kaggle, config.env is the primary source of credentials
+    project_root = config_dir.parent
+    config_env_path = project_root / "config.env"
+
+    has_env_creds = bool(subscription_id and resource_group)
+    has_sp_creds = bool(client_id and client_secret and tenant_id)
+
+    should_load_config_env = (
+        platform in ("colab", "kaggle") or
+        not has_env_creds or
+        not has_sp_creds
+    )
+
+    if should_load_config_env:
+        logger.info(
+            f"Attempting to load credentials from config.env at: {config_env_path}")
+
+    if should_load_config_env and config_env_path.exists():
+        logger.info(
+            f"Loading credentials from {config_env_path}")
+        env_vars = _load_env_file(config_env_path)
+        logger.debug(f"Loaded {len(env_vars)} variables from config.env")
+
+        subscription_id = subscription_id or env_vars.get(
+            "AZURE_SUBSCRIPTION_ID")
+        resource_group = resource_group or env_vars.get(
+            "AZURE_RESOURCE_GROUP")
+        client_id = client_id or env_vars.get("AZURE_CLIENT_ID")
+        client_secret = client_secret or env_vars.get(
+            "AZURE_CLIENT_SECRET")
+        tenant_id = tenant_id or env_vars.get("AZURE_TENANT_ID")
+
+        # Log what was found (without exposing secrets)
+        found_vars = []
+        if env_vars.get("AZURE_SUBSCRIPTION_ID"):
+            found_vars.append("AZURE_SUBSCRIPTION_ID")
+        if env_vars.get("AZURE_RESOURCE_GROUP"):
+            found_vars.append("AZURE_RESOURCE_GROUP")
+        if env_vars.get("AZURE_CLIENT_ID"):
+            found_vars.append("AZURE_CLIENT_ID")
+        if env_vars.get("AZURE_CLIENT_SECRET"):
+            found_vars.append("AZURE_CLIENT_SECRET")
+        if env_vars.get("AZURE_TENANT_ID"):
+            found_vars.append("AZURE_TENANT_ID")
+        if found_vars:
+            logger.debug(f"Found in config.env: {', '.join(found_vars)}")
+
+        if subscription_id and resource_group:
+            # Set environment variables for this process
+            os.environ["AZURE_SUBSCRIPTION_ID"] = subscription_id
+            os.environ["AZURE_RESOURCE_GROUP"] = resource_group
             logger.info(
-                f"Environment variables not set, loading from {config_env_path}")
-            env_vars = _load_env_file(config_env_path)
-            subscription_id = subscription_id or env_vars.get(
-                "AZURE_SUBSCRIPTION_ID")
-            resource_group = resource_group or env_vars.get(
-                "AZURE_RESOURCE_GROUP")
-            client_id = client_id or env_vars.get("AZURE_CLIENT_ID")
-            client_secret = client_secret or env_vars.get(
-                "AZURE_CLIENT_SECRET")
-            tenant_id = tenant_id or env_vars.get("AZURE_TENANT_ID")
+                "Loaded subscription/resource group from config.env")
+            logger.debug(
+                f"AZURE_SUBSCRIPTION_ID: {subscription_id[:8]}...")
+            logger.debug(f"AZURE_RESOURCE_GROUP: {resource_group}")
 
-            if subscription_id and resource_group:
-                # Set environment variables for this process
-                os.environ["AZURE_SUBSCRIPTION_ID"] = subscription_id
-                os.environ["AZURE_RESOURCE_GROUP"] = resource_group
-                logger.info(
-                    "Loaded subscription/resource group from config.env")
-                logger.debug(
-                    f"AZURE_SUBSCRIPTION_ID: {subscription_id[:8]}...")
-                logger.debug(f"AZURE_RESOURCE_GROUP: {resource_group}")
-
-            if client_id and client_secret and tenant_id:
-                # Set service principal credentials for authentication
-                os.environ["AZURE_CLIENT_ID"] = client_id
-                os.environ["AZURE_CLIENT_SECRET"] = client_secret
-                os.environ["AZURE_TENANT_ID"] = tenant_id
-                logger.info(
-                    "Loaded service principal credentials from config.env")
-                logger.debug(f"AZURE_CLIENT_ID: {client_id[:8]}...")
-                logger.debug(f"AZURE_TENANT_ID: {tenant_id[:8]}...")
-            else:
-                logger.debug(
-                    "Service principal credentials not found in config.env. "
-                    "Will try DefaultAzureCredential (may not work in Colab/Kaggle).")
+        if client_id and client_secret and tenant_id:
+            # Set service principal credentials for authentication
+            os.environ["AZURE_CLIENT_ID"] = client_id
+            os.environ["AZURE_CLIENT_SECRET"] = client_secret
+            os.environ["AZURE_TENANT_ID"] = tenant_id
+            logger.info(
+                "Loaded service principal credentials from config.env")
+            logger.debug(f"AZURE_CLIENT_ID: {client_id[:8]}...")
+            logger.debug(f"AZURE_TENANT_ID: {tenant_id[:8]}...")
         else:
-            logger.warning(f"config.env not found at {config_env_path}")
+            missing = []
+            if not client_id:
+                missing.append("AZURE_CLIENT_ID")
+            if not client_secret:
+                missing.append("AZURE_CLIENT_SECRET")
+            if not tenant_id:
+                missing.append("AZURE_TENANT_ID")
+            logger.debug(
+                f"Service principal credentials not fully configured in config.env. "
+                f"Missing: {', '.join(missing)}. "
+                "Will try DefaultAzureCredential (may not work in Colab/Kaggle).")
+    elif should_load_config_env:
+        # Only warn if we actually needed to load from config.env
+        logger.warning(
+            f"config.env not found at {config_env_path}. "
+            f"Looking for: {config_env_path.absolute()}"
+        )
+        if platform in ("colab", "kaggle"):
+            logger.warning(
+                f"For {platform.upper()}, you must upload config.env to the project root. "
+                f"Expected location: {config_env_path}"
+            )
 
     # If still not set, try loading from infrastructure.yaml
     # (infrastructure.yaml may contain ${AZURE_SUBSCRIPTION_ID} placeholders)
@@ -318,7 +379,22 @@ def create_ml_client_from_config(
 
     # Determine authentication method
     platform = detect_platform()
-    has_service_principal = client_id and client_secret and tenant_id
+    logger.warning(f"[DEBUG] Platform detected: {platform}")
+
+    # Re-check environment variables after potential loading from config.env
+    # (they may have been set in os.environ but local variables not updated)
+    client_id = client_id or os.getenv("AZURE_CLIENT_ID")
+    client_secret = client_secret or os.getenv("AZURE_CLIENT_SECRET")
+    tenant_id = tenant_id or os.getenv("AZURE_TENANT_ID")
+
+    has_service_principal = bool(client_id and client_secret and tenant_id)
+    logger.warning(
+        f"[DEBUG] Service Principal check - "
+        f"client_id present: {bool(client_id)}, "
+        f"client_secret present: {bool(client_secret)}, "
+        f"tenant_id present: {bool(tenant_id)}, "
+        f"has_service_principal: {has_service_principal}"
+    )
 
     if platform in ("colab", "kaggle") and not has_service_principal:
         logger.warning(
@@ -327,10 +403,14 @@ def create_ml_client_from_config(
             "Falling back to local tracking."
         )
         logger.info(
+            f"Looking for config.env at: {config_dir.parent / 'config.env'}"
+        )
+        logger.info(
             "To use Azure ML from Colab/Kaggle, create a Service Principal and add credentials to config.env:\n"
             "  AZURE_CLIENT_ID=<your-client-id>\n"
             "  AZURE_CLIENT_SECRET=<your-client-secret>\n"
-            "  AZURE_TENANT_ID=<your-tenant-id>"
+            "  AZURE_TENANT_ID=<your-tenant-id>\n"
+            "Make sure config.env is uploaded to Colab in the project root directory."
         )
         return None
 
