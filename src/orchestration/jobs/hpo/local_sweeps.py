@@ -770,6 +770,15 @@ def run_local_hpo_sweep(
                 logger.warning(
                     "[REFIT] No best trial found, skipping refit training")
 
+            # Run final cleanup AFTER refit training completes (if it ran)
+            # This ensures cleanup happens in the normal MLflow flow, not just in exception handler
+            try:
+                cleanup_checkpoints()
+            except Exception as e:
+                logger.warning(
+                    f"Error during final checkpoint cleanup: {e}"
+                )
+
     except Exception as e:
         logger.warning(f"MLflow tracking failed: {e}")
         logger.warning("Continuing HPO without MLflow tracking...")

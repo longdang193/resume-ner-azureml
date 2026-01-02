@@ -75,7 +75,18 @@ def run_training_trial_with_cv(
 
     fold_metrics = []
 
+    # Construct trial-specific output directory for CV folds
+    # Use new structure: trial_{number}_{run_id}/cv/fold{fold_idx}
+    trial_number = trial_params.get("trial_number", "unknown")
+    run_id = trial_params.get("run_id")
+    run_suffix = f"_{run_id}" if run_id else ""
+    trial_base_dir = output_dir / f"trial_{trial_number}{run_suffix}"
+    
     for fold_idx, (train_indices, val_indices) in enumerate(fold_splits):
+        # Construct fold-specific output directory using new structure
+        # This ensures checkpoints are saved in trial_X/cv/fold0/checkpoint structure
+        fold_output_dir = trial_base_dir / "cv" / f"fold{fold_idx}"
+        
         # Run training for this fold
         # Pass trial_run_id as parent (if available), otherwise use hpo_parent_run_id
         fold_parent_id = trial_run_id if trial_run_id else hpo_parent_run_id
@@ -84,7 +95,7 @@ def run_training_trial_with_cv(
             dataset_path=dataset_path,
             config_dir=config_dir,
             backbone=backbone,
-            output_dir=output_dir,
+            output_dir=fold_output_dir,  # Use fold-specific output directory
             train_config=train_config,
             mlflow_experiment_name=mlflow_experiment_name,
             objective_metric=objective_metric,

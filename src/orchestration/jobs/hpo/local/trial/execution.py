@@ -92,6 +92,7 @@ class TrialExecutor:
             fold_idx=fold_idx,
             fold_splits_file=fold_splits_file,
             parent_run_id=parent_run_id,
+            trial_params=trial_params,
         )
 
         # Run training subprocess
@@ -231,6 +232,7 @@ class TrialExecutor:
         fold_idx: Optional[int] = None,
         fold_splits_file: Optional[Path] = None,
         parent_run_id: Optional[str] = None,
+        trial_params: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, str]:
         """Set up environment variables for training subprocess."""
         env = os.environ.copy()
@@ -252,6 +254,12 @@ class TrialExecutor:
         # Set parent run ID and trial number for nested runs
         if parent_run_id:
             env["MLFLOW_PARENT_RUN_ID"] = parent_run_id
+
+        # Set trial number for proper MLflow run naming
+        if trial_params:
+            trial_number = trial_params.get("trial_number")
+            if trial_number is not None:
+                env["MLFLOW_TRIAL_NUMBER"] = str(trial_number)
 
         # Set fold index if k-fold CV is enabled
         if fold_idx is not None:

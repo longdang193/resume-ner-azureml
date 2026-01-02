@@ -62,7 +62,8 @@ class CheckpointCleanupManager:
         """
         run_suffix = f"_{self.run_id}" if self.run_id else ""
         paths = []
-        trial_base_dir = self.output_base_dir / f"trial_{trial_num}{run_suffix}"
+        trial_base_dir = self.output_base_dir / \
+            f"trial_{trial_num}{run_suffix}"
 
         # NEW STRUCTURE: Check for refit checkpoint first (preferred)
         refit_checkpoint_dir = trial_base_dir / "refit" / "checkpoint"
@@ -79,6 +80,8 @@ class CheckpointCleanupManager:
                         paths.append(checkpoint_dir)
 
         # OLD STRUCTURE: Check trial_<n>_fold<k>/checkpoint/ directories (backward compatibility)
+        # IMPORTANT: Always check old structure for CV, even if new structure exists, because
+        # training script may create checkpoints in old structure
         if self.fold_splits is not None:
             for fold_idx in range(len(self.fold_splits)):
                 checkpoint_dir = (
@@ -86,8 +89,14 @@ class CheckpointCleanupManager:
                     / f"trial_{trial_num}{run_suffix}_fold{fold_idx}"
                     / "checkpoint"
                 )
+                logger.info(
+                    f"Checking old structure checkpoint for trial {trial_num}, fold {fold_idx}: {checkpoint_dir} (exists={checkpoint_dir.exists()})"
+                )
                 if checkpoint_dir.exists():
                     paths.append(checkpoint_dir)
+                    logger.info(
+                        f"Found old structure checkpoint for trial {trial_num}, fold {fold_idx}: {checkpoint_dir}"
+                    )
         else:
             # Single training: get single checkpoint (if no refit exists)
             if not refit_checkpoint_dir.exists():
@@ -107,7 +116,8 @@ class CheckpointCleanupManager:
         for path in paths:
             try:
                 shutil.rmtree(path)
-                logger.debug(f"Deleted checkpoint for trial {trial_num}: {path}")
+                logger.debug(
+                    f"Deleted checkpoint for trial {trial_num}: {path}")
             except Exception as e:
                 logger.warning(
                     f"Could not delete checkpoint for trial {trial_num} at {path}: {e}"
@@ -124,6 +134,9 @@ class CheckpointCleanupManager:
             return
 
         trial_checkpoint_paths = self.get_checkpoint_paths(trial_num)
+        logger.info(
+            f"Registering checkpoints for trial {trial_num}: found {len(trial_checkpoint_paths)} paths: {[str(p) for p in trial_checkpoint_paths]}"
+        )
         if trial_checkpoint_paths:
             self.checkpoint_map[trial_num] = trial_checkpoint_paths
         self.completed_trials.append(trial_num)
@@ -229,7 +242,8 @@ class CheckpointCleanupManager:
 
         try:
             # Initialize state from existing study (for resume scenarios)
-            early_return = self.initialize_best_trial_from_study(trial, metric_value)
+            early_return = self.initialize_best_trial_from_study(
+                trial, metric_value)
             if early_return is not None:
                 return early_return
 
@@ -256,7 +270,8 @@ class CheckpointCleanupManager:
                 # Delete all non-best checkpoints
                 for trial_id, checkpoint_paths in list(self.checkpoint_map.items()):
                     if trial_id != self.best_trial_id:
-                        self.delete_checkpoint_paths(checkpoint_paths, trial_id)
+                        self.delete_checkpoint_paths(
+                            checkpoint_paths, trial_id)
                         del self.checkpoint_map[trial_id]
 
                 return metric_value
@@ -283,31 +298,54 @@ class CheckpointCleanupManager:
         return None
 
     def final_cleanup(self) -> None:
-        """Final cleanup: delete all non-best checkpoints after HPO completes, preserving refit checkpoints."""
+        """Final cleanup: delete all non-best checkpoints after HPO completes, preserving both CV and refit checkpoints for best trial."""
         if not self.save_only_best:
             return
 
         if self.best_trial_id is None:
             return
 
-        # For best trial: preserve refit checkpoint, but can delete fold checkpoints if refit exists
+        # For best trial: preserve BOTH refit and CV checkpoints (user requirement)
+        # Re-query checkpoint paths to get latest state (including refit if it was added after trial completion)
         best_trial_num = self.best_trial_id
-        best_trial_paths = self.checkpoint_map.get(best_trial_num, [])
+        run_suffix = f"_{self.run_id}" if self.run_id else ""
+        trial_base_dir = self.output_base_dir / \
+            f"trial_{best_trial_num}{run_suffix}"
+
+        # Log trial directory structure for debugging
+        logger.info(
+            f"Final cleanup: checking trial_base_dir={trial_base_dir} (exists={trial_base_dir.exists()})")
+        if trial_base_dir.exists():
+            subdirs = [d.name for d in trial_base_dir.iterdir() if d.is_dir()]
+            logger.info(
+                f"Final cleanup: trial_base_dir subdirectories: {subdirs}")
+        else:
+            logger.warning(
+                f"Final cleanup: trial_base_dir does not exist: {trial_base_dir}")
+
+        best_trial_paths = self.get_checkpoint_paths(best_trial_num)
+        logger.info(
+            f"Final cleanup: found {len(best_trial_paths)} checkpoint paths for best trial {best_trial_num}: {[str(p) for p in best_trial_paths]}")
+
+        # Check for old structure checkpoints if new structure not found
+        if not best_trial_paths and self.fold_splits is not None:
+            logger.info(
+                f"Final cleanup: No checkpoints found in new structure, checking old structure...")
+            for fold_idx in range(len(self.fold_splits)):
+                old_structure_path = self.output_base_dir / \
+                    f"trial_{best_trial_num}{run_suffix}_fold{fold_idx}" / \
+                    "checkpoint"
+                logger.info(
+                    f"Final cleanup: Checking old structure path: {old_structure_path} (exists={old_structure_path.exists()})")
+
+        # Update checkpoint_map with latest paths (in case refit was added)
+        if best_trial_paths:
+            self.checkpoint_map[best_trial_num] = best_trial_paths
 
         # Check if best trial has refit checkpoint
         has_refit = any("refit" in str(p) for p in best_trial_paths)
-        fold_paths_deleted = 0
-
-        if has_refit:
-            # Keep only refit checkpoint, delete fold checkpoints
-            fold_paths = [p for p in best_trial_paths if "refit" not in str(p)]
-            if fold_paths:
-                fold_paths_deleted = len(fold_paths)
-                self.delete_checkpoint_paths(fold_paths, best_trial_num)
-                logger.info(
-                    f"Final cleanup: kept refit checkpoint for best trial {best_trial_num}, "
-                    f"deleted {fold_paths_deleted} fold checkpoints"
-                )
+        has_cv = any("cv" in str(p) or "fold" in str(p)
+                     for p in best_trial_paths)
 
         # Delete all non-best checkpoints
         for trial_id, checkpoint_paths in list(self.checkpoint_map.items()):
@@ -318,8 +356,7 @@ class CheckpointCleanupManager:
         deleted_count = len(self.completed_trials) - 1
 
         logger.info(
-            f"Final cleanup: kept checkpoint for best trial {self.best_trial_id} "
-            f"(metric={self.best_score:.6f}, refit={'yes' if has_refit else 'no'}), "
+            f"Final cleanup: kept checkpoints for best trial {self.best_trial_id} "
+            f"(metric={self.best_score:.6f}, CV={'yes' if has_cv else 'no'}, refit={'yes' if has_refit else 'no'}), "
             f"deleted {deleted_count} non-best checkpoints"
         )
-
