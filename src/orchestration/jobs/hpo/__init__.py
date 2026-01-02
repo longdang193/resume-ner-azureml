@@ -5,7 +5,7 @@ This module provides HPO functionality for both local (Optuna) and Azure ML exec
 
 from __future__ import annotations
 
-from .checkpoint_manager import get_storage_uri, resolve_storage_path
+from .local.checkpoint.manager import get_storage_uri, resolve_storage_path
 from .hpo_helpers import (
     create_mlflow_run_name,
     create_study_name,
@@ -19,12 +19,12 @@ from .search_space import (
     translate_search_space_to_optuna as translate_search_space,
 )
 from .study_extractor import extract_best_config_from_study
-from .sweeps import (
+from .azureml.sweeps import (
     create_dry_run_sweep_job_for_backbone,
     create_hpo_sweep_job_for_backbone,
     validate_sweep_job,
 )
-from .trial_executor import TrialExecutor
+from .local.trial.execution import TrialExecutor
 
 __all__ = [
     # Checkpoint management
@@ -51,12 +51,3 @@ __all__ = [
     # Trial execution
     "TrialExecutor",
 ]
-
-
-
-
-
-
-
-
-

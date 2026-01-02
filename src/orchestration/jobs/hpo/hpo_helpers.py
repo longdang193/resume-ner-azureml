@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, Optional, Tuple
 
 from shared.logging_utils import get_logger
 
-from .checkpoint_manager import get_storage_uri, resolve_storage_path
+from .local.checkpoint.manager import get_storage_uri, resolve_storage_path
 
 logger = get_logger(__name__)
 
@@ -58,9 +58,11 @@ def setup_checkpoint_storage(
         try:
             restored = restore_from_drive(storage_path)
             if restored:
-                logger.info(f"Restored HPO checkpoint from Drive: {storage_path}")
+                logger.info(
+                    f"Restored HPO checkpoint from Drive: {storage_path}")
             else:
-                logger.debug(f"Drive backup not found for checkpoint: {storage_path}")
+                logger.debug(
+                    f"Drive backup not found for checkpoint: {storage_path}")
         except Exception as e:
             logger.warning(f"Failed to restore checkpoint from Drive: {e}")
 

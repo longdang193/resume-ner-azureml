@@ -33,7 +33,7 @@ sampling:
 # Enables saving study state to SQLite database for resuming interrupted runs
 checkpoint:
   enabled: true
-  study_name: "hpo_{backbone}_smoke_test_3.26"
+  study_name: "hpo_{backbone}_smoke_test_3.42"
   storage_path: "{study_name}/study.db"
   auto_resume: true
   # Only save checkpoints for best trials locally (reduces storage from ~30 GB to ~300 MB)
@@ -77,3 +77,21 @@ k_fold:
   random_seed: 42
   shuffle: true
   stratified: true
+
+# Refit training configuration
+# After HPO completes, train the best trial on the full training dataset
+# This creates a canonical checkpoint for production use (instead of using arbitrary fold checkpoints)
+refit:
+  enabled: true  # Default: enabled. Set to false to skip refit training
+  # Optional: Add timeout, max_epochs overrides if needed in the future
+
+# Cleanup configuration for interrupted runs
+# Controls automatic cleanup/marking of interrupted runs from previous sessions
+cleanup:
+  # Disable automatic MLflow cleanup (tagging interrupted runs with code.interrupted=true)
+  # Default: true (disabled for speed). Set to false to enable automatic cleanup
+  disable_auto_cleanup: true
+  
+  # Disable automatic Optuna marking (marking RUNNING trials as FAILED)
+  # Default: false (enabled). Set to true to disable automatic Optuna state cleanup
+  disable_auto_optuna_mark: false

@@ -45,19 +45,52 @@ class AzureMLLoggingAdapter(LoggingAdapter):
             # Azure ML not available (e.g., running locally)
             self._azureml_run = None
 
+    def _to_float_or_none(self, v):
+        """Convert value to float if possible, otherwise return None."""
+        # numpy scalars
+        try:
+            import numpy as np
+            if isinstance(v, (np.integer, np.floating)):
+                return float(v)
+        except (ImportError, Exception):
+            pass
+
+        # bool -> int -> float
+        if isinstance(v, bool):
+            return float(int(v))
+
+        # int/float
+        if isinstance(v, (int, float)):
+            return float(v)
+
+        # numeric string
+        if isinstance(v, str):
+            try:
+                return float(v)
+            except (ValueError, TypeError):
+                return None
+
+        # Skip nested dicts, lists, etc.
+        return None
+
     def log_metrics(self, metrics: Dict[str, float]) -> None:
         """Log metrics to both MLflow and Azure ML native logging."""
         import mlflow
-        # Only log scalar metrics (skip nested dictionaries like 'per_entity')
+        
+        # MLflow only accepts numeric values
         for k, v in metrics.items():
-            if isinstance(v, (int, float, str, bool)):
-                mlflow.log_metric(k, v)
-            # Skip nested dictionaries - they're saved in metrics.json but not logged to MLflow
+            val = self._to_float_or_none(v)
+            if val is not None:
+                mlflow.log_metric(k, val)
 
-        # Also log to Azure ML native logging if available
+        # Azure ML native logging accepts strings too
         if self._azureml_run is not None:
             for k, v in metrics.items():
-                if isinstance(v, (int, float, str, bool)):
+                val = self._to_float_or_none(v)
+                if val is not None:
+                    self._azureml_run.log(k, val)
+                elif isinstance(v, str):
+                    # Azure ML can handle string metrics
                     self._azureml_run.log(k, v)
 
     def log_params(self, params: Dict[str, Any]) -> None:
@@ -76,14 +109,43 @@ class AzureMLLoggingAdapter(LoggingAdapter):
 class LocalLoggingAdapter(LoggingAdapter):
     """Logging adapter for local execution."""
 
+    def _to_float_or_none(self, v):
+        """Convert value to float if possible, otherwise return None."""
+        # numpy scalars
+        try:
+            import numpy as np
+            if isinstance(v, (np.integer, np.floating)):
+                return float(v)
+        except (ImportError, Exception):
+            pass
+
+        # bool -> int -> float
+        if isinstance(v, bool):
+            return float(int(v))
+
+        # int/float
+        if isinstance(v, (int, float)):
+            return float(v)
+
+        # numeric string
+        if isinstance(v, str):
+            try:
+                return float(v)
+            except (ValueError, TypeError):
+                return None
+
+        # Skip nested dicts, lists, etc.
+        return None
+
     def log_metrics(self, metrics: Dict[str, float]) -> None:
         """Log metrics to MLflow only."""
         import mlflow
-        # Only log scalar metrics (skip nested dictionaries like 'per_entity')
+        
+        # MLflow only accepts numeric values
         for k, v in metrics.items():
-            if isinstance(v, (int, float, str, bool)):
-                mlflow.log_metric(k, v)
-            # Skip nested dictionaries - they're saved in metrics.json but not logged to MLflow
+            val = self._to_float_or_none(v)
+            if val is not None:
+                mlflow.log_metric(k, val)
 
     def log_params(self, params: Dict[str, Any]) -> None:
         """Log parameters to MLflow only."""

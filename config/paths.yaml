@@ -57,7 +57,11 @@ base:
 #
 outputs:
   # HPO (Hyperparameter Optimization) outputs
-  hpo: "hpo"                      # HPO sweep results: outputs/hpo/{backbone}/trial_{n}_{run_id}/
+  # Structure: outputs/hpo/{environment}/{model}/trial_{n}_{run_id}/
+  #   - For k-fold CV: trial_{n}_{run_id}/cv/fold{k}/checkpoint/
+  #   - For refit training: trial_{n}_{run_id}/refit/checkpoint/
+  #   - For single training (no CV): trial_{n}_{run_id}/checkpoint/
+  hpo: "hpo"                      # HPO sweep results: outputs/hpo/{environment}/{model}/trial_{n}_{run_id}/
   hpo_tests: "hpo_tests"          # HPO test/smoke run outputs
   
   # Benchmarking outputs
@@ -190,6 +194,10 @@ patterns:
   best_config_v2: "{model}/spec_{spec_fp}"
   
   # HPO with environment
+  # Base pattern: {environment}/{model}/trial_{trial_id}
+  # Subdirectories (handled in code, not in pattern):
+  #   - cv/fold{k}/ for k-fold CV folds
+  #   - refit/ for refit training (trained on full training set)
   hpo_v2: "{environment}/{model}/trial_{trial_id}"
   
   # Benchmarking with environment

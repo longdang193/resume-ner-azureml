@@ -40,7 +40,7 @@ class NamingContext:
 
     def __post_init__(self):
         """Validate context after initialization."""
-        valid_processes = {"hpo", "benchmarking",
+        valid_processes = {"hpo", "hpo_refit", "benchmarking",
                            "final_training", "conversion", "best_configurations"}
         valid_environments = {"local", "colab", "kaggle", "azure"}
 
@@ -109,6 +109,19 @@ def create_naming_context(
     """
     if environment is None:
         environment = detect_platform()
+    
+    # Layer B: Ensure trial_id is never None/empty/whitespace for hpo_refit
+    if process_type == "hpo_refit":
+        if not trial_id or not trial_id.strip():
+            # Try to extract trial number from other context if available
+            # This is a fallback - callers should provide trial_id
+            logger.warning(
+                f"[create_naming_context] hpo_refit missing trial_id, "
+                f"cannot auto-fill without trial_number. "
+                f"Caller should provide trial_id."
+            )
+            # We'll let it pass through as None and let the assert catch it
+            # This ensures we fail fast rather than silently creating "unknown" names
 
     return NamingContext(
         process_type=process_type,
@@ -127,6 +140,7 @@ def _get_pattern_key(process_type: str) -> Optional[str]:
     """Map process_type to paths.yaml pattern key."""
     mapping = {
         "hpo": "hpo_v2",
+        "hpo_refit": "hpo_v2",  # Use same pattern as hpo, refit is subdirectory
         "benchmarking": "benchmarking_v2",
         "final_training": "final_training_v2",
         "conversion": "conversion_v2",
@@ -151,6 +165,13 @@ def _build_output_path_fallback(
         if not context.trial_id:
             raise ValueError("HPO requires trial_id")
         return base_path / "hpo" / context.environment / context.model / context.trial_id
+
+    elif context.process_type == "hpo_refit":
+        if not context.trial_id:
+            raise ValueError("HPO refit requires trial_id")
+        # Refit is a subdirectory of the trial: trial_<n>_<ts>/refit/
+        # Extract trial base from trial_id (trial_id may include timestamp)
+        return base_path / "hpo" / context.environment / context.model / context.trial_id / "refit"
 
     elif context.process_type == "benchmarking":
         if not context.trial_id:
@@ -225,6 +246,7 @@ def build_output_path(
     # Map process_type to output category
     category_map = {
         "hpo": "hpo",
+        "hpo_refit": "hpo",  # Refit is part of HPO output structure
         "benchmarking": "benchmarking",
         "final_training": "final_training",
         "conversion": "conversion",
@@ -279,7 +301,13 @@ def build_output_path(
         # Handle nested paths (e.g., "spec_abc_exec_xyz/v1")
         # Split by "/" and create path components
         pattern_parts = resolved_pattern.split("/")
-        return base_path / output_dir / Path(*pattern_parts)
+        base_output_path = base_path / output_dir / Path(*pattern_parts)
+        
+        # For hpo_refit, append "refit" subdirectory
+        if context.process_type == "hpo_refit":
+            return base_output_path / "refit"
+        
+        return base_output_path
 
 
 def build_parent_training_id(spec_fp: str, exec_fp: str, variant: int = 1) -> str:

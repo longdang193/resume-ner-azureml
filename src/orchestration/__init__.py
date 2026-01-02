@@ -50,7 +50,13 @@ from .index_manager import (
 )
 from .mlflow_utils import setup_mlflow_for_stage
 from .benchmark_utils import run_benchmarking
-from .final_training_config import load_final_training_config
+
+# Lazy import for final_training_config to avoid PyTorch dependency when only constants are needed
+try:
+    from .final_training_config import load_final_training_config
+except (ImportError, ModuleNotFoundError):
+    # PyTorch or training module not available - skip this import
+    load_final_training_config = None
 
 __all__ = [
     "STAGE_SMOKE",
@@ -102,6 +108,6 @@ __all__ = [
     "get_latest_entry",
     "setup_mlflow_for_stage",
     "run_benchmarking",
-    # Final training config
+    # Final training config (may be None if PyTorch not available)
     "load_final_training_config",
 ]

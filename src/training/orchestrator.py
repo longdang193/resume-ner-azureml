@@ -102,12 +102,39 @@ def run_training(args: argparse.Namespace, prebuilt_config: dict | None = None) 
         print(
             f"  [Training] Set MLflow experiment: {experiment_name}", file=sys.stderr, flush=True)
 
-    # Check if we should create a child run (for HPO trials)
+    # Check if we should use an existing run (for refit) or create a child run (for HPO trials)
+    use_run_id = os.environ.get("MLFLOW_RUN_ID") or os.environ.get("MLFLOW_USE_RUN_ID")
     parent_run_id = os.environ.get("MLFLOW_PARENT_RUN_ID")
     trial_number = os.environ.get("MLFLOW_TRIAL_NUMBER", "unknown")
     fold_idx = os.environ.get("MLFLOW_FOLD_IDX")
+    
+    # Track whether we started a run directly (needed for cleanup)
+    started_run_directly = False
 
-    if parent_run_id:
+    if use_run_id:
+        # Use existing run directly (for refit training)
+        # NEVER create a child - log directly to the specified run
+        print(
+            f"  [Training] Using existing run: {use_run_id[:12]}... (refit mode)", 
+            file=sys.stderr, flush=True
+        )
+        try:
+            # Ensure no active run before starting (avoid "Run is already active" errors)
+            if mlflow.active_run():
+                mlflow.end_run()
+            mlflow.start_run(run_id=use_run_id)
+            started_run_directly = True
+            print(f"  [Training] ✓ Started existing run", file=sys.stderr, flush=True)
+        except Exception as e:
+            print(
+                f"  [Training] Error starting existing run: {e}", file=sys.stderr, flush=True
+            )
+            import traceback
+            traceback.print_exc()
+            # Fallback to independent run
+            mlflow.start_run(run_name=f"refit_fallback_{use_run_id[:8]}")
+            started_run_directly = True
+    elif parent_run_id:
         # Construct unique run name: include fold index if k-fold CV is enabled
         if fold_idx is not None:
             run_name = f"trial_{trial_number}_fold{fold_idx}"
@@ -153,6 +180,10 @@ def run_training(args: argparse.Namespace, prebuilt_config: dict | None = None) 
             if fold_idx is not None:
                 tags["fold_idx"] = str(fold_idx)
             
+            # CRITICAL: Set mlflow.runName tag (required for proper run name display in Azure ML)
+            # Without this, Azure ML may show "trial_unknown" instead of the actual run name
+            tags["mlflow.runName"] = run_name
+            
             try:
                 run = client.create_run(
                     experiment_id=experiment_id,
@@ -163,6 +194,7 @@ def run_training(args: argparse.Namespace, prebuilt_config: dict | None = None) 
                     f"  [Training] ✓ Created child run: {run.info.run_id[:12]}...", file=sys.stderr, flush=True)
                 # Use this child run instead of creating a new one
                 mlflow.start_run(run_id=run.info.run_id)
+                started_run_directly = True
                 print(f"  [Training] ✓ Started child run",
                       file=sys.stderr, flush=True)
             except Exception as e:
@@ -172,9 +204,11 @@ def run_training(args: argparse.Namespace, prebuilt_config: dict | None = None) 
                 traceback.print_exc()
                 # Fallback to independent run
                 mlflow.start_run(run_name=run_name)
+                started_run_directly = True
         else:
             # Fallback to independent run
             mlflow.start_run(run_name=run_name)
+            started_run_directly = True
     else:
         # No parent run ID - use context manager as normal
         context_mgr = mlflow_context.get_context()
@@ -188,9 +222,14 @@ def run_training(args: argparse.Namespace, prebuilt_config: dict | None = None) 
             log_metrics(output_dir, metrics, logging_adapter)
     finally:
         # End the run if we started it directly
-        if parent_run_id:
+        if started_run_directly:
             mlflow.end_run()
-            print(f"  [Training] Ended child run", file=sys.stderr, flush=True)
+            if use_run_id:
+                print(f"  [Training] Ended existing run (refit mode)", file=sys.stderr, flush=True)
+            elif parent_run_id:
+                print(f"  [Training] Ended child run", file=sys.stderr, flush=True)
+            else:
+                print(f"  [Training] Ended independent run", file=sys.stderr, flush=True)
         else:
             # Use context manager's exit
             context_mgr.__exit__(None, None, None)

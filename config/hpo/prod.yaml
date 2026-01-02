@@ -73,3 +73,10 @@ mlflow:
   # Log best trial checkpoint to MLflow after HPO completes
   # Set to false to disable MLflow checkpoint logging entirely
   log_best_checkpoint: true
+
+# Refit training configuration
+# After HPO completes, train the best trial on the full training dataset
+# This creates a canonical checkpoint for production use (instead of using arbitrary fold checkpoints)
+refit:
+  enabled: true  # Default: enabled. Set to false to skip refit training
+  # Optional: Add timeout, max_epochs overrides if needed in the future
