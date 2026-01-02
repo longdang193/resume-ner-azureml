@@ -802,6 +802,7 @@ class MLflowSweepTracker(BaseTracker):
 
                         # Get Azure ML workspace - try multiple methods
                         workspace = None
+                        ws_error1 = None
 
                         # Method 1: Try from config.json (if available)
                         try:
