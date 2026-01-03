@@ -33,7 +33,7 @@ sampling:
 # Enables saving study state to SQLite database for resuming interrupted runs
 checkpoint:
   enabled: true
-  study_name: "hpo_{backbone}_smoke_test_3.68"
+  study_name: "hpo_{backbone}_smoke_test_3.69"
   storage_path: "{study_name}/study.db"
   auto_resume: true
   # Only save checkpoints for best trials locally (reduces storage from ~30 GB to ~300 MB)
