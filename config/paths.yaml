@@ -327,7 +327,7 @@ cache_strategies:
 # Usage:
 #   from orchestration.paths import get_drive_backup_path, get_drive_backup_base
 #   drive_path = get_drive_backup_path(ROOT_DIR, CONFIG_DIR, local_output_path)
-#   # Example: Returns /content/drive/MyDrive/resume-ner-checkpoints/outputs/hpo/local/distilbert/trial_0_20260101_161725/refit/checkpoint/
+#   # Example: Returns /content/drive/MyDrive/resume-ner-azureml/outputs/hpo/colab/distilbert/trial_0_20260101_161725/refit/checkpoint/
 #
 drive:
   # Google Drive mount point (standard Colab location)
@@ -336,7 +336,8 @@ drive:
   
   # Base backup directory in Google Drive
   # Full path: {mount_point}/MyDrive/{backup_base_dir}
-  backup_base_dir: "resume-ner-checkpoints"
+  # Changed from "resume-ner-checkpoints" to "resume-ner-azureml" to preserve project structure
+  backup_base_dir: "resume-ner-azureml"
   
   # Optional: Auto-restore from Drive on startup (default: false)
   # When enabled, checks Drive for missing local files and restores them

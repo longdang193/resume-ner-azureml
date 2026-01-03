@@ -395,8 +395,10 @@ def create_colab_store(
     backup_base = get_drive_backup_base(config_dir)
 
     if not backup_base:
-        # Fallback to default
-        backup_base = drive_root / "resume-ner-checkpoints"
+        # Fallback to default (use project name to preserve structure)
+        # Try to infer project name from root_dir, default to "resume-ner-azureml"
+        project_name = root_dir.name if root_dir.name else "resume-ner-azureml"
+        backup_base = drive_root / project_name
         backup_base.mkdir(parents=True, exist_ok=True)
         print(f"Using default backup location: {backup_base}")
     else:
@@ -404,4 +406,5 @@ def create_colab_store(
         print(f"Using configured backup location: {backup_base}")
 
     return DriveBackupStore(root_dir=root_dir, backup_root=backup_base)
+
 
