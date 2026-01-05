@@ -164,13 +164,14 @@ def execute_final_training(
         # This handles seed-based dataset structures (e.g., dataset_tiny/seed0/)
         # resolve_dataset_path returns a Path relative to the config directory
         dataset_path_from_config = resolve_dataset_path(data_config)
-        
+
         # Resolve to absolute path relative to config directory
         if dataset_path_from_config.is_absolute():
             dataset_local_path = dataset_path_from_config
         else:
             # Resolve relative to config directory (e.g., "../dataset_tiny" -> root_dir/dataset_tiny)
-            dataset_local_path = (config_dir / dataset_path_from_config).resolve()
+            dataset_local_path = (
+                config_dir / dataset_path_from_config).resolve()
 
     # Validate dataset path exists
     if not dataset_local_path.exists():
@@ -213,7 +214,8 @@ def execute_final_training(
 
     # Set up environment variables
     training_env = os.environ.copy()
-    training_env["AZURE_ML_OUTPUT_checkpoint"] = str(final_output_dir)
+    # Set checkpoint output directory (resolver converts output_name to uppercase)
+    training_env["AZURE_ML_OUTPUT_CHECKPOINT"] = str(final_output_dir)
 
     # Add src directory to PYTHONPATH
     src_dir = root_dir / "src"
@@ -252,7 +254,8 @@ def execute_final_training(
         mlflow.set_experiment(training_experiment_name)
         experiment = mlflow.get_experiment_by_name(training_experiment_name)
         if experiment is None:
-            raise RuntimeError(f"Could not get or create experiment: {training_experiment_name}") from e
+            raise RuntimeError(
+                f"Could not get or create experiment: {training_experiment_name}") from e
         experiment_id = experiment.experiment_id
 
     # Build tags using build_mlflow_tags + add training-specific and lineage tags

@@ -60,7 +60,8 @@ class DriveBackupStore:
     """
 
     root_dir: Path  # Project root (e.g., /content/resume-ner-azureml)
-    backup_root: Path  # Drive backup base (e.g., /content/drive/MyDrive/resume-ner-checkpoints)
+    # Drive backup base (e.g., /content/drive/MyDrive/resume-ner-checkpoints)
+    backup_root: Path
     only_outputs: bool = True  # Enforce outputs/ restriction
     dry_run: bool = False  # For testing
 
@@ -82,12 +83,16 @@ class DriveBackupStore:
         Raises:
             ValueError: If path is outside allowed scope
         """
+        # Ensure path is absolute and resolved
+        local_path = Path(local_path).resolve()
+        root_dir_resolved = self.root_dir.resolve()
+
         # Validate path is within root_dir
         try:
-            relative = local_path.relative_to(self.root_dir)
+            relative = local_path.relative_to(root_dir_resolved)
         except ValueError:
             raise ValueError(
-                f"Path {local_path} is not under root_dir {self.root_dir}"
+                f"Path {local_path} is not under root_dir {root_dir_resolved}"
             )
 
         # Enforce outputs/ restriction if enabled
@@ -406,5 +411,3 @@ def create_colab_store(
         print(f"Using configured backup location: {backup_base}")
 
     return DriveBackupStore(root_dir=root_dir, backup_root=backup_base)
-
-
