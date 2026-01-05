@@ -41,6 +41,12 @@ def parse_conversion_arguments() -> argparse.Namespace:
         action="store_true",
         help="Run smoke inference test after conversion",
     )
+    parser.add_argument(
+        "--opset-version",
+        type=int,
+        default=18,
+        help="ONNX opset version (default: 18)",
+    )
     
     return parser.parse_args()
 

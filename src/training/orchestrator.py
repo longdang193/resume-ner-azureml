@@ -35,19 +35,19 @@ def log_training_parameters(config: dict, logging_adapter) -> None:
 def run_training(args: argparse.Namespace, prebuilt_config: dict | None = None) -> None:
     """
     Run a single training process (rank-agnostic).
-    
+
     This function is used for both single-process training and each rank in
     a DDP run. It is intentionally unaware of world_size; DDP setup is
     handled via `training.distributed`.
-    
+
     Args:
         args: Parsed command-line arguments.
         prebuilt_config: Optional pre-built configuration dictionary.
     """
     config_dir = validate_config_dir(args.config_dir)
-    
+
     config = prebuilt_config or build_training_config(args, config_dir)
-    
+
     # Optionally offset random seed by rank in distributed runs.
     rank_env = os.getenv("RANK")
     if rank_env is not None and "training" in config:
@@ -58,31 +58,31 @@ def run_training(args: argparse.Namespace, prebuilt_config: dict | None = None) 
         base_seed = config["training"].get("random_seed")
         if base_seed is not None:
             config["training"]["random_seed"] = int(base_seed) + rank
-    
+
     # Resolve distributed config, create run context, and initialize process
     # group if needed (DDP). Single-process runs will get a SingleProcessContext.
     dist_cfg = resolve_distributed_config(config)
     context = create_run_context(dist_cfg)
     init_process_group_if_needed(context)
-    
+
     seed = config["training"].get("random_seed")
     set_seed(seed)
-    
+
     dataset = load_dataset(args.data_asset)
-    
+
     # Get platform adapter for output paths, logging, and MLflow context
     platform_adapter = get_platform_adapter(
         default_output_dir=Path("./outputs"))
     output_resolver = platform_adapter.get_output_path_resolver()
     logging_adapter = platform_adapter.get_logging_adapter()
     mlflow_context = platform_adapter.get_mlflow_context_manager()
-    
+
     # Resolve output directory using platform adapter
     output_dir = output_resolver.resolve_output_path(
         "checkpoint", default=Path("./outputs")
     )
     output_dir = output_resolver.ensure_output_directory(output_dir)
-    
+
     # CRITICAL: Set up MLflow BEFORE using context manager
     # This ensures tracking URI and experiment are set, and child runs are created correctly
     import mlflow
@@ -103,11 +103,12 @@ def run_training(args: argparse.Namespace, prebuilt_config: dict | None = None) 
             f"  [Training] Set MLflow experiment: {experiment_name}", file=sys.stderr, flush=True)
 
     # Check if we should use an existing run (for refit) or create a child run (for HPO trials)
-    use_run_id = os.environ.get("MLFLOW_RUN_ID") or os.environ.get("MLFLOW_USE_RUN_ID")
+    use_run_id = os.environ.get(
+        "MLFLOW_RUN_ID") or os.environ.get("MLFLOW_USE_RUN_ID")
     parent_run_id = os.environ.get("MLFLOW_PARENT_RUN_ID")
     trial_number = os.environ.get("MLFLOW_TRIAL_NUMBER", "unknown")
     fold_idx = os.environ.get("MLFLOW_FOLD_IDX")
-    
+
     # Track whether we started a run directly (needed for cleanup)
     started_run_directly = False
     # Track if we started an existing run (refit mode) - don't end it here
@@ -118,29 +119,40 @@ def run_training(args: argparse.Namespace, prebuilt_config: dict | None = None) 
         # For final training: start run actively so artifacts can be logged
         # For refit mode: don't start run (keep it RUNNING for parent to manage)
         is_final_training = parent_run_id is None
-        
+
         if is_final_training:
             # Final training: start the run actively so artifacts can be logged
             print(
-                f"  [Training] Using existing run: {use_run_id[:12]}... (final training)", 
-                file=sys.stderr, flush=True
+                f"  [Training] Using existing run: {use_run_id[:12]}... (final training)",
+                file=sys.stderr,
+                flush=True,
             )
             mlflow.start_run(run_id=use_run_id)
             started_run_directly = True
             started_existing = False  # Not refit mode - we'll end the run normally
-            print(f"  [Training] ✓ Started run for artifact logging", file=sys.stderr, flush=True)
+            print(
+                "  [Training] ✓ Started run for artifact logging",
+                file=sys.stderr,
+                flush=True,
+            )
         else:
             # Refit mode: don't start an active run context - use client API instead
             # This prevents MLflow from auto-ending the run when subprocess exits
             print(
-                f"  [Training] Using existing run: {use_run_id[:12]}... (refit mode)", 
-                file=sys.stderr, flush=True
+                f"  [Training] Using existing run: {use_run_id[:12]}... (refit mode)",
+                file=sys.stderr,
+                flush=True,
             )
             # Don't start an active run - we'll log via client API instead
             # This keeps the run RUNNING until parent process explicitly terminates it
-            started_run_directly = False  # Don't track as started - we're not using active run
-            started_existing = True  # Mark as existing run (refit mode)
-            print(f"  [Training] ✓ Will log to existing run via client API (run stays RUNNING)", file=sys.stderr, flush=True)
+            started_run_directly = False  # Not using active run
+            started_existing = True       # Mark as existing run (refit mode)
+            print(
+                "  [Training] ✓ Will log to existing run via client API (run stays RUNNING)",
+                file=sys.stderr,
+                flush=True,
+            )
+
     elif parent_run_id:
         # Construct unique run name: include fold index if k-fold CV is enabled
         if fold_idx is not None:
@@ -149,22 +161,20 @@ def run_training(args: argparse.Namespace, prebuilt_config: dict | None = None) 
         else:
             run_name = f"trial_{trial_number}"
             trial_display = f"trial {trial_number}"
-        
+
         print(
-            f"  [Training] Creating child run with parent: {parent_run_id[:12]}... ({trial_display})", file=sys.stderr, flush=True)
-        # Create child run explicitly using tracking client
-        client = mlflow.tracking.MlflowClient()
+            f"  [Training] Creating child run with parent: {parent_run_id[:12]}... ({trial_display})",
+            file=sys.stderr,
+            flush=True,
+        )
 
-        # Get experiment ID
-        if experiment_name:
-            experiment = mlflow.get_experiment_by_name(experiment_name)
-            experiment_id = experiment.experiment_id if experiment else None
-        else:
-            experiment_id = None
-
+        # Get experiment ID from environment or parent run
+        experiment_id = os.environ.get("MLFLOW_EXPERIMENT_ID")
         if not experiment_id:
             # Get from parent run
             try:
+                from mlflow.tracking import MlflowClient
+                client = MlflowClient()
                 parent_run_info = client.get_run(parent_run_id)
                 experiment_id = parent_run_info.info.experiment_id
                 print(
@@ -186,12 +196,14 @@ def run_training(args: argparse.Namespace, prebuilt_config: dict | None = None) 
             # Add fold index to tags if k-fold CV is enabled
             if fold_idx is not None:
                 tags["fold_idx"] = str(fold_idx)
-            
+
             # CRITICAL: Set mlflow.runName tag (required for proper run name display in Azure ML)
             # Without this, Azure ML may show "trial_unknown" instead of the actual run name
             tags["mlflow.runName"] = run_name
-            
+
             try:
+                from mlflow.tracking import MlflowClient
+                client = MlflowClient()
                 run = client.create_run(
                     experiment_id=experiment_id,
                     tags=tags,
@@ -233,14 +245,17 @@ def run_training(args: argparse.Namespace, prebuilt_config: dict | None = None) 
         # so there's nothing to end - the parent process will mark it FINISHED after artifact upload
         if started_existing:
             # Refit mode: No active run to end - run stays RUNNING until parent terminates it
-            print(f"  [Training] Refit run remains RUNNING (will be marked FINISHED after artifacts)", file=sys.stderr, flush=True)
+            print(f"  [Training] Refit run remains RUNNING (will be marked FINISHED after artifacts)",
+                  file=sys.stderr, flush=True)
         elif started_run_directly:
             # Non-refit mode: End the run normally
             mlflow.end_run()
             if parent_run_id:
-                print(f"  [Training] Ended child run", file=sys.stderr, flush=True)
+                print(f"  [Training] Ended child run",
+                      file=sys.stderr, flush=True)
             else:
-                print(f"  [Training] Ended independent run", file=sys.stderr, flush=True)
+                print(f"  [Training] Ended independent run",
+                      file=sys.stderr, flush=True)
         else:
             # Use context manager's exit
             context_mgr.__exit__(None, None, None)

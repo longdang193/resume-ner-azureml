@@ -132,6 +132,89 @@ def execute_final_training(
     # Resolve dataset path from final_training.yaml config
     # Check for local_path_override first (from final_training.yaml)
     final_training_yaml = load_yaml(config_dir / "final_training.yaml")
+
+    # Check if run should be skipped based on run.mode
+    run_mode = final_training_yaml.get(
+        "run", {}).get("mode", "reuse_if_exists")
+    final_checkpoint_dir = final_output_dir / "checkpoint"
+
+    if run_mode == "reuse_if_exists":
+        # Helper function to check if a checkpoint is complete
+        def is_checkpoint_complete(checkpoint_dir: Path, metadata_file: Path) -> bool:
+            """Check if checkpoint is complete (has metadata with completion flag, or valid checkpoint files)."""
+            # First check: metadata.json with completion flag
+            if metadata_file.exists():
+                try:
+                    from shared.json_cache import load_json
+                    metadata = load_json(metadata_file, default={})
+                    if metadata.get("status", {}).get("training", {}).get("completed", False):
+                        return True
+                except Exception:
+                    pass
+
+            # Fallback: check if checkpoint exists and has model files (indicates training completed)
+            if checkpoint_dir.exists():
+                # Check for key model files that indicate successful training
+                required_files = ["config.json", "model.safetensors"]
+                # Also accept .bin or .pt files as alternatives
+                model_files = list(checkpoint_dir.glob("model.*"))
+                config_file = checkpoint_dir / "config.json"
+
+                if config_file.exists() and (model_files or any(
+                    (checkpoint_dir / f).exists() for f in required_files
+                )):
+                    return True
+
+            return False
+
+        # First check: exact match (resolved variant)
+        metadata_file = final_output_dir / "metadata.json"
+        if is_checkpoint_complete(final_checkpoint_dir, metadata_file):
+            print(f"✓ Found existing completed final training run")
+            print(f"  Output directory: {final_output_dir}")
+            print(f"  Checkpoint: {final_checkpoint_dir}")
+            print(f"  Reusing existing checkpoint (run.mode: reuse_if_exists)")
+            return final_checkpoint_dir
+
+        # Second check: search for any complete variant with same spec_fp + exec_fp
+        # This handles cases where _resolve_variant didn't find the complete variant
+        try:
+            from orchestration.paths import resolve_output_path
+            base_output_dir = resolve_output_path(
+                root_dir, config_dir, "final_training")
+            final_training_base = base_output_dir / environment / backbone_name
+
+            if final_training_base.exists():
+                # Look for directories matching spec_{spec_fp}_exec_{exec_fp}
+                spec_exec_pattern = f"spec_{spec_fp}_exec_{exec_fp}"
+                for spec_exec_dir in final_training_base.iterdir():
+                    if spec_exec_dir.is_dir() and spec_exec_dir.name == spec_exec_pattern:
+                        # Check all variants in this directory (highest first)
+                        variant_dirs = sorted(
+                            [d for d in spec_exec_dir.iterdir() if d.is_dir()
+                             and d.name.startswith("v")],
+                            key=lambda d: int(
+                                d.name[1:]) if d.name[1:].isdigit() else 0,
+                            reverse=True  # Check highest variant first
+                        )
+                        for variant_dir in variant_dirs:
+                            variant_checkpoint = variant_dir / "checkpoint"
+                            variant_metadata = variant_dir / "metadata.json"
+
+                            if is_checkpoint_complete(variant_checkpoint, variant_metadata):
+                                print(
+                                    f"✓ Found existing completed final training run")
+                                print(
+                                    f"  Output directory: {variant_dir}")
+                                print(
+                                    f"  Checkpoint: {variant_checkpoint}")
+                                print(
+                                    f"  Reusing existing checkpoint (run.mode: reuse_if_exists)")
+                                return variant_checkpoint
+                        break  # Only check the matching spec_exec directory
+        except Exception as e:
+            print(f"⚠ Warning: Could not search for existing runs: {e}")
+            # Continue with training if search fails
     dataset_config_yaml = final_training_yaml.get("dataset", {})
     local_path_override = dataset_config_yaml.get("local_path_override")
 
@@ -243,6 +326,7 @@ def execute_final_training(
 
     # Get or create experiment
     client = MlflowClient()
+    experiment_id = None
     try:
         experiment = client.get_experiment_by_name(training_experiment_name)
         if experiment is None:
@@ -370,6 +454,45 @@ def execute_final_training(
         actual_checkpoint = root_dir / "outputs" / "checkpoint"
         if actual_checkpoint.exists():
             final_checkpoint_dir = actual_checkpoint
+
+    # Save metadata.json with completion status
+    try:
+        from orchestration.metadata_manager import save_metadata_with_fingerprints
+
+        # Prepare MLflow info (use variables from outer scope)
+        mlflow_info_dict = None
+        if run_id:
+            mlflow_info_dict = {
+                "run_id": run_id,
+                "experiment_id": experiment_id,
+                "tracking_uri": mlflow_tracking_uri,
+            }
+
+        # Prepare status updates
+        status_updates = {
+            "training": {
+                "completed": True,
+                "checkpoint_path": str(final_checkpoint_dir),
+            }
+        }
+
+        # Save metadata (mlflow_info is passed as keyword argument)
+        metadata_path = save_metadata_with_fingerprints(
+            root_dir=root_dir,
+            config_dir=config_dir,
+            context=training_context,
+            metadata_content={
+                "backbone": backbone_name,
+            },
+            status_updates=status_updates,
+            mlflow_info=mlflow_info_dict,  # Pass as keyword argument
+        )
+        print(f"✓ Saved metadata to: {metadata_path}")
+    except Exception as e:
+        print(f"⚠ Warning: Could not save metadata.json: {e}")
+        import traceback
+        traceback.print_exc()
+        # Continue even if metadata save fails
 
     print(f"✓ Final training completed. Checkpoint: {final_checkpoint_dir}")
     if run_id:

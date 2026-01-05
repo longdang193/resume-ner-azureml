@@ -975,118 +975,86 @@ class MLflowSweepTracker(BaseTracker):
                                 artifact_logged = False
                                 azureml_run = None
 
-                        # Upload artifacts using archive (single file upload)
-                        if not azureml_run:
-                            # Already logged warning above, just skip upload
-                            pass
-                        else:
-                            # Check run status - completed runs don't accept uploads
-                            run_status = azureml_run.get_status()
-                            if run_status in ["Completed", "Failed", "Canceled"]:
-                                # Try to get the best trial's child run if parent is completed
-                                try:
-                                    child_runs = list(
-                                        azureml_run.get_children())
-                                    for child_run in child_runs:
-                                        child_tags = {}
-                                        try:
-                                            child_tags = child_run.get_tags() if hasattr(child_run, 'get_tags') else {}
-                                        except Exception:
-                                            pass
-                                        child_name = child_run.name if hasattr(
-                                            child_run, 'name') else str(child_run.id)
+                        # Upload artifacts using MLflow (works for both Azure ML and non-Azure ML backends)
+                        # Create archive from checkpoint directory
+                        archive_path = None
+                        try:
+                            logger.info("Creating checkpoint archive...")
+                            archive_path, manifest = create_checkpoint_archive(
+                                checkpoint_dir, best_trial_number
+                            )
 
-                                        trial_tag = child_tags.get('trial_number') or child_tags.get(
-                                            'trial') or child_tags.get('optuna.trial.number')
-                                        if (trial_tag and str(trial_tag) == str(best_trial_number)) or \
-                                           (f"trial_{best_trial_number}" in child_name.lower() or f"trial-{best_trial_number}" in child_name.lower()):
-                                            child_status = child_run.get_status()
-                                            if child_status not in ["Completed", "Failed", "Canceled"]:
-                                                azureml_run = child_run
-                                                break
-                                except Exception:
-                                    pass
+                            # Upload archive with retry logic using MLflow
+                            logger.info(
+                                f"Uploading checkpoint archive via MLflow ({archive_path.stat().st_size / 1024 / 1024:.1f}MB)...")
 
-                            # Create archive from checkpoint directory
-                            archive_path = None
+                            def upload_archive():
+                                mlflow.log_artifact(
+                                    str(archive_path),
+                                    artifact_path="best_trial_checkpoint.tar.gz"
+                                )
+
+                            retry_with_backoff(
+                                upload_archive,
+                                max_retries=5,
+                                base_delay=2.0,
+                                operation_name="checkpoint archive upload (MLflow)"
+                            )
+
+                            # Upload manifest.json
                             try:
-                                logger.info("Creating checkpoint archive...")
-                                archive_path, manifest = create_checkpoint_archive(
-                                    checkpoint_dir, best_trial_number
-                                )
+                                manifest_json = json.dumps(
+                                    manifest, indent=2)
+                                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp_manifest:
+                                    tmp_manifest.write(manifest_json)
+                                    tmp_manifest_path = Path(
+                                        tmp_manifest.name)
 
-                                # Upload archive with retry logic
-                                logger.info(
-                                    f"Uploading checkpoint archive ({archive_path.stat().st_size / 1024 / 1024:.1f}MB)...")
-
-                                def upload_archive():
-                                    azureml_run.upload_file(
-                                        name="best_trial_checkpoint.tar.gz",
-                                        path_or_stream=str(archive_path)
-                                    )
-
-                                retry_with_backoff(
-                                    upload_archive,
-                                    max_retries=5,
-                                    base_delay=2.0,
-                                    operation_name="checkpoint archive upload"
-                                )
-
-                                # Upload manifest.json
                                 try:
-                                    manifest_json = json.dumps(
-                                        manifest, indent=2)
-                                    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp_manifest:
-                                        tmp_manifest.write(manifest_json)
-                                        tmp_manifest_path = Path(
-                                            tmp_manifest.name)
-
-                                    try:
-                                        def upload_manifest():
-                                            azureml_run.upload_file(
-                                                name="best_trial_checkpoint_manifest.json",
-                                                path_or_stream=str(
-                                                    tmp_manifest_path)
-                                            )
-
-                                        retry_with_backoff(
-                                            upload_manifest,
-                                            max_retries=3,
-                                            base_delay=1.0,
-                                            operation_name="manifest upload"
+                                    def upload_manifest():
+                                        mlflow.log_artifact(
+                                            str(tmp_manifest_path),
+                                            artifact_path="best_trial_checkpoint_manifest.json"
                                         )
-                                        logger.debug(
-                                            "Uploaded checkpoint manifest.json")
-                                    finally:
-                                        tmp_manifest_path.unlink(
-                                            missing_ok=True)
-                                except Exception as manifest_error:
-                                    logger.warning(
-                                        f"Could not upload manifest.json: {manifest_error}")
 
-                                artifact_logged = True
-                                logger.info(
-                                    f"Uploaded best trial checkpoint archive: {manifest['file_count']} files "
-                                    f"({manifest['total_size'] / 1024 / 1024:.1f}MB) for trial {best_trial_number}"
-                                )
-                            except Exception as archive_error:
-                                error_type = type(archive_error).__name__
-                                error_msg = str(archive_error)
+                                    retry_with_backoff(
+                                        upload_manifest,
+                                        max_retries=3,
+                                        base_delay=1.0,
+                                        operation_name="manifest upload (MLflow)"
+                                    )
+                                    logger.debug(
+                                        "Uploaded checkpoint manifest.json")
+                                finally:
+                                    tmp_manifest_path.unlink(
+                                        missing_ok=True)
+                            except Exception as manifest_error:
                                 logger.warning(
-                                    f"Failed to upload checkpoint archive: {error_type}: {error_msg}"
-                                )
-                                artifact_logged = False
-                                raise
-                            finally:
-                                # Clean up temp archive file
-                                if archive_path and archive_path.exists():
-                                    try:
-                                        archive_path.unlink()
-                                        logger.debug(
-                                            f"Cleaned up temporary archive: {archive_path}")
-                                    except Exception as cleanup_error:
-                                        logger.warning(
-                                            f"Could not clean up archive file: {cleanup_error}")
+                                    f"Could not upload manifest.json: {manifest_error}")
+
+                            artifact_logged = True
+                            logger.info(
+                                f"Uploaded best trial checkpoint archive: {manifest['file_count']} files "
+                                f"({manifest['total_size'] / 1024 / 1024:.1f}MB) for trial {best_trial_number}"
+                            )
+                        except Exception as archive_error:
+                            error_type = type(archive_error).__name__
+                            error_msg = str(archive_error)
+                            logger.warning(
+                                f"Failed to upload checkpoint archive: {error_type}: {error_msg}"
+                            )
+                            artifact_logged = False
+                            raise
+                        finally:
+                            # Clean up temp archive file
+                            if archive_path and archive_path.exists():
+                                try:
+                                    archive_path.unlink()
+                                    logger.debug(
+                                        f"Cleaned up temporary archive: {archive_path}")
+                                except Exception as cleanup_error:
+                                    logger.warning(
+                                        f"Could not clean up archive file: {cleanup_error}")
                     except ImportError as import_error:
                         logger.warning(
                             f"Azure ML SDK (azureml.core) not available: {import_error}")
@@ -1455,25 +1423,24 @@ class MLflowSweepTracker(BaseTracker):
                     raise RuntimeError(
                         "Could not get Azure ML run from workspace")
 
-                # Upload via AzureML SDK
-                logger.info("Uploading checkpoint archive via AzureML SDK...")
+                # Upload via MLflow (works for both Azure ML and non-Azure ML backends)
+                logger.info("Uploading checkpoint archive via MLflow...")
 
-                def upload_archive_azureml():
-                    # Upload to best_trial_checkpoint/ folder (consistent naming)
-                    azureml_run.upload_file(
-                        name="best_trial_checkpoint/checkpoint.tar.gz",
-                        path_or_stream=str(archive_path)
+                def upload_archive_mlflow():
+                    mlflow.log_artifact(
+                        str(archive_path),
+                        artifact_path="best_trial_checkpoint.tar.gz"
                     )
 
                 retry_with_backoff(
-                    upload_archive_azureml,
+                    upload_archive_mlflow,
                     max_retries=5,
                     base_delay=2.0,
-                    operation_name="checkpoint archive upload (AzureML SDK)"
+                    operation_name="checkpoint archive upload (MLflow)"
                 )
 
                 logger.info(
-                    f"Uploaded checkpoint archive via AzureML SDK: {manifest['file_count']} files "
+                    f"Uploaded checkpoint archive via MLflow: {manifest['file_count']} files "
                     f"({manifest['total_size'] / 1024 / 1024:.1f}MB) for trial {best_trial_number}"
                 )
 

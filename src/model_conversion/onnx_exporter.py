@@ -28,6 +28,7 @@ def export_to_onnx(
     checkpoint_dir: Path,
     output_dir: Path,
     quantize_int8: bool,
+    opset_version: int = 18,
 ) -> Path:
     """
     Export a token-classification model to ONNX (and optionally quantize).
@@ -36,6 +37,7 @@ def export_to_onnx(
         checkpoint_dir: Path to checkpoint directory.
         output_dir: Output directory for ONNX model.
         quantize_int8: Whether to apply int8 quantization.
+        opset_version: ONNX opset version (default: 18).
     
     Returns:
         Path to exported ONNX model.
@@ -70,7 +72,7 @@ def export_to_onnx(
     dynamic_axes = _dynamic_axes_for(inputs)
     
     fp32_path = output_dir / "model.onnx"
-    _log.info(f"Exporting FP32 ONNX model to '{fp32_path}' (opset=18, dynamo=False)")
+    _log.info(f"Exporting FP32 ONNX model to '{fp32_path}' (opset={opset_version}, dynamo=False)")
     try:
         torch.onnx.export(
             model,
@@ -79,7 +81,7 @@ def export_to_onnx(
             input_names=input_names,
             output_names=output_names,
             dynamic_axes=dynamic_axes,
-            opset_version=18,  # use >=18 to avoid auto-conversion warnings
+            opset_version=opset_version,  # Use parameter instead of hardcoded
             do_constant_folding=True,
             dynamo=False,  # use classic exporter; avoids dynamic_axes+dynamo issues
         )

@@ -688,6 +688,8 @@ def _is_variant_complete(
     """
     Check if variant is marked as complete.
     
+    Checks both metadata.json completion flag and presence of valid checkpoint files.
+    
     Args:
         root_dir: Project root directory.
         config_dir: Config directory.
@@ -715,11 +717,29 @@ def _is_variant_complete(
         )
         output_dir = build_output_path(root_dir, context)
         metadata_file = output_dir / "metadata.json"
+        checkpoint_dir = output_dir / "checkpoint"
         
+        # First check: metadata.json with completion flag
         if metadata_file.exists():
-            from shared.json_cache import load_json
-            metadata = load_json(metadata_file, default={})
-            return metadata.get("status", {}).get("training", {}).get("completed", False)
+            try:
+                from shared.json_cache import load_json
+                metadata = load_json(metadata_file, default={})
+                if metadata.get("status", {}).get("training", {}).get("completed", False):
+                    return True
+            except Exception:
+                pass
+        
+        # Fallback: check if checkpoint exists and has model files (indicates training completed)
+        if checkpoint_dir.exists():
+            # Check for key model files that indicate successful training
+            config_file = checkpoint_dir / "config.json"
+            model_files = list(checkpoint_dir.glob("model.*"))
+            required_files = ["model.safetensors"]
+            
+            if config_file.exists() and (model_files or any(
+                (checkpoint_dir / f).exists() for f in required_files
+            )):
+                return True
     except Exception:
         pass
     
