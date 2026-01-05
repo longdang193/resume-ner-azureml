@@ -29,6 +29,9 @@ def run_benchmarking(
     benchmark_source: str = "final_training",
     study_key_hash: Optional[str] = None,
     trial_key_hash: Optional[str] = None,
+    hpo_trial_run_id: Optional[str] = None,
+    hpo_refit_run_id: Optional[str] = None,
+    hpo_sweep_run_id: Optional[str] = None,
 ) -> bool:
     """
     Run benchmarking on a model checkpoint.
