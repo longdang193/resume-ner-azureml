@@ -15,6 +15,11 @@ from .local_selection import (
 from .mlflow_selection import find_best_model_from_mlflow
 from .artifact_acquisition import acquire_best_model_checkpoint
 from .selection import select_best_configuration
+from .cache import (
+    compute_selection_cache_key,
+    load_cached_best_model,
+    save_best_model_cache,
+)
 from .trial_finder import (
     find_best_trials_for_backbones,
     find_study_folder_in_backbone_dir,
@@ -44,5 +49,9 @@ __all__ = [
     # Selection logic
     "MODEL_SPEED_SCORES",
     "SelectionLogic",
+    # Cache management
+    "compute_selection_cache_key",
+    "load_cached_best_model",
+    "save_best_model_cache",
 ]
 

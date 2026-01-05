@@ -4,6 +4,13 @@
 # Import tag names (reference, not duplication)
 # Tags are defined in config/tags.yaml
 
+# Run mode configuration
+run:
+  # Run mode determines overall behavior:
+  # - reuse_if_exists: Reuse cached selection if valid (default)
+  # - force_new: Always query MLflow and update cache
+  mode: reuse_if_exists
+
 # Objective metric configuration
 objective:
   metric: "macro-f1"

@@ -104,6 +104,7 @@ outputs:
 cache:
   best_configurations: "best_configurations"  # Best HPO config cache files
   final_training: "final_training"           # Final training run cache files
+  best_model_selection: "best_model_selection"  # Best model selection cache files
   
   # Other cache types can be added here as needed
   # Example:
@@ -138,6 +139,11 @@ files:
     # Location: outputs/cache/final_training/
     final_training_latest: "latest_final_training_cache.json"  # Pointer to latest training run
     final_training_index: "final_training_index.json"          # Index of all training runs
+    
+    # Best model selection cache files
+    # Location: outputs/cache/best_model_selection/
+    best_model_selection_latest: "latest_best_model_selection_cache.json"  # Pointer to latest selection
+    best_model_selection_index: "best_model_selection_index.json"          # Index of all selections
     
     # Other cache files
     conversion_cache: "conversion_cache.json"  # Conversion metadata (legacy location: notebooks/)
@@ -181,6 +187,11 @@ patterns:
   # Example: final_training_distilbert_20251228_000723_20251228_001000.json
   # Location: outputs/cache/final_training/
   final_training_cache_file: "final_training_{backbone}_{run_id}_{timestamp}.json"
+  
+  # Best model selection cache file pattern
+  # Example: best_model_selection_distilbert_experiment_name_cachekey_20251228_001000.json
+  # Location: outputs/cache/best_model_selection/
+  best_model_selection_cache_file: "best_model_selection_{backbone}_{identifier}_{timestamp}.json"
 
   # Fingerprint-based paths (v2) - used by build_output_path()
   # These patterns are used by build_output_path() in naming_centralized.py
@@ -300,6 +311,31 @@ cache_strategies:
       filename: "final_training_index.json"
       max_entries: 20  # Keep last 20 training runs in index
       include_metadata: true  # Include metrics, config, checkpoint path in index
+  
+  # Best model selection cache strategy
+  # Stores metadata about best model selection results (run_id, metrics, config)
+  best_model_selection:
+    strategy: "dual"
+    
+    # Timestamped file settings
+    timestamped:
+      enabled: true
+      pattern: "best_model_selection_{backbone}_{identifier}_{timestamp}.json"
+      keep_all: true
+      max_files: null
+    
+    # Latest pointer file settings
+    latest:
+      enabled: true
+      filename: "latest_best_model_selection_cache.json"
+      include_timestamped_ref: true
+    
+    # Index file settings
+    index:
+      enabled: true
+      filename: "best_model_selection_index.json"
+      max_entries: 20  # Keep last 20 selections in index
+      include_metadata: true  # Include experiment info, cache key, best model in index
 
 # ----------------------------------------------------------------------------
 # Google Drive Backup Configuration (Colab only)

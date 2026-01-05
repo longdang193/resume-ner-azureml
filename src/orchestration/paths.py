@@ -191,7 +191,7 @@ def get_timestamped_cache_filename(
 
     Args:
         config_dir: Config directory.
-        cache_type: Type of cache ("best_configurations" or "final_training").
+        cache_type: Type of cache ("best_configurations", "final_training", or "best_model_selection").
         backbone: Backbone name.
         identifier: Identifier (trial name for best_config, run_id for final_training).
         timestamp: Timestamp string.
@@ -212,6 +212,10 @@ def get_timestamped_cache_filename(
                                                        "final_training_{backbone}_{run_id}_{timestamp}.json")
         # Use 'identifier' placeholder for run_id
         pattern = pattern.replace("{run_id}", "{identifier}")
+    elif cache_type == "best_model_selection":
+        pattern = paths_config.get("patterns", {}).get("best_model_selection_cache_file",
+                                                       "best_model_selection_{backbone}_{identifier}_{timestamp}.json")
+        # Pattern already uses {identifier} placeholder
     else:
         # Generic pattern
         pattern = "{cache_type}_{backbone}_{identifier}_{timestamp}.json"

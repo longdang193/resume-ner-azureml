@@ -212,20 +212,20 @@ def main(tracker: Optional[Any] = None, source_training_run: Optional[str] = Non
                 _log.info(f"Conversion completed. ONNX model written to '{onnx_path}'")
                 if args.run_smoke_test:
                     run_smoke_test(onnx_path, checkpoint_dir)
-        else:
+    else:
             # No MLflow tracking - perform conversion normally
-            onnx_path = export_to_onnx(
-                checkpoint_dir=checkpoint_dir,
-                output_dir=output_dir,
-                quantize_int8=args.quantize_int8,
+        onnx_path = export_to_onnx(
+            checkpoint_dir=checkpoint_dir,
+            output_dir=output_dir,
+            quantize_int8=args.quantize_int8,
                 opset_version=opset_version,
-            )
-            _log.info(f"Conversion completed. ONNX model written to '{onnx_path}'")
-            
-            if args.run_smoke_test:
-                run_smoke_test(onnx_path, checkpoint_dir)
-            else:
-                _log.info("Smoke test not requested; skipping")
+        )
+        _log.info(f"Conversion completed. ONNX model written to '{onnx_path}'")
+        
+        if args.run_smoke_test:
+            run_smoke_test(onnx_path, checkpoint_dir)
+        else:
+            _log.info("Smoke test not requested; skipping")
     
     finally:
         # End the run if we started it directly
