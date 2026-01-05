@@ -70,6 +70,7 @@ def run_benchmarking(
 
     args = [
         sys.executable,
+        "-u",  # Unbuffered output - ensures real-time progress visibility
         str(benchmark_script),
         "--checkpoint",
         str(checkpoint_dir),
@@ -91,15 +92,20 @@ def run_benchmarking(
         args.extend(["--device", device])
 
     cwd = project_root if project_root else checkpoint_dir.parent.parent.parent
+
+    # Run subprocess without capturing output so progress is visible in real-time
+    # This is especially important on Colab where users need to see progress
+    logger.info(f"Running benchmark script: {' '.join(args)}")
     result = subprocess.run(
         args,
         cwd=cwd,
-        capture_output=True,
+        capture_output=False,  # Don't capture - show output in real-time
         text=True,
     )
 
     if result.returncode != 0:
-        print(f"Benchmarking failed: {result.stderr}")
+        logger.error(
+            f"Benchmarking failed with return code {result.returncode}")
         return False
 
     # Log results to MLflow if tracker provided
@@ -118,11 +124,11 @@ def run_benchmarking(
             from orchestration.jobs.tracking.mlflow_naming import build_mlflow_run_name
             from shared.platform_detection import detect_platform
             from pathlib import Path
-            
+
             # Infer root_dir and config_dir from output_path
             root_dir = project_root if project_root else Path.cwd()
             config_dir = root_dir / "config" if root_dir else None
-            
+
             # Extract trial_id from checkpoint path if benchmarking an HPO trial
             extracted_trial_id = None
             if benchmark_source == "hpo_trial" and checkpoint_dir:
@@ -137,27 +143,29 @@ def run_benchmarking(
                     # Fallback: try to extract from path
                     parts = str(checkpoint_dir).split("trial")
                     if len(parts) > 1:
-                        trial_part = "trial" + parts[1].split("/")[0].split("\\")[0]
+                        trial_part = "trial" + \
+                            parts[1].split("/")[0].split("\\")[0]
                         extracted_trial_id = trial_part
                         logger.info(
                             f"[Benchmark Run Name] Extracted trial_id from path (fallback): {extracted_trial_id}"
                         )
-            
+
             # Create NamingContext for benchmarking
             # For HPO trial benchmarks, trial_id should be the trial identifier
             # For final training benchmarks, trial_id can be None or a variant identifier
             benchmark_context = create_naming_context(
                 process_type="benchmarking",
-                model=backbone.split("-")[0] if backbone and "-" in backbone else backbone,
+                model=backbone.split(
+                    "-")[0] if backbone and "-" in backbone else backbone,
                 environment=detect_platform(),
                 trial_id=extracted_trial_id,  # Use extracted trial_id if available
             )
-            
+
             logger.info(
                 f"[Benchmark Run Name] Building run name: trial_id={benchmark_context.trial_id}, "
                 f"root_dir={root_dir}, config_dir={config_dir}"
             )
-            
+
             # Build systematic run name with auto-increment
             run_name = build_mlflow_run_name(
                 benchmark_context,
@@ -165,7 +173,7 @@ def run_benchmarking(
                 root_dir=root_dir,
                 output_dir=output_path.parent if output_path else None,
             )
-            
+
             logger.info(
                 f"[Benchmark Run Name] Generated run name: {run_name}"
             )

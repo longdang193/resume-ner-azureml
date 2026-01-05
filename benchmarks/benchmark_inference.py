@@ -35,12 +35,17 @@ def load_model_from_checkpoint(
     device_obj = torch.device(device)
     
     # Load tokenizer
+    print(f"Loading tokenizer from {checkpoint_dir}...", flush=True)
     tokenizer = AutoTokenizer.from_pretrained(checkpoint_dir)
+    print("Tokenizer loaded.", flush=True)
     
     # Load model
+    print(f"Loading model from {checkpoint_dir}...", flush=True)
     model = AutoModelForTokenClassification.from_pretrained(checkpoint_dir)
+    print(f"Moving model to {device_obj}...", flush=True)
     model.to(device_obj)
     model.eval()
+    print("Model loaded and set to eval mode.", flush=True)
     
     return model, tokenizer, device_obj
 
@@ -112,7 +117,9 @@ def benchmark_batch_inference(
     latencies = []
     
     # Warmup
-    for _ in range(warmup_iterations):
+    if warmup_iterations > 0:
+        print(f"    Warmup: {warmup_iterations} iterations...", flush=True, end="")
+    for i in range(warmup_iterations):
         inputs = tokenizer(
             texts,
             return_tensors="pt",
@@ -123,9 +130,15 @@ def benchmark_batch_inference(
         inputs = {k: v.to(device) for k, v in inputs.items()}
         with torch.no_grad():
             _ = model(**inputs)
+        # Show progress every 10 iterations
+        if (i + 1) % 10 == 0 or (i + 1) == warmup_iterations:
+            print(f" {i + 1}/{warmup_iterations}", flush=True, end="")
+    if warmup_iterations > 0:
+        print(" done.", flush=True)
     
     # Actual measurement
-    for _ in range(num_iterations):
+    print(f"    Measurement: {num_iterations} iterations...", flush=True, end="")
+    for i in range(num_iterations):
         inputs = tokenizer(
             texts,
             return_tensors="pt",
@@ -142,6 +155,11 @@ def benchmark_batch_inference(
         
         latency_ms = (end - start) * 1000
         latencies.append(latency_ms)
+        
+        # Show progress every 20 iterations
+        if (i + 1) % 20 == 0 or (i + 1) == num_iterations:
+            print(f" {i + 1}/{num_iterations}", flush=True, end="")
+    print(" done.", flush=True)
     
     # Calculate statistics
     if not latencies:
@@ -200,14 +218,14 @@ def benchmark_model(
     Returns:
         Dictionary with benchmark results for each batch size.
     """
-    print(f"Loading model from {checkpoint_dir}...")
+    print(f"Starting benchmark for checkpoint: {checkpoint_dir}", flush=True)
     model, tokenizer, device_obj = load_model_from_checkpoint(checkpoint_dir, device)
-    print(f"Model loaded on device: {device_obj}")
+    print(f"Model ready on device: {device_obj}", flush=True)
     
     results = {}
     
     for batch_size in batch_sizes:
-        print(f"\nBenchmarking batch size {batch_size}...")
+        print(f"\nBenchmarking batch size {batch_size}...", flush=True)
         
         # Create batch
         batch_texts = test_texts[:batch_size]
@@ -216,6 +234,7 @@ def benchmark_model(
             batch_texts = (batch_texts * ((batch_size // len(batch_texts)) + 1))[:batch_size]
         
         # Benchmark this batch size
+        print(f"  Running {warmup_iterations} warmup iterations, then {num_iterations} measurement iterations...", flush=True)
         batch_results = benchmark_batch_inference(
             model=model,
             tokenizer=tokenizer,
@@ -228,9 +247,9 @@ def benchmark_model(
         
         results[f"batch_{batch_size}"] = batch_results
         
-        print(f"  Mean latency: {batch_results['mean_ms']:.2f} ms")
-        print(f"  P95 latency: {batch_results['p95_ms']:.2f} ms")
-        print(f"  Throughput: {batch_results['throughput_docs_per_sec']:.2f} docs/sec")
+        print(f"  Mean latency: {batch_results['mean_ms']:.2f} ms", flush=True)
+        print(f"  P95 latency: {batch_results['p95_ms']:.2f} ms", flush=True)
+        print(f"  Throughput: {batch_results['throughput_docs_per_sec']:.2f} docs/sec", flush=True)
     
     # Add metadata
     results["device"] = str(device_obj)
@@ -326,7 +345,7 @@ def main():
     if not test_texts:
         raise ValueError("No test texts found in test data file")
     
-    print(f"Loaded {len(test_texts)} test texts")
+    print(f"Loaded {len(test_texts)} test texts", flush=True)
     
     # Run benchmark
     results = benchmark_model(
@@ -340,11 +359,12 @@ def main():
     )
     
     # Save results
+    print(f"\nSaving results to {output_path}...", flush=True)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2)
     
-    print(f"\nBenchmark results saved to {output_path}")
+    print(f"Benchmark results saved to {output_path}", flush=True)
 
 
 if __name__ == "__main__":
