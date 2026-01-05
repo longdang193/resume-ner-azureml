@@ -1,5 +1,6 @@
 """Training loop utilities."""
 
+import sys
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
@@ -512,5 +513,42 @@ def train_model(
             is_best_trial=is_best_trial,
             save_only_best=save_only_best,
         )
+
+        # Fallback: Log artifacts explicitly when tracker is not provided but MLflow run is active
+        # This is needed for final training where run is created in parent process
+        # Do this AFTER checkpoint is saved so the checkpoint directory exists
+        try:
+            import mlflow
+            active_run = mlflow.active_run()
+            if active_run is not None:
+                print(f"  [Training] Active MLflow run detected: {active_run.info.run_id[:12]}...", file=sys.stderr, flush=True)
+                checkpoint_dir = output_dir / "checkpoint"
+                if checkpoint_dir.exists():
+                    print(f"  [Training] Logging checkpoint artifacts from: {checkpoint_dir}", file=sys.stderr, flush=True)
+                    mlflow.log_artifacts(
+                        str(checkpoint_dir),
+                        artifact_path="checkpoint"
+                    )
+                    print(f"  [Training] ✓ Logged checkpoint artifacts to MLflow", file=sys.stderr, flush=True)
+                else:
+                    print(f"  [Training] ⚠ Checkpoint directory does not exist: {checkpoint_dir}", file=sys.stderr, flush=True)
+                
+                # Log metrics.json if it exists
+                metrics_json_path = output_dir / "metrics.json"
+                if metrics_json_path.exists():
+                    mlflow.log_artifact(
+                        str(metrics_json_path),
+                        artifact_path="metrics.json"
+                    )
+                    print(f"  [Training] ✓ Logged metrics.json to MLflow", file=sys.stderr, flush=True)
+            else:
+                print(f"  [Training] ⚠ No active MLflow run - cannot log artifacts", file=sys.stderr, flush=True)
+        except Exception as e:
+            from shared.logging_utils import get_logger
+            logger = get_logger(__name__)
+            logger.warning(f"Could not log artifacts to MLflow: {e}")
+            import traceback
+            print(f"  [Training] ⚠ Artifact logging error: {e}", file=sys.stderr, flush=True)
+            traceback.print_exc()
 
     return metrics

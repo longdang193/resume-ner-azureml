@@ -114,18 +114,33 @@ def run_training(args: argparse.Namespace, prebuilt_config: dict | None = None) 
     started_existing = False
 
     if use_run_id:
-        # Use existing run directly (for refit training)
-        # IMPORTANT: Don't start an active run context - use client API instead
-        # This prevents MLflow from auto-ending the run when subprocess exits
-        print(
-            f"  [Training] Using existing run: {use_run_id[:12]}... (refit mode)", 
-            file=sys.stderr, flush=True
-        )
-        # Don't start an active run - we'll log via client API instead
-        # This keeps the run RUNNING until parent process explicitly terminates it
-        started_run_directly = False  # Don't track as started - we're not using active run
-        started_existing = True  # Mark as existing run (refit mode)
-        print(f"  [Training] ✓ Will log to existing run via client API (run stays RUNNING)", file=sys.stderr, flush=True)
+        # Check if this is final training (no parent_run_id) vs refit mode (has parent_run_id)
+        # For final training: start run actively so artifacts can be logged
+        # For refit mode: don't start run (keep it RUNNING for parent to manage)
+        is_final_training = parent_run_id is None
+        
+        if is_final_training:
+            # Final training: start the run actively so artifacts can be logged
+            print(
+                f"  [Training] Using existing run: {use_run_id[:12]}... (final training)", 
+                file=sys.stderr, flush=True
+            )
+            mlflow.start_run(run_id=use_run_id)
+            started_run_directly = True
+            started_existing = False  # Not refit mode - we'll end the run normally
+            print(f"  [Training] ✓ Started run for artifact logging", file=sys.stderr, flush=True)
+        else:
+            # Refit mode: don't start an active run context - use client API instead
+            # This prevents MLflow from auto-ending the run when subprocess exits
+            print(
+                f"  [Training] Using existing run: {use_run_id[:12]}... (refit mode)", 
+                file=sys.stderr, flush=True
+            )
+            # Don't start an active run - we'll log via client API instead
+            # This keeps the run RUNNING until parent process explicitly terminates it
+            started_run_directly = False  # Don't track as started - we're not using active run
+            started_existing = True  # Mark as existing run (refit mode)
+            print(f"  [Training] ✓ Will log to existing run via client API (run stays RUNNING)", file=sys.stderr, flush=True)
     elif parent_run_id:
         # Construct unique run name: include fold index if k-fold CV is enabled
         if fold_idx is not None:

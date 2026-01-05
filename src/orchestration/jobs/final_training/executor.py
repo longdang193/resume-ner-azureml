@@ -9,16 +9,22 @@ from pathlib import Path
 from typing import Any, Dict
 
 import mlflow
+from mlflow.tracking import MlflowClient
 
 from orchestration.config_loader import ExperimentConfig, load_all_configs
 from orchestration.data_assets import resolve_dataset_path
 from orchestration.final_training_config import load_final_training_config
 from orchestration.fingerprints import compute_exec_fp, compute_spec_fp
+from orchestration.jobs.tracking.mlflow_naming import (
+    build_mlflow_run_name,
+    build_mlflow_tags,
+    build_mlflow_run_key,
+    build_mlflow_run_key_hash,
+)
+from orchestration.jobs.tracking.mlflow_index import update_mlflow_index
 from orchestration.naming_centralized import build_output_path, create_naming_context
 from shared.platform_detection import detect_platform
 from shared.yaml_utils import load_yaml
-
-from .tags import apply_lineage_tags
 
 
 def execute_final_training(
@@ -221,7 +227,101 @@ def execute_final_training(
     mlflow_tracking_uri = mlflow.get_tracking_uri()
     if mlflow_tracking_uri:
         training_env["MLFLOW_TRACKING_URI"] = mlflow_tracking_uri
+        mlflow.set_tracking_uri(mlflow_tracking_uri)
     training_env["MLFLOW_EXPERIMENT_NAME"] = training_experiment_name
+
+    # Create MLflow run in parent process (no active context)
+    # Build systematic run name
+    run_name = build_mlflow_run_name(
+        context=training_context,
+        config_dir=config_dir,
+        root_dir=root_dir,
+        output_dir=final_output_dir,
+    )
+
+    # Get or create experiment
+    client = MlflowClient()
+    try:
+        experiment = client.get_experiment_by_name(training_experiment_name)
+        if experiment is None:
+            experiment_id = client.create_experiment(training_experiment_name)
+        else:
+            experiment_id = experiment.experiment_id
+    except Exception as e:
+        # Fallback: use mlflow API
+        mlflow.set_experiment(training_experiment_name)
+        experiment = mlflow.get_experiment_by_name(training_experiment_name)
+        if experiment is None:
+            raise RuntimeError(f"Could not get or create experiment: {training_experiment_name}") from e
+        experiment_id = experiment.experiment_id
+
+    # Build tags using build_mlflow_tags + add training-specific and lineage tags
+    tags = build_mlflow_tags(
+        context=training_context,
+        output_dir=final_output_dir,
+        parent_run_id=None,
+        group_id=None,
+        config_dir=config_dir,
+    )
+    tags["mlflow.runType"] = "training"
+    tags["training_type"] = "final"
+    tags["code.trained_on_full_data"] = "true"
+    tags["mlflow.runName"] = run_name  # Ensure run name is set
+
+    # Add lineage tags (keep code.study_key_hash and code.trial_key_hash as primary,
+    # also add code.lineage.* for explicit lineage tracking)
+    if lineage.get("hpo_study_key_hash"):
+        # Primary grouping tags (for consistency with rest of system)
+        tags["code.study_key_hash"] = lineage["hpo_study_key_hash"]
+        # Lineage tags (additional, for explicit lineage tracking)
+        tags["code.lineage.hpo_study_key_hash"] = lineage["hpo_study_key_hash"]
+        tags["code.lineage.source"] = "hpo_best_selected"
+
+    if lineage.get("hpo_trial_key_hash"):
+        tags["code.trial_key_hash"] = lineage["hpo_trial_key_hash"]
+        tags["code.lineage.hpo_trial_key_hash"] = lineage["hpo_trial_key_hash"]
+
+    if lineage.get("hpo_trial_run_id"):
+        tags["code.lineage.hpo_trial_run_id"] = lineage["hpo_trial_run_id"]
+    if lineage.get("hpo_refit_run_id"):
+        tags["code.lineage.hpo_refit_run_id"] = lineage["hpo_refit_run_id"]
+    if lineage.get("hpo_sweep_run_id"):
+        tags["code.lineage.hpo_sweep_run_id"] = lineage["hpo_sweep_run_id"]
+
+    # Create run WITHOUT starting it (no active context)
+    try:
+        created_run = client.create_run(
+            experiment_id=experiment_id,
+            run_name=run_name,
+            tags=tags,
+        )
+        run_id = created_run.info.run_id
+
+        # Update local index
+        try:
+            run_key = build_mlflow_run_key(training_context)
+            run_key_hash = build_mlflow_run_key_hash(run_key)
+            update_mlflow_index(
+                root_dir=root_dir,
+                run_key_hash=run_key_hash,
+                run_id=run_id,
+                experiment_id=experiment_id,
+                tracking_uri=mlflow_tracking_uri or mlflow.get_tracking_uri(),
+                config_dir=config_dir,
+            )
+        except Exception as e:
+            print(f"⚠ Could not update MLflow index: {e}")
+
+        print(f"✓ Created MLflow run: {run_name} ({run_id[:12]}...)")
+
+        # Pass run_id to subprocess
+        training_env["MLFLOW_RUN_ID"] = run_id
+    except Exception as e:
+        print(f"⚠ Could not create MLflow run: {e}")
+        import traceback
+        traceback.print_exc()
+        # Continue without MLflow run (training will still work, just no tracking)
+        run_id = None
 
     # Execute training
     print("🔄 Running final training...")
@@ -233,7 +333,13 @@ def execute_final_training(
         text=True,
     )
 
+    # Handle subprocess failure - ensure run is marked as FAILED
     if result.returncode != 0:
+        if run_id:
+            try:
+                client.set_terminated(run_id, status="FAILED")
+            except Exception as e:
+                print(f"⚠ Could not mark run as FAILED: {e}")
         raise RuntimeError(
             f"Final training failed with return code {result.returncode}\n"
             f"STDOUT: {result.stdout}\n"
@@ -242,6 +348,17 @@ def execute_final_training(
     else:
         if result.stdout:
             print(result.stdout)
+        if result.stderr:
+            print(result.stderr)
+        # Subprocess should have ended the run, but verify it's terminated
+        if run_id:
+            try:
+                run_info = client.get_run(run_id)
+                if run_info.info.status == "RUNNING":
+                    # Subprocess didn't end the run, mark it as finished
+                    client.set_terminated(run_id, status="FINISHED")
+            except Exception as e:
+                print(f"⚠ Could not verify run status: {e}")
 
     # Find final checkpoint directory
     final_checkpoint_dir = final_output_dir / "checkpoint"
@@ -252,15 +369,8 @@ def execute_final_training(
             final_checkpoint_dir = actual_checkpoint
 
     print(f"✓ Final training completed. Checkpoint: {final_checkpoint_dir}")
+    if run_id:
+        print(f"✓ MLflow run: {run_id[:12]}...")
 
-    # Apply lineage tags
-    apply_lineage_tags(
-        experiment_name=training_experiment_name,
-        context=training_context,
-        output_dir=final_output_dir,
-        root_dir=root_dir,
-        config_dir=config_dir,
-        lineage=lineage,
-    )
-
+    # Tags are already set during run creation, no need to apply lineage tags post-hoc
     return final_checkpoint_dir
