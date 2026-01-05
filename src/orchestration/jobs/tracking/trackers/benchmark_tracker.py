@@ -37,7 +37,6 @@ class MLflowBenchmarkTracker(BaseTracker):
         """
         super().__init__(experiment_name)
 
-
     @contextmanager
     def start_benchmark_run(
         self,
@@ -50,9 +49,19 @@ class MLflowBenchmarkTracker(BaseTracker):
         group_id: Optional[str] = None,
         study_key_hash: Optional[str] = None,
         trial_key_hash: Optional[str] = None,
+        hpo_trial_run_id: Optional[str] = None,
+        hpo_refit_run_id: Optional[str] = None,
+        hpo_sweep_run_id: Optional[str] = None,
     ):
         """
         Start a MLflow run for benchmarking.
+
+        Run names are UI sugar only. All parent-child relationships are tracked via tags
+        (`code.lineage.*`). Never parse run names for logic.
+        
+        IMPORTANT: On AzureML, `parentRunId` field cannot be set for runs created in separate
+        processes (subprocesses). Parent-child relationships are tracked exclusively via
+        `code.lineage.*` tags, which are the authoritative source of truth.
 
         Args:
             run_name: Name for the benchmark run.
@@ -60,25 +69,50 @@ class MLflowBenchmarkTracker(BaseTracker):
             benchmark_source: Source of benchmark ("hpo_trial" or "final_training").
             context: Optional NamingContext for tag-based identification.
             output_dir: Optional output directory for metadata persistence.
-            parent_run_id: Optional parent MLflow run ID.
+            parent_run_id: Optional parent MLflow run ID (legacy, for backward compatibility).
             group_id: Optional group/session identifier.
             study_key_hash: Optional study key hash from HPO trial (for grouping tags).
             trial_key_hash: Optional trial key hash from HPO trial (for grouping tags).
+            hpo_trial_run_id: Optional HPO trial run ID (CV trial run, lineage parent).
+            hpo_refit_run_id: Optional HPO refit run ID (refit run, artifact parent).
+            hpo_sweep_run_id: Optional HPO sweep run ID (HPO parent, optional).
 
         Yields:
             RunHandle with run information.
         """
         try:
+            # Infer config_dir from output_dir
+            config_dir = None
+            if output_dir:
+                root_dir_for_config = output_dir.parent.parent if output_dir.parent.name == "outputs" else output_dir.parent.parent.parent
+                config_dir = root_dir_for_config / "config" if root_dir_for_config else None
+
+            # Validate run IDs are UUIDs (not timestamps) BEFORE creating run
+            import re
+            uuid_pattern = re.compile(
+                r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                re.IGNORECASE
+            )
+
+            valid_trial_run_id = hpo_trial_run_id if (
+                hpo_trial_run_id and uuid_pattern.match(hpo_trial_run_id)) else None
+            valid_refit_run_id = hpo_refit_run_id if (
+                hpo_refit_run_id and uuid_pattern.match(hpo_refit_run_id)) else None
+            valid_sweep_run_id = hpo_sweep_run_id if (
+                hpo_sweep_run_id and uuid_pattern.match(hpo_sweep_run_id)) else None
+
+            # Determine parent run ID for lineage (priority: trial > refit > sweep)
+            lineage_parent_run_id = valid_trial_run_id or valid_refit_run_id or valid_sweep_run_id
+            parent_kind = (
+                "trial" if valid_trial_run_id
+                else ("refit" if valid_refit_run_id
+                      else ("sweep" if valid_sweep_run_id else ""))
+            )
+
             with mlflow.start_run(run_name=run_name) as benchmark_run:
                 run_id = benchmark_run.info.run_id
                 experiment_id = benchmark_run.info.experiment_id
                 tracking_uri = mlflow.get_tracking_uri()
-
-                # Infer config_dir from output_dir
-                config_dir = None
-                if output_dir:
-                    root_dir_for_config = output_dir.parent.parent if output_dir.parent.name == "outputs" else output_dir.parent.parent.parent
-                    config_dir = root_dir_for_config / "config" if root_dir_for_config else None
 
                 logger.info(
                     f"[START_BENCHMARK_RUN] Building tags: context={context}, "
@@ -117,10 +151,40 @@ class MLflowBenchmarkTracker(BaseTracker):
                     f"code.model={tags.get('code.model')}, "
                     f"code.stage={tags.get('code.stage')}"
                 )
+
+                # Use pre-computed lineage_parent_run_id and parent_kind from before run creation
+
+                # Set explicit lineage tags using code.lineage.* namespace (only valid UUIDs)
+                if valid_trial_run_id:
+                    tags["code.lineage.hpo_trial_run_id"] = valid_trial_run_id
+                if valid_refit_run_id:
+                    tags["code.lineage.hpo_refit_run_id"] = valid_refit_run_id
+                if valid_sweep_run_id:
+                    tags["code.lineage.hpo_sweep_run_id"] = valid_sweep_run_id
+
+                # Canonical parent tags (only if we have a valid parent)
+                if lineage_parent_run_id:
+                    tags["code.lineage.parent_run_id"] = lineage_parent_run_id
+                    tags["code.lineage.parent_kind"] = parent_kind
+                    logger.info(
+                        f"[START_BENCHMARK_RUN] Set lineage tags: parent_run_id={lineage_parent_run_id[:12]}..., "
+                        f"parent_kind={parent_kind}"
+                    )
+                else:
+                    logger.warning(
+                        f"[START_BENCHMARK_RUN] No valid parent run IDs found. "
+                        f"Received: trial={hpo_trial_run_id[:20] if hpo_trial_run_id else None}, "
+                        f"refit={hpo_refit_run_id[:20] if hpo_refit_run_id else None}, "
+                        f"sweep={hpo_sweep_run_id[:20] if hpo_sweep_run_id else None}. "
+                        f"These may be timestamps or None - will query MLflow if trial_key_hash available."
+                    )
+
                 # Add benchmark-specific tags
                 tags["benchmark_source"] = benchmark_source
                 tags["benchmarked_model"] = backbone
                 tags["mlflow.runType"] = "benchmark"
+                # Set run name as tag (MLflow version compatibility)
+                tags["mlflow.runName"] = run_name
                 mlflow.set_tags(tags)
 
                 # Commit reserved version if auto-increment was used
@@ -381,6 +445,3 @@ class MLflowBenchmarkTracker(BaseTracker):
                                         artifact_path="benchmark.json")
         except Exception as e:
             logger.warning(f"Could not log benchmark results to MLflow: {e}")
-
-
-
