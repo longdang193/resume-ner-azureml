@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 from azure.ai.ml import Input, Output, command
-from azure.ai.ml.entities import Environment, Job
+from azure.ai.ml.entities import Environment, Job, Data
 
 
 DEFAULT_RANDOM_SEED = 42
@@ -44,6 +44,7 @@ def build_final_training_config(
         "random_seed": random_seed,
         "early_stopping_enabled": False,
         "use_combined_data": True,
+        "use_all_data": True,  # Final training uses all data without validation split
     }
 
 
@@ -61,9 +62,26 @@ def validate_final_training_job(job: Job) -> None:
         raise ValueError(f"Final training job failed with status: {job.status}")
 
 
+def _build_data_input_from_asset(data_asset: Data) -> Input:
+    """
+    Build a standard Azure ML ``Input`` for a ``uri_folder`` data asset.
+
+    Args:
+        data_asset: Registered Azure ML data asset.
+
+    Returns:
+        Input pointing at the asset, mounted as a folder.
+    """
+    return Input(
+        type="uri_folder",
+        path=f"azureml:{data_asset.name}:{data_asset.version}",
+        mode="mount",
+    )
+
+
 def create_final_training_job(
     script_path: Path,
-    data_asset_datastore_path: str,
+    data_asset: Data,
     environment: Environment,
     compute_cluster: str,
     final_config: Dict[str, Any],
@@ -79,7 +97,7 @@ def create_final_training_job(
 
     Args:
         script_path: Path to the training script within the repo.
-        data_asset_datastore_path: Datastore path to the training data.
+        data_asset: Registered data asset providing training data.
         environment: Azure ML environment to run the job in.
         compute_cluster: Name of the compute cluster to target.
         final_config: Selected hyperparameter configuration.
@@ -109,7 +127,7 @@ def create_final_training_job(
         f"--use-combined-data {str(final_config['use_combined_data']).lower()}"
     )
 
-    data_input = Input(type="uri_folder", path=data_asset_datastore_path)
+    data_input = _build_data_input_from_asset(data_asset)
 
     # Use the project root as code snapshot so both `src/` and `config/` are included.
     # Azure ML automatically sets AZURE_ML_OUTPUT_checkpoint for the named "checkpoint"

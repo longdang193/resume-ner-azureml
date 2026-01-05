@@ -1,0 +1,91 @@
+# MLflow Tracking Configuration
+# This file centralizes MLflow tracking settings for all platforms
+
+# Azure ML Workspace Configuration (for unified tracking)
+# If enabled, all platforms will use Azure ML Workspace for MLflow tracking
+# If disabled or unavailable, each platform uses local SQLite tracking
+azure_ml:
+  enabled: true  # Set to true to enable Azure ML Workspace tracking
+  workspace_name: "resume-ner-ws"  # Must match config/infrastructure.yaml
+  # Credentials are loaded from environment variables:
+  # - AZURE_SUBSCRIPTION_ID
+  # - AZURE_RESOURCE_GROUP
+  # - DefaultAzureCredential is used for authentication
+
+# Local Tracking Configuration (fallback when Azure ML is disabled/unavailable)
+local:
+  # Platform-specific paths are automatically resolved:
+  # - Colab: /content/drive/MyDrive/resume-ner-mlflow/mlflow.db (if Drive mounted)
+  #          /content/mlflow.db (if Drive not mounted)
+  # - Kaggle: /kaggle/working/mlflow.db
+  # - Local: ./mlruns/mlflow.db
+  # No configuration needed - paths are platform-aware
+
+# Experiment Naming
+# Experiment names are built from experiment config and stage
+# Format: "{experiment_name}-{stage}-{backbone}"
+# Example: "resume_ner_baseline-hpo-distilbert"
+# This is handled automatically by build_mlflow_experiment_name()
+
+# Stage-Specific Tracking Configuration
+# Control MLflow logging per pipeline stage
+tracking:
+  # Benchmarking stage tracking
+  benchmark:
+    enabled: true  # Set to false to disable MLflow tracking for benchmarks
+    log_artifacts: true  # Log benchmark.json artifact
+  
+  # Final training stage tracking
+  training:
+    enabled: true  # Set to false to disable MLflow tracking for training
+    log_checkpoint: true  # Log checkpoint directory as artifact
+    log_metrics_json: true  # Log metrics.json file as artifact
+  
+  # Model conversion stage tracking
+  conversion:
+    enabled: true  # Set to false to disable MLflow tracking for conversion
+    log_onnx_model: true  # Log converted ONNX model as artifact
+    log_conversion_log: true  # Log conversion log file as artifact (if available)
+
+# Systematic Naming Configuration
+# Settings for tag-based run identification and naming
+naming:
+  # Project identifier for tag namespace
+  # Used in code.project tag to avoid collisions in shared MLflow servers
+  project_name: "resume-ner"
+  
+  # Tag configuration
+  tags:
+    max_length: 250  # MLflow tag value max length (MLflow limit is typically 250-500 chars)
+    sanitize: true   # Enable tag sanitization for backend compatibility (ASCII, trim, etc.)
+  
+  # Run name configuration
+  # Run names are human-readable display names (may be overridden by Azure ML)
+  run_name:
+    max_length: 100  # Recommended max for readability (not enforced, just guidance)
+    shorten_fingerprints: true  # Shorten spec_fp/exec_fp in run names for readability
+    
+    # Auto-increment configuration
+    # Enables atomic version numbering for run names (prevents race conditions)
+    auto_increment:
+      enabled: true  # Global toggle (default: false for backward compatibility)
+      processes:
+        hpo: true  # Enable auto-increment for HPO run names
+        benchmarking: true  # Enable auto-increment for benchmarking run names
+      # Format: base.{version} (e.g., "hpo_distilbert_smoke_test_3.1", "benchmark_distilbert.1")
+      format: "{base}.{version}"
+
+# Index Cache Configuration
+# Local cache for fast run retrieval (run_key_hash -> run_id mapping)
+index:
+  enabled: true  # Enable local index cache (set to false to disable)
+  max_entries: 1000  # Maximum entries before LRU eviction
+  file_name: "mlflow_index.json"  # Index file name in cache directory (outputs/cache/)
+
+# Run Finder Configuration
+# Settings for MLflow run retrieval behavior
+run_finder:
+  strict_mode_default: true  # Default strict mode (fail loud vs. weak fallbacks)
+  # When strict=True: Only use reliable retrieval methods, fail if run not found
+  # When strict=False: Allow weak fallbacks (may attach to wrong run)
+

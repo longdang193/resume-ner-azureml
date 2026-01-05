@@ -13,12 +13,18 @@ def resolve_dataset_path(data_config: Dict[str, Any]) -> Path:
     """
     Resolve the local dataset folder from the data configuration.
 
+    Handles seed-based dataset structures (e.g., dataset_tiny/seed0/) when:
+    - The config contains a ``seed`` field
+    - The resolved path contains ``dataset_tiny``
+
     Args:
-        data_config: Data configuration dictionary containing a ``local_path`` field.
+        data_config: Data configuration dictionary containing a ``local_path`` field
+            and optionally a ``seed`` field.
 
     Returns:
         Path to the dataset directory. Defaults to ``../dataset`` if ``local_path``
-        is not specified in the config.
+        is not specified in the config. If ``seed`` is specified and the path
+        contains ``dataset_tiny``, appends ``seed{N}`` subdirectory.
 
     Raises:
         ValueError: If ``local_path`` is specified but is not a valid string.
@@ -28,7 +34,15 @@ def resolve_dataset_path(data_config: Dict[str, Any]) -> Path:
         raise ValueError(
             f"data_config['local_path'] must be a string, got {type(local_path).__name__}"
         )
-    return Path(local_path)
+
+    dataset_path = Path(local_path)
+
+    # Check if seed-based dataset structure (for dataset_tiny with seed subdirectories)
+    seed = data_config.get("seed")
+    if seed is not None and "dataset_tiny" in str(dataset_path):
+        dataset_path = dataset_path / f"seed{seed}"
+
+    return dataset_path
 
 
 def register_data_asset(
@@ -67,7 +81,7 @@ def register_data_asset(
             except (ValueError, OSError):
                 # Path can't be resolved, use as-is
                 normalized_uri = uri
-        
+
         data_asset = Data(
             name=name,
             version=version,
@@ -107,7 +121,7 @@ def ensure_data_asset_uploaded(
     """
     local_path_resolved = local_path.resolve()
     local_path_str = str(local_path_resolved)
-    
+
     # Always check if the asset already exists in Azure ML first
     try:
         existing_asset = ml_client.data.get(
@@ -116,11 +130,11 @@ def ensure_data_asset_uploaded(
         )
         # Asset exists - check if it's already uploaded to datastore
         existing_path = existing_asset.path.rstrip("/")
-        
+
         if existing_path.startswith("azureml://"):
             # Already uploaded to datastore, no action needed
             return existing_asset
-        
+
         # Asset exists with a local path - check if it matches our expected path
         # Normalize both paths for comparison
         try:
@@ -136,11 +150,11 @@ def ensure_data_asset_uploaded(
                 existing_path == str(local_path) or
                 existing_path == str(local_path_resolved)
             )
-        
+
         # Asset exists - return it regardless of path match
         # Azure ML will resolve the path when jobs run
         return existing_asset
-        
+
     except ResourceNotFoundError:
         # Asset doesn't exist yet - create it with the local path
         # Note: This registers the asset but doesn't upload files.

@@ -1,0 +1,24 @@
+# Model Configuration - DistilRoBERTa
+# Based on EDA key decisions (mirrors distilbert settings)
+
+backbone: "distilroberta-base"
+tokenizer: "distilroberta-base"
+
+# EDA-based decisions
+preprocessing:
+  sequence_length: 40  # Covers ~95% of sentences; adjust if your EDA differs
+  max_length: 128      # Safety margin
+  tokenization: "subword"  # BPE/WordPiece for lexical sparsity
+  replace_rare_with_unk: true
+  unk_frequency_threshold: 2  # Replace tokens with freq ≤2
+  keep_stopwords: true  # Helps entity boundaries
+
+decoding:
+  use_crf: true  # Span-aware decoding for entity spans
+  crf_learning_rate: 0.01
+
+loss:
+  use_class_weights: true
+  class_weight_smoothing: 0.1  # Avoid naïve inverse-frequency
+  ignore_index: -100
+

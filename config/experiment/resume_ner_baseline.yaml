@@ -4,8 +4,9 @@ experiment_name: "resume_ner_baseline"
 data_config: "data/resume_tiny.yaml"
 model_config: "model/distilbert.yaml"
 train_config: "train.yaml"
-hpo_config: "hpo/smoke.yaml"      # default HPO config; stages can override if needed
+hpo_config: "hpo/prod.yaml"      # default HPO config; stages can override if needed
 env_config: "env/azure.yaml"
+benchmark_config: "benchmark.yaml"
 
 # High-level orchestration design:
 # - Stages: smoke → hpo → training
@@ -17,11 +18,15 @@ stages:
   smoke:
     # AML experiment base name for smoke tests
     aml_experiment: "resume-ner-smoke"
+    # HPO config for smoke/dry run tests (uses smoke.yaml with reduced trials)
+    hpo_config: "hpo/smoke.yaml"
     # Backbones are controlled by the HPO config file (hpo_config) via search_space.backbone.values
 
   hpo:
     # AML experiment base name for HPO sweeps
     aml_experiment: "resume-ner-hpo"
+    # HPO config override for production HPO sweep (uses prod.yaml instead of default smoke.yaml)
+    hpo_config: "hpo/smoke.yaml"
     # Backbones are controlled by the HPO config file (hpo_config) via search_space.backbone.values
 
   training:

@@ -2,7 +2,7 @@
 
 from typing import Dict, List
 
-from seqeval.metrics import f1_score
+from seqeval.metrics import f1_score, classification_report
 
 
 def compute_f1_for_label(label: str, flat_true: List[str], flat_pred: List[str]) -> float:
@@ -64,11 +64,56 @@ def compute_token_macro_f1(all_labels: List[List[str]], all_preds: List[List[str
     return sum(f1_scores) / len(f1_scores)
 
 
+def compute_per_entity_metrics(
+    all_labels: List[List[str]],
+    all_preds: List[List[str]],
+) -> Dict[str, Dict[str, float]]:
+    """
+    Compute precision, recall, and F1 for each entity type.
+
+    Args:
+        all_labels: List of true label sequences.
+        all_preds: List of predicted label sequences.
+
+    Returns:
+        Dictionary mapping entity names to their metrics:
+        {
+            "PERSON": {"precision": 0.85, "recall": 0.90, "f1": 0.875, "support": 100},
+            "ORG": {"precision": 0.75, "recall": 0.80, "f1": 0.775, "support": 50},
+            ...
+        }
+    """
+    if not all_labels or not all_preds:
+        return {}
+
+    try:
+        # Use seqeval's classification_report to get per-entity metrics
+        report = classification_report(all_labels, all_preds, output_dict=True)
+        
+        # Filter out aggregate rows and extract per-entity metrics
+        per_entity = {}
+        aggregate_keys = {"micro avg", "macro avg", "weighted avg"}
+        
+        for label, metrics in report.items():
+            if label not in aggregate_keys and isinstance(metrics, dict):
+                per_entity[label] = {
+                    "precision": float(metrics.get("precision", 0.0)),
+                    "recall": float(metrics.get("recall", 0.0)),
+                    "f1": float(metrics.get("f1-score", 0.0)),
+                    "support": int(metrics.get("support", 0)),
+                }
+        
+        return per_entity
+    except Exception:
+        # Return empty dict if classification_report fails
+        return {}
+
+
 def compute_metrics(
     all_labels: List[List[str]],
     all_preds: List[List[str]],
     avg_loss: float,
-) -> Dict[str, float]:
+) -> Dict:
     """
     Compute all evaluation metrics.
 
@@ -78,14 +123,21 @@ def compute_metrics(
         avg_loss: Average loss value.
 
     Returns:
-        Dictionary containing all computed metrics.
+        Dictionary containing all computed metrics, including per-entity metrics.
     """
     span_f1 = f1_score(all_labels, all_preds) if all_labels else 0.0
     token_macro_f1 = compute_token_macro_f1(all_labels, all_preds)
+    per_entity = compute_per_entity_metrics(all_labels, all_preds)
     
-    return {
+    result = {
         "macro-f1": float(token_macro_f1),
         "macro-f1-span": float(span_f1),
         "loss": float(avg_loss),
     }
+    
+    # Add per-entity metrics if available
+    if per_entity:
+        result["per_entity"] = per_entity
+    
+    return result
 

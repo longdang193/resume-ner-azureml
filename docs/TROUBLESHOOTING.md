@@ -18,6 +18,8 @@ This document provides solutions to common problems encountered when running the
 
 - [MLflow Issues](#mlflow-issues)
 
+- [FastAPI Service Issues](#fastapi-service-issues)
+
 ## Data Access Issues
 
 ### Problem: `ScriptExecution.StreamAccess.NotFound` Error
@@ -105,7 +107,7 @@ batch_size:
 The training code automatically caps batch size for large models:
 
 ```python
-# In src/train.py
+# In src/training/train.py
 if "deberta" in backbone.lower() and batch_size > 8:
     print(f"⚠️  Reducing batch_size from {batch_size} to 8 for DeBERTa to prevent OOM")
     batch_size = 8
@@ -141,7 +143,7 @@ Slow (Python) tokenizers don't support `return_offsets_mapping`, but the code al
 Check if tokenizer supports offsets before requesting them:
 
 ```python
-# In src/train.py, ResumeNERDataset.__getitem__
+# In src/training/train.py, ResumeNERDataset.__getitem__
 supports_offsets = bool(getattr(self.tokenizer, "is_fast", False))
 
 if supports_offsets:
@@ -233,7 +235,7 @@ dependencies:
 ```
 
 ```python
-# In src/train.py
+# In src/training/train.py
 model = AutoModelForTokenClassification.from_pretrained(
     backbone,
     num_labels=len(label_list),
@@ -337,7 +339,7 @@ use a config path that is relative to that root:
 ```python
 trial_job = command(
     code="..",  # Project root, includes both src/ and config/
-    command="python src/train.py --config-dir config ...",
+    command="python src/training/train.py --config-dir config ...",
     ...
 )
 
@@ -574,7 +576,7 @@ print(f"Error: {getattr(job, 'error', None)}")
 
 1. **Ensure checkpoint output is always materialized**
 
-   In `src/train.py`, always create the `checkpoint` output directory and write a
+   In `src/training/train.py`, always create the `checkpoint` output directory and write a
    placeholder file so Azure ML materializes the output and auto-registers it as a
    data asset:
 
@@ -605,7 +607,7 @@ print(f"Error: {getattr(job, 'error', None)}")
 
 3. **Make the conversion script search nested `checkpoint/` directories**
 
-   In `src/convert_to_onnx.py`, search both the root of the mounted checkpoint folder and
+   In `src/model_conversion/convert_to_onnx.py`, search both the root of the mounted checkpoint folder and
    any nested `checkpoint/` subdirectory for standard Hugging Face weight filenames (for
    example `pytorch_model.bin` or `model.safetensors`) before raising `FileNotFoundError`.
 
@@ -684,7 +686,7 @@ Before submitting jobs, verify:
 
 - [Documentation Guidelines](../docs/rules/CLEAN_DOC.md)
 
-- [Training Script](../src/train.py)
+- [Training Script](../src/training/train.py)
 
 - [Orchestration Notebook](../notebooks/01_orchestrate_training.ipynb)
 
@@ -754,7 +756,7 @@ print(f"Error: {getattr(job, 'error', None)}")
 
 1. **Ensure checkpoint output is always materialized**
 
-   In `src/train.py`, always create the `checkpoint` output directory and write a
+   In `src/training/train.py`, always create the `checkpoint` output directory and write a
    placeholder file so Azure ML materializes the output and auto-registers it as a
    data asset:
 
@@ -785,7 +787,7 @@ print(f"Error: {getattr(job, 'error', None)}")
 
 3. **Make the conversion script search nested `checkpoint/` directories**
 
-   In `src/convert_to_onnx.py`, search both the root of the mounted checkpoint folder and
+   In `src/model_conversion/convert_to_onnx.py`, search both the root of the mounted checkpoint folder and
    any nested `checkpoint/` subdirectory for standard Hugging Face weight filenames (for
    example `pytorch_model.bin` or `model.safetensors`) before raising `FileNotFoundError`.
 
@@ -864,6 +866,6 @@ Before submitting jobs, verify:
 
 - [Documentation Guidelines](../docs/rules/CLEAN_DOC.md)
 
-- [Training Script](../src/train.py)
+- [Training Script](../src/training/train.py)
 
 - [Orchestration Notebook](../notebooks/01_orchestrate_training.ipynb)

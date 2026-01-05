@@ -1,0 +1,19 @@
+# Execution Environment - Local Development
+
+compute:
+  device: "cuda"  # or "cpu"
+  num_workers: 4
+
+storage:
+  data_path: "../dataset"
+  output_path: "./outputs"
+
+logging:
+  experiment_name: "resume-ner-local"
+  log_to_azure_ml: false
+  log_to_local: true
+
+monitoring:
+  enable_mlflow: false
+  enable_azure_ml_monitoring: false
+

@@ -1,0 +1,402 @@
+# ============================================================================
+# Paths Configuration
+# ============================================================================
+# Centralized directory structure for the entire ML pipeline.
+# 
+# This file defines all directory paths and file naming patterns used across
+# the pipeline. All path resolution should go through src/orchestration/paths.py
+# to ensure consistency.
+#
+# Usage Example:
+#   from orchestration.paths import resolve_output_path
+#   hpo_dir = resolve_output_path(ROOT_DIR, CONFIG_DIR, "hpo")
+#   # Returns: ROOT_DIR / "outputs" / "hpo"
+#
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Base Directories
+# ----------------------------------------------------------------------------
+# Top-level directories relative to project root.
+# These are the main directories in the repository structure.
+#
+# Example structure:
+#   project_root/
+#     ├── outputs/          # All training outputs
+#     ├── notebooks/        # Jupyter notebooks
+#     ├── config/           # Configuration files
+#     ├── src/              # Source code
+#     ├── tests/            # Test files
+#     └── mlruns/           # Local MLflow runs (if using file store)
+#
+base:
+  outputs: "outputs"      # Main output directory for all training artifacts
+  notebooks: "notebooks"  # Jupyter notebooks directory
+  config: "config"        # Configuration files directory
+  src: "src"              # Source code directory
+  tests: "tests"          # Test files directory
+  mlruns: "mlruns"        # Local MLflow runs (file store, optional)
+
+# ----------------------------------------------------------------------------
+# Output Subdirectories
+# ----------------------------------------------------------------------------
+# Subdirectories within outputs/ for different pipeline stages.
+# All paths are relative to outputs/.
+#
+# Example structure:
+#   outputs/
+#     ├── hpo/                    # Hyperparameter optimization results
+#     ├── final_training/          # Final production training runs
+#     │   └── distilbert_20251228_000723/
+#     │       ├── checkpoint/
+#     │       └── metrics.json
+#     ├── conversion/             # ONNX model conversions
+#     │   └── distilbert_20251228_001226/
+#     │       └── model_int8.onnx
+#     └── cache/                  # Cache files (see cache section below)
+#
+outputs:
+  # HPO (Hyperparameter Optimization) outputs
+  # Structure: outputs/hpo/{environment}/{model}/trial_{n}_{run_id}/
+  #   - For k-fold CV: trial_{n}_{run_id}/cv/fold{k}/checkpoint/
+  #   - For refit training: trial_{n}_{run_id}/refit/checkpoint/
+  #   - For single training (no CV): trial_{n}_{run_id}/checkpoint/
+  hpo: "hpo"                      # HPO sweep results: outputs/hpo/{environment}/{model}/trial_{n}_{run_id}/
+  hpo_tests: "hpo_tests"          # HPO test/smoke run outputs
+  
+  # Benchmarking outputs
+  benchmarking: "benchmarking"    # Benchmarking results: outputs/benchmarking/{environment}/{model}/trial_{trial_id}/
+  
+  # Training outputs
+  final_training: "final_training"        # Final training: outputs/final_training/{environment}/{model}/spec_{spec_fp}_exec_{exec_fp}/v{variant}/
+  dry_run: "dry_run"                      # Dry run/test training outputs
+  
+  # Model conversion outputs
+  conversion: "conversion"        # ONNX conversions: outputs/conversion/{environment}/{model}/{parent_training_id}/conv_{conv_fp}/
+  
+  # Best model selection outputs
+  best_model_selection: "best_model_selection"  # Best model selection checkpoints: outputs/best_model_selection/{environment}/{model}/sel_{study_hash[:8]}_{trial_hash[:8]}/
+  
+  # Cache directories (for metadata and cache files)
+  cache: "cache"                  # Cache files: outputs/cache/{cache_type}/
+  
+  # Test outputs
+  e2e_test: "e2e_test"           # End-to-end test outputs
+  pytest_logs: "pytest_logs"     # Pytest log files
+
+# ----------------------------------------------------------------------------
+# Cache Subdirectories
+# ----------------------------------------------------------------------------
+# Subdirectories within outputs/cache/ for different cache types.
+# These store metadata about training runs, best configurations, etc.
+#
+# Example structure:
+#   outputs/cache/
+#     ├── best_configurations/    # Best HPO configuration cache
+#     │   ├── latest_best_configuration.json
+#     │   ├── index.json
+#     │   └── best_config_distilbert_trial_2_20251227_220407.json
+#     └── final_training/         # Final training run cache
+#         ├── latest_final_training_cache.json
+#         ├── final_training_index.json
+#         └── final_training_distilbert_20251228_000723_20251228_001000.json
+#
+cache:
+  best_configurations: "best_configurations"  # Best HPO config cache files
+  final_training: "final_training"           # Final training run cache files
+  
+  # Other cache types can be added here as needed
+  # Example:
+  # conversion_cache: "conversion_cache"     # Conversion metadata cache
+
+# ----------------------------------------------------------------------------
+# File Naming Patterns
+# ----------------------------------------------------------------------------
+# Standard filenames used throughout the pipeline.
+# These are the actual filenames (not paths) for common files.
+#
+# Examples:
+#   - metrics.json: Training metrics saved in each run directory
+#   - benchmark.json: Benchmark results for inference speed
+#   - checkpoint/: Directory containing model checkpoints
+#
+files:
+  # Standard output files (saved in run directories)
+  metrics: "metrics.json"           # Training metrics: {output_dir}/metrics.json
+  benchmark: "benchmark.json"        # Benchmark results: {output_dir}/benchmark.json
+  checkpoint_dir: "checkpoint"       # Checkpoint directory: {output_dir}/checkpoint/
+  
+  # Cache files - dual file strategy (see cache_strategies section)
+  # These files are stored in outputs/cache/{cache_type}/
+  cache:
+    # Best configuration cache files
+    # Location: outputs/cache/best_configurations/
+    best_config_latest: "latest_best_configuration.json"  # Pointer to latest best config
+    best_config_index: "index.json"                       # Index of all best configs
+    
+    # Final training cache files
+    # Location: outputs/cache/final_training/
+    final_training_latest: "latest_final_training_cache.json"  # Pointer to latest training run
+    final_training_index: "final_training_index.json"          # Index of all training runs
+    
+    # Other cache files
+    conversion_cache: "conversion_cache.json"  # Conversion metadata (legacy location: notebooks/)
+
+# ----------------------------------------------------------------------------
+# Directory Patterns (with placeholders)
+# ----------------------------------------------------------------------------
+# Patterns for generating directory and file names with dynamic values.
+# Placeholders are replaced at runtime with actual values.
+#
+# Placeholders for v2 patterns (fingerprint-based):
+#   - {environment}: Execution environment (e.g., "local", "colab", "kaggle", "azure")
+#   - {model}: Model backbone name (e.g., "distilbert", "distilroberta")
+#   - {spec_fp}: Specification fingerprint (platform-independent experiment identity)
+#   - {exec_fp}: Execution fingerprint (toolchain/runtime identity)
+#   - {variant}: Variant number for final_training (e.g., 1, 2, 3)
+#   - {trial_id}: Trial identifier for HPO/benchmarking (e.g., "trial_1_20251229_100000")
+#   - {parent_training_id}: Parent training identifier for conversion (e.g., "spec_abc_exec_xyz/v1")
+#   - {conv_fp}: Conversion fingerprint for conversion variants
+#
+# Placeholders for cache file patterns:
+#   - {backbone}: Model backbone name (e.g., "distilbert", "distilroberta")
+#   - {run_id}: Unique run identifier (e.g., "20251228_000723")
+#   - {trial}: Trial identifier (e.g., "trial_2", "trial_5")
+#   - {timestamp}: Timestamp string (e.g., "20251228_001000")
+#
+# Examples (v2 patterns):
+#   final_training_v2: "{environment}/{model}/spec_{spec_fp}_exec_{exec_fp}/v{variant}"
+#   With environment="local", model="distilbert", spec_fp="abc123", exec_fp="xyz789", variant=1
+#   Result: "local/distilbert/spec_abc123_exec_xyz789/v1"
+#   Full path: outputs/final_training/local/distilbert/spec_abc123_exec_xyz789/v1/
+#
+patterns:
+  # Cache file patterns (still used by cache system)
+  # Best configuration cache file pattern
+  # Example: best_config_distilbert_trial_2_20251227_220407.json
+  # Location: outputs/cache/best_configurations/
+  best_config_file: "best_config_{backbone}_{trial}_{timestamp}.json"
+  
+  # Final training cache file pattern
+  # Example: final_training_distilbert_20251228_000723_20251228_001000.json
+  # Location: outputs/cache/final_training/
+  final_training_cache_file: "final_training_{backbone}_{run_id}_{timestamp}.json"
+
+  # Fingerprint-based paths (v2) - used by build_output_path()
+  # These patterns are used by build_output_path() in naming_centralized.py
+  # to generate fingerprint-based, environment-aware output paths.
+  # Pattern placeholders are replaced at runtime with values from NamingContext.
+  #
+  # Final training with fingerprints
+  final_training_v2: "{environment}/{model}/spec_{spec_fp}_exec_{exec_fp}/v{variant}"
+  
+  # Conversion with parent reference
+  conversion_v2: "{environment}/{model}/{parent_training_id}/conv_{conv_fp}"
+  
+  # Best config with spec_fp
+  best_config_v2: "{model}/spec_{spec_fp}"
+  
+  # HPO with environment
+  # Base pattern: {environment}/{model}/trial_{trial_id}
+  # Subdirectories (handled in code, not in pattern):
+  #   - cv/fold{k}/ for k-fold CV folds
+  #   - refit/ for refit training (trained on full training set)
+  hpo_v2: "{environment}/{model}/trial_{trial_id}"
+  
+  # Benchmarking with environment
+  benchmarking_v2: "{environment}/{model}/trial_{trial_id}"
+
+# ----------------------------------------------------------------------------
+# Cache File Strategies
+# ----------------------------------------------------------------------------
+# Configuration for the "dual file strategy" used for caching training metadata.
+#
+# Dual File Strategy Overview:
+#   The dual file strategy maintains three types of files:
+#   1. Timestamped files: Historical records with full metadata
+#      Example: best_config_distilbert_trial_2_20251227_220407.json
+#   2. Latest pointer: Points to the most recent timestamped file
+#      Example: latest_best_configuration.json (contains copy of latest data)
+#   3. Index file: List of all cache entries for browsing/searching
+#      Example: index.json (contains metadata for all entries)
+#
+# Benefits:
+#   - Easy access: Use "latest" file for most common case
+#   - History preservation: All timestamped files kept for audit trail
+#   - Searchable: Index allows finding specific runs by identifier/timestamp
+#   - No overwrites: Each save creates new timestamped file
+#
+# Usage in Code:
+#   from orchestration.paths import load_cache_file, save_cache_with_dual_strategy
+#   
+#   # Save cache (creates timestamped + updates latest + updates index)
+#   save_cache_with_dual_strategy(
+#       root_dir=ROOT_DIR, config_dir=CONFIG_DIR,
+#       cache_type="final_training", data={...},
+#       backbone="distilbert", identifier="20251228_000723", timestamp="20251228_001000"
+#   )
+#   
+#   # Load latest cache
+#   cache = load_cache_file(ROOT_DIR, CONFIG_DIR, "final_training", use_latest=True)
+#   
+#   # Load specific run
+#   cache = load_cache_file(ROOT_DIR, CONFIG_DIR, "final_training", 
+#                          specific_identifier="20251228_000723")
+#
+cache_strategies:
+  # Best configurations cache (from HPO selection)
+  best_configurations:
+    # Strategy type: "dual" = timestamped + latest + index
+    # Other options: "latest_only", "timestamped_only" (not commonly used)
+    strategy: "dual"
+    
+    # Timestamped file settings
+    # These are the historical records, one per save operation
+    timestamped:
+      enabled: true
+      pattern: "best_config_{backbone}_{trial}_{timestamp}.json"
+      # Keep all timestamped files (no auto-cleanup)
+      # Set to false to enable cleanup, or set max_files to limit count
+      keep_all: true
+      max_files: null  # null = keep all, or set number (e.g., 50) to limit
+    
+    # Latest pointer file settings
+    # This file always points to the most recent timestamped file
+    latest:
+      enabled: true
+      filename: "latest_best_configuration.json"
+      # Include reference to which timestamped file this is pointing to
+      include_timestamped_ref: true
+    
+    # Index file settings
+    # Maintains a searchable list of all cache entries
+    index:
+      enabled: true
+      filename: "index.json"
+      max_entries: 20  # Keep last N entries in index (oldest entries removed)
+      include_metadata: true  # Include full metadata (metrics, params) in index entries
+  
+  # Final training cache strategy
+  # Stores metadata about final training runs (checkpoint paths, metrics, config)
+  final_training:
+    strategy: "dual"
+    
+    # Timestamped file settings
+    timestamped:
+      enabled: true
+      pattern: "final_training_{backbone}_{run_id}_{timestamp}.json"
+      keep_all: true
+      max_files: null
+    
+    # Latest pointer file settings
+    latest:
+      enabled: true
+      filename: "latest_final_training_cache.json"
+      include_timestamped_ref: true
+    
+    # Index file settings
+    index:
+      enabled: true
+      filename: "final_training_index.json"
+      max_entries: 20  # Keep last 20 training runs in index
+      include_metadata: true  # Include metrics, config, checkpoint path in index
+
+# ----------------------------------------------------------------------------
+# Google Drive Backup Configuration (Colab only)
+# ----------------------------------------------------------------------------
+# Configuration for Google Drive backup when running in Google Colab.
+# The backup mirrors the entire local outputs/ directory structure.
+#
+# Local structure (v2 with environment):
+#   outputs/
+#     ├── hpo/{environment}/{model}/trial_{trial_id}/...
+#     ├── benchmarking/{environment}/{model}/trial_{trial_id}/...
+#     ├── final_training/{environment}/{model}/spec_{spec_fp}_exec_{exec_fp}/v{variant}/...
+#     ├── conversion/{environment}/{model}/{parent_training_id}/conv_{conv_fp}/...
+#     └── cache/
+#         ├── best_configurations/{model}/spec_{spec_fp}/...
+#         └── final_training/...
+#
+# Drive structure (mirrors local exactly):
+#   /content/drive/MyDrive/{backup_base_dir}/outputs/
+#     ├── hpo/{environment}/{model}/trial_{trial_id}/...
+#     ├── benchmarking/{environment}/{model}/trial_{trial_id}/...
+#     ├── final_training/{environment}/{model}/spec_{spec_fp}_exec_{exec_fp}/v{variant}/...
+#     ├── conversion/{environment}/{model}/{parent_training_id}/conv_{conv_fp}/...
+#     └── cache/
+#         ├── best_configurations/{model}/spec_{spec_fp}/...
+#         └── final_training/...
+#
+# Usage:
+#   from orchestration.paths import get_drive_backup_path, get_drive_backup_base
+#   drive_path = get_drive_backup_path(ROOT_DIR, CONFIG_DIR, local_output_path)
+#   # Example: Returns /content/drive/MyDrive/resume-ner-azureml/outputs/hpo/colab/distilbert/trial_0_20260101_161725/refit/checkpoint/
+#
+drive:
+  # Google Drive mount point (standard Colab location)
+  # Full path will be: {mount_point}/MyDrive/{backup_base_dir}
+  mount_point: "/content/drive"
+  
+  # Base backup directory in Google Drive
+  # Full path: {mount_point}/MyDrive/{backup_base_dir}
+  # Changed from "resume-ner-checkpoints" to "resume-ner-azureml" to preserve project structure
+  backup_base_dir: "resume-ner-azureml"
+  
+  # Optional: Auto-restore from Drive on startup (default: false)
+  # When enabled, checks Drive for missing local files and restores them
+  auto_restore_on_startup: false
+
+# ----------------------------------------------------------------------------
+# Variant Configuration
+# ----------------------------------------------------------------------------
+# Configuration for variant system (v1, v2, etc.) to support force_new and retries.
+#
+# Variants allow multiple runs with the same spec_fp + exec_fp without overwriting.
+# This is essential for:
+#   - force_new scenarios (explicitly create new run)
+#   - Retries after interruptions
+#   - Testing different seeds with same config
+#
+variants:
+  final_training:
+    enabled: true
+    default: 1
+    auto_increment: true  # Automatically increment for force_new
+
+# ----------------------------------------------------------------------------
+# Index Configuration
+# ----------------------------------------------------------------------------
+# Configuration for index files that enable fast lookup by spec_fp, env, model.
+#
+# Index files are stored in outputs/cache/ and provide:
+#   - Fast lookup: Find all runs with matching spec_fp
+#   - Cross-platform comparison: Group by spec_fp across environments
+#   - Model organization: Find all runs for a specific model
+#
+indexes:
+  final_training:
+    enabled: true
+    filename: "final_training_index.json"
+    max_entries: 100  # Maximum entries in main entries list
+    max_per_spec_fp: 20  # Maximum entries per spec_fp
+    max_per_env: 50  # Maximum entries per environment
+    max_per_model: 50  # Maximum entries per model
+  
+  conversion:
+    enabled: true
+    filename: "conversion_index.json"
+    max_entries: 100
+    max_per_spec_fp: 20
+    max_per_env: 50
+    max_per_model: 50
+  
+  hpo:
+    enabled: false  # HPO uses trial-based organization, index optional
+    filename: "hpo_index.json"
+    max_entries: 200
+  
+  benchmarking:
+    enabled: false  # Benchmarking uses trial-based organization, index optional
+    filename: "benchmarking_index.json"
+    max_entries: 200
+

@@ -1,0 +1,121 @@
+# Final Training Configuration
+# Controls all aspects of final training: dataset, checkpoint, variant, hyperparameters
+
+# Run mode configuration (unified behavior control)
+run:
+  # Run mode determines overall behavior:
+  # - reuse_if_exists: Skip if complete (default), reuse variant if exists
+  # - force_new: Always create new variant, ignore existing
+  # - resume_if_incomplete: Resume same run if incomplete, otherwise new variant
+  # - continue_from_previous: Continue from previous final_training (requires source.type=final_training)
+  mode: reuse_if_exists
+
+# Source configuration (explicit checkpoint source intent)
+source:
+  # Source type clarifies checkpoint intent:
+  # - scratch: No checkpoint, start from scratch
+  # - best_selected: Use checkpoint from best selected configuration (Step P1-3.6)
+  #                  This is the configuration selected after considering both HPO and benchmarking results
+  # - final_training: Continue from previous final training run
+  type: best_selected
+  
+  # Parent specification (used only when type=final_training)
+  # - null: Auto-detect from latest final_training by spec_fp/exec_fp
+  # - "outputs/final_training/local/distilbert/spec_..._exec_.../v1": Explicit path
+  # - {spec_fp: "...", exec_fp: "...", variant: 1}: Load by fingerprints
+  parent: null
+
+# Dataset configuration
+dataset:
+  # Override the default data_config from experiment config
+  # - null/not set: Auto-detect from experiment_config.data_config (default)
+  # - "data/resume_v1.yaml": Use a specific dataset config
+  data_config: null  # e.g., "data/resume_v2.yaml"
+  
+  # Optional: Override dataset path directly (if you want to use a dataset
+  # that's not in a config file)
+  local_path_override: null
+
+# Checkpoint configuration
+checkpoint:
+  # Whether to load a checkpoint (low-level toggle, set automatically based on source.type)
+  # - false: When source.type=scratch
+  # - true: When source.type=best_selected or final_training
+  load: false
+  
+  # Checkpoint source (if load is true)
+  # Options:
+  # - null: Auto-detect from latest final_training by spec_fp/exec_fp
+  # - "outputs/final_training/local/distilbert/spec_..._exec_.../v1/checkpoint": Explicit path
+  # - {spec_fp: "...", exec_fp: "...", variant: 1}: Load by fingerprints
+  source: null
+  
+  # Whether to validate checkpoint exists
+  validate: true
+
+# Variant configuration
+variant:
+  # Which variant to use
+  # - null: Auto-increment based on run.mode
+  # - 1, 2, 3, etc.: Explicit variant number (ignored if run.mode=force_new)
+  number: null
+
+# Identity controls (fingerprint computation configuration)
+identity:
+  # Control which factors are included in exec_fp computation
+  # This allows evolving fingerprint computation without code refactoring
+  include_code_fp: true      # Include code fingerprint (git commit, dependencies)
+  include_precision_fp: true  # Include precision (fp32/fp16) in exec_fp
+  include_determinism_fp: false  # Include determinism settings in exec_fp
+
+# Random seed configuration
+# This affects spec_fp computation and training reproducibility
+seed:
+  # Random seed for training
+  # - null: Use from train.yaml or best_configuration (default: 42)
+  # - 42, 123, etc.: Explicit seed value
+  random_seed: null
+
+# Training hyperparameter overrides
+# These override values from train.yaml and best_configuration
+# Set to null to use defaults
+training:
+  # Core hyperparameters
+  learning_rate: null  # Override learning rate
+  epochs: null  # Override epochs
+  batch_size: null  # Override batch size
+  dropout: null
+  weight_decay: null
+  
+  # Training optimization
+  gradient_accumulation_steps: null
+  warmup_steps: null
+  max_grad_norm: null
+  
+  # Early stopping configuration
+  early_stopping:
+    enabled: null  # null = use from train.yaml
+    patience: null
+    min_delta: null
+
+# Output configuration
+output:
+  # Whether to skip training if already completed
+  # This is the default behavior for run.mode=reuse_if_exists
+  skip_if_complete: true
+
+# MLflow tracking configuration (optional)
+# NOTE: MLflow names/tags are metadata only and do NOT affect spec_fp or exec_fp
+mlflow:
+  # Override experiment name (if null, uses default: {experiment_name}-{STAGE_TRAINING}-{backbone})
+  # Stored in metadata.json only, not in fingerprints
+  experiment_name: null
+  
+  # Override run name (if null, uses default: {backbone}_{trial_name})
+  # Stored in metadata.json only, not in fingerprints
+  run_name: null
+  
+  # Additional tags to add to the run
+  # Stored in metadata.json only, not in fingerprints
+  tags: {}
+

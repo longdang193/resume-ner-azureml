@@ -1,0 +1,23 @@
+# Artifact Acquisition Configuration
+# Controls how checkpoints are acquired from different sources
+
+priority:
+  - "local"
+  - "drive"
+  - "mlflow"
+
+local:
+  match_strategy: "tags"  # "tags" | "metadata_run_id" | "spec_fp"
+  require_exact_match: true
+  validate: true
+
+drive:
+  enabled: true
+  folder_path: "resume-ner-checkpoints"
+  validate: true
+
+mlflow:
+  enabled: true
+  validate: true
+  download_timeout: 300
+

@@ -5,6 +5,10 @@ name: "resume-ner-data"
 version: "2"
 description: "Resume NER dataset with character-level annotations"
 local_path: "../dataset"
+splitting:
+  train_test_ratio: 0.8
+  stratified: true
+  random_seed: 42
 
 schema:
   format: "json"

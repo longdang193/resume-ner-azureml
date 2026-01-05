@@ -14,6 +14,11 @@ ENV/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+*.ipynb.backup
+
+# Accidental version files (prevent files like 1.0.0 from being committed)
+notebooks/*.0.*
+notebooks/[0-9]*\.[0-9]*\.[0-9]*
 
 # IDE
 .vscode/
@@ -30,9 +35,19 @@ Thumbs.db
 *.pem
 *.key
 
+# Local data and backups
+dataset_backup/
 
+# Planning documents (temporary)
+docs/plans/
 
+# Output directories (generated files)
+outputs/
+mlruns/
+*.db
 
-
+# Cache files
+*.cache
+.coverage
 
 

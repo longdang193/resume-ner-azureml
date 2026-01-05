@@ -1,7 +1,9 @@
 search_space:
   backbone:
     type: "choice"
-    values: ["deberta"]  # ["distilbert", "deberta"]
+    values: ["distilbert"]  # ["distilbert", "distilroberta"]
+    # Note: "deberta" excluded from smoke tests due to CUDA/NVRTC issues on Windows
+    # DeBERTa requires nvrtc-builtins64_129.dll which may not be available in all environments
   
   learning_rate:
     type: "loguniform"
@@ -24,8 +26,23 @@ search_space:
 
 sampling:
   algorithm: "random"
-  max_trials: 2
+  max_trials: 1
   timeout_minutes: 20
+
+# Checkpoint configuration for HPO resume support
+# Enables saving study state to SQLite database for resuming interrupted runs
+checkpoint:
+  enabled: true
+  study_name: "hpo_{backbone}_smoke_test_3.43"
+  storage_path: "{study_name}/study.db"
+  auto_resume: true
+  # Only save checkpoints for best trials locally (reduces storage from ~30 GB to ~300 MB)
+  save_only_best: true
+
+mlflow:
+  # Log best trial checkpoint to MLflow after HPO completes
+  # Set to false to disable MLflow checkpoint logging entirely
+  log_best_checkpoint: true
 
 early_termination:
   policy: "bandit"
@@ -36,3 +53,45 @@ early_termination:
 objective:
   metric: "macro-f1"
   goal: "maximize"
+
+# Selection strategy configuration for accuracy-speed tradeoff
+selection:
+  # Accuracy threshold for speed tradeoff (0.015 = 1.5% relative)
+  # If two models are within this accuracy difference, prefer faster model
+  # Set to null for accuracy-only selection (default behavior)
+  accuracy_threshold: 0.015
+  
+  # Use relative threshold (percentage of best accuracy) vs absolute difference
+  # Relative thresholds are more robust across different accuracy ranges
+  # Default: true (recommended)
+  use_relative_threshold: true
+  
+  # Minimum relative accuracy gain to justify slower model (optional)
+  # If DeBERTa is < 2% better than DistilBERT, prefer DistilBERT
+  # Set to null to disable this check
+  min_accuracy_gain: 0.02
+
+k_fold:
+  enabled: true
+  n_splits: 2
+  random_seed: 42
+  shuffle: true
+  stratified: true
+
+# Refit training configuration
+# After HPO completes, train the best trial on the full training dataset
+# This creates a canonical checkpoint for production use (instead of using arbitrary fold checkpoints)
+refit:
+  enabled: true  # Default: enabled. Set to false to skip refit training
+  # Optional: Add timeout, max_epochs overrides if needed in the future
+
+# Cleanup configuration for interrupted runs
+# Controls automatic cleanup/marking of interrupted runs from previous sessions
+cleanup:
+  # Disable automatic MLflow cleanup (tagging interrupted runs with code.interrupted=true)
+  # Default: true (disabled for speed). Set to false to enable automatic cleanup
+  disable_auto_cleanup: true
+  
+  # Disable automatic Optuna marking (marking RUNNING trials as FAILED)
+  # Default: false (enabled). Set to true to disable automatic Optuna state cleanup
+  disable_auto_optuna_mark: false

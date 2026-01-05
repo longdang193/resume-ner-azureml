@@ -2,46 +2,33 @@
 
 import json
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
-import mlflow
-
-# Azure ML logging (works alongside MLflow)
-try:
-    from azureml.core import Run
-    _azureml_run = Run.get_context()
-    _azureml_available = True
-except Exception:
-    _azureml_run = None
-    _azureml_available = False
+from platform_adapters.logging_adapter import LoggingAdapter
 
 
-def log_metrics(output_dir: Path, metrics: Dict[str, float]) -> None:
+def log_metrics(
+    output_dir: Path,
+    metrics: Dict[str, float],
+    logging_adapter: Optional[LoggingAdapter] = None,
+) -> None:
     """
-    Write metrics to file and log to MLflow and Azure ML.
+    Write metrics to file and log using platform adapter.
 
     Args:
         output_dir: Directory to write metrics file.
         metrics: Dictionary of metric names to values.
+        logging_adapter: Platform-specific logging adapter. If None, uses default.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
     metrics_path = output_dir / "metrics.json"
     with open(metrics_path, "w", encoding="utf-8") as f:
         json.dump(metrics, f)
-    
-    _log_to_mlflow(metrics)
-    _log_to_azureml(metrics)
 
+    # Use provided adapter or create default one
+    if logging_adapter is None:
+        from platform_adapters import get_platform_adapter
+        platform_adapter = get_platform_adapter()
+        logging_adapter = platform_adapter.get_logging_adapter()
 
-def _log_to_mlflow(metrics: Dict[str, float]) -> None:
-    """Log metrics to MLflow."""
-    for k, v in metrics.items():
-        mlflow.log_metric(k, v)
-
-
-def _log_to_azureml(metrics: Dict[str, float]) -> None:
-    """Log metrics to Azure ML native logging."""
-    if _azureml_available and _azureml_run is not None:
-        for k, v in metrics.items():
-            _azureml_run.log(k, v)
-
+    logging_adapter.log_metrics(metrics)

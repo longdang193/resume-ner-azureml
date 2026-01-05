@@ -17,7 +17,7 @@ class ExperimentConfig:
     """
     Resolved experiment configuration.
 
-    This object holds concrete paths to all domain configs (data/model/train/hpo/env)
+    This object holds concrete paths to all domain configs (data/model/train/hpo/env/benchmark)
     as well as optional orchestration metadata such as stages and naming rules.
     The underlying YAML files remain the single source of truth.
     """
@@ -28,6 +28,7 @@ class ExperimentConfig:
     train_config: Path
     hpo_config: Path
     env_config: Path
+    benchmark_config: Path
     stages: Dict[str, Any]
     naming: Dict[str, Any]
 
@@ -70,6 +71,7 @@ def load_experiment_config(config_root: Path, experiment_name: str) -> Experimen
         train_config=resolve(raw["train_config"]),
         hpo_config=resolve(raw["hpo_config"]),
         env_config=resolve(raw["env_config"]),
+        benchmark_config=resolve(raw.get("benchmark_config", "benchmark.yaml")),
         stages=raw.get("stages", {}) or {},
         naming=raw.get("naming", {}) or {},
     )
@@ -84,15 +86,21 @@ def load_all_configs(exp_cfg: ExperimentConfig) -> Dict[str, Any]:
 
     Returns:
         Dictionary keyed by domain name:
-        ``data``, ``model``, ``train``, ``hpo``, ``env``.
+        ``data``, ``model``, ``train``, ``hpo``, ``env``, ``benchmark``.
     """
-    return {
+    configs = {
         "data": _load_yaml(exp_cfg.data_config),
         "model": _load_yaml(exp_cfg.model_config),
         "train": _load_yaml(exp_cfg.train_config),
         "hpo": _load_yaml(exp_cfg.hpo_config),
         "env": _load_yaml(exp_cfg.env_config),
     }
+    
+    # Load benchmark config if it exists
+    if exp_cfg.benchmark_config.exists():
+        configs["benchmark"] = _load_yaml(exp_cfg.benchmark_config)
+    
+    return configs
 
 
 def compute_config_hash(config: Dict[str, Any]) -> str:

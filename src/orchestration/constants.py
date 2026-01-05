@@ -18,3 +18,14 @@ PROD_STAGE = "prod"
 
 # Job / display names
 CONVERSION_JOB_NAME = "model-conversion"
+
+# File and directory naming constants
+METRICS_FILENAME = "metrics.json"
+BENCHMARK_FILENAME = "benchmark.json"
+CHECKPOINT_DIRNAME = "checkpoint"
+OUTPUTS_DIRNAME = "outputs"
+MLRUNS_DIRNAME = "mlruns"
+
+# Default values (not in configs)
+DEFAULT_RANDOM_SEED = 42
+DEFAULT_K_FOLDS = 5

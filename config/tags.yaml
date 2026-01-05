@@ -1,0 +1,21 @@
+# MLflow Tag Keys Configuration
+# Canonical tag names used throughout the pipeline
+# Import this config to ensure consistency
+
+# Grouping tags (for linking training and benchmark runs)
+grouping:
+  study_key_hash: "code.study_key_hash"
+  trial_key_hash: "code.trial_key_hash"
+  parent_run_id: "code.parent_run_id"
+
+# Process/stage identification
+process:
+  stage: "code.stage"
+  project: "code.project"
+  backbone: "code.backbone"
+
+# Training metadata
+training:
+  trained_on_full_data: "code.trained_on_full_data"
+  source_training_run: "source_training_run"  # Used in benchmark runs
+

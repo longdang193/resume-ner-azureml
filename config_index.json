@@ -1,0 +1,72 @@
+{
+  "by_spec_fp": {
+    "81710c3324325ad0": [
+      {
+        "spec_fp": "81710c3324325ad0",
+        "exec_fp": "8d244347b2eff67e",
+        "conv_fp": null,
+        "environment": "local",
+        "model": "distilbert",
+        "variant": 1,
+        "trial_id": null,
+        "parent_training_id": null,
+        "path": "",
+        "status": {},
+        "created_at": "2025-12-30T18:59:43.235176",
+        "last_updated": "2025-12-30T18:59:43.235176"
+      }
+    ]
+  },
+  "by_env": {
+    "local": [
+      {
+        "spec_fp": "81710c3324325ad0",
+        "exec_fp": "8d244347b2eff67e",
+        "conv_fp": null,
+        "environment": "local",
+        "model": "distilbert",
+        "variant": 1,
+        "trial_id": null,
+        "parent_training_id": null,
+        "path": "",
+        "status": {},
+        "created_at": "2025-12-30T18:59:43.235176",
+        "last_updated": "2025-12-30T18:59:43.235176"
+      }
+    ]
+  },
+  "by_model": {
+    "distilbert": [
+      {
+        "spec_fp": "81710c3324325ad0",
+        "exec_fp": "8d244347b2eff67e",
+        "conv_fp": null,
+        "environment": "local",
+        "model": "distilbert",
+        "variant": 1,
+        "trial_id": null,
+        "parent_training_id": null,
+        "path": "",
+        "status": {},
+        "created_at": "2025-12-30T18:59:43.235176",
+        "last_updated": "2025-12-30T18:59:43.235176"
+      }
+    ]
+  },
+  "entries": [
+    {
+      "spec_fp": "81710c3324325ad0",
+      "exec_fp": "8d244347b2eff67e",
+      "conv_fp": null,
+      "environment": "local",
+      "model": "distilbert",
+      "variant": 1,
+      "trial_id": null,
+      "parent_training_id": null,
+      "path": "",
+      "status": {},
+      "created_at": "2025-12-30T18:59:43.235176",
+      "last_updated": "2025-12-30T18:59:43.235176"
+    }
+  ]
+}

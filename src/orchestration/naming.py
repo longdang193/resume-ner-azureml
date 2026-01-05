@@ -30,3 +30,17 @@ def build_aml_experiment_name(
     return "-".join(parts)
 
 
+def build_mlflow_experiment_name(experiment_name: str, stage: str, backbone: str) -> str:
+    """Build MLflow experiment name from components.
+
+    Args:
+        experiment_name: Base experiment name.
+        stage: Stage name (e.g., "hpo", "training").
+        backbone: Model backbone name (required).
+
+    Returns:
+        Formatted experiment name: "{experiment_name}-{stage}-{backbone}".
+    """
+    return build_aml_experiment_name(experiment_name, stage, backbone)
+
+

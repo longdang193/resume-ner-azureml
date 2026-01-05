@@ -1,0 +1,14 @@
+# Model Conversion Configuration
+# Controls ONNX model conversion settings
+
+target:
+  format: "onnx"
+
+onnx:
+  opset_version: 18
+  quantization: "none"  # "none" | "int8" | "dynamic"
+  run_smoke_test: true
+
+output:
+  filename_pattern: "model_{quantization}.onnx"
+

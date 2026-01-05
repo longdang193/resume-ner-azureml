@@ -1,7 +1,7 @@
 search_space:
   backbone:
     type: "choice"
-    values: ["distilbert"]  # ["distilbert", "deberta"]
+    values: ["distilroberta", "deberta"]
   
   learning_rate:
     type: "loguniform"
@@ -10,7 +10,7 @@ search_space:
   
   batch_size:
     type: "choice"
-    values: [4, 8]  # [4, 8, 16]
+    values: [8, 16]
   
   dropout:
     type: "uniform"
@@ -24,7 +24,7 @@ search_space:
 
 sampling:
   algorithm: "random"
-  max_trials: 50
+  max_trials: 20
   timeout_minutes: 480
 
 early_termination:
@@ -36,3 +36,47 @@ early_termination:
 objective:
   metric: "macro-f1"
   goal: "maximize"
+
+# Selection strategy configuration for accuracy-speed tradeoff
+selection:
+  # Accuracy threshold for speed tradeoff (0.015 = 1.5% relative)
+  # If two models are within this accuracy difference, prefer faster model
+  # Set to null for accuracy-only selection (default behavior)
+  accuracy_threshold: 0.015
+  
+  # Use relative threshold (percentage of best accuracy) vs absolute difference
+  # Relative thresholds are more robust across different accuracy ranges
+  # Default: true (recommended)
+  use_relative_threshold: true
+  
+  # Minimum relative accuracy gain to justify slower model (optional)
+  # If DeBERTa is < 2% better than DistilBERT, prefer DistilBERT
+  # Set to null to disable this check
+  min_accuracy_gain: 0.02
+
+k_fold:
+  enabled: true
+  n_splits: 5
+  random_seed: 42
+  shuffle: true
+  stratified: true
+
+checkpoint:
+  enabled: true
+  study_name: "hpo_{backbone}_prod"
+  storage_path: "{study_name}/study.db"
+  auto_resume: true
+  # Only save checkpoints for best trials locally (reduces storage from ~30 GB to ~300 MB)
+  save_only_best: true
+
+mlflow:
+  # Log best trial checkpoint to MLflow after HPO completes
+  # Set to false to disable MLflow checkpoint logging entirely
+  log_best_checkpoint: true
+
+# Refit training configuration
+# After HPO completes, train the best trial on the full training dataset
+# This creates a canonical checkpoint for production use (instead of using arbitrary fold checkpoints)
+refit:
+  enabled: true  # Default: enabled. Set to false to skip refit training
+  # Optional: Add timeout, max_epochs overrides if needed in the future

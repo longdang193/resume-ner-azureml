@@ -11,7 +11,7 @@ workspace:
   description: "Azure ML Workspace for Resume NER project"
   
 storage:
-  account_name: "resumenerstorage"  # Must be globally unique, lowercase, alphanumeric
+  account_name: "resumenerstorageh4arjs7t"  # Must be globally unique, lowercase, alphanumeric
   containers:
     - name: "datasets"
       public_access: "None"

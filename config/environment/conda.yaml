@@ -10,7 +10,7 @@ channels:
 dependencies:
   - python=3.10
   - pytorch>=2.6.0  # PyTorch 2.6+ required by transformers>=4.35.0 due to CVE-2025-32434 security fix
-  - cpuonly  # CPU-only PyTorch installation (lightweight, no CUDA)
+  # - cpuonly  # CPU-only PyTorch installation (lightweight, no CUDA)
   - pip
   - pip:
     - azureml-defaults  # Required for Azure ML tracking/logging
@@ -32,6 +32,18 @@ dependencies:
     - onnxruntime  # For Phase 2 inference (ONNX model serving)
     - onnx>=1.16.0  # Required for ONNX export/validation + onnxruntime quantization tooling
     - onnxscript>=0.1.0  # Required by PyTorch's ONNX export (torch.onnx.export) in PyTorch 2.6+
+    # API dependencies
+    - fastapi>=0.100.0  # For FastAPI application
+    - uvicorn>=0.23.0  # ASGI server for FastAPI
+    # Testing dependencies
+    - pytest>=7.0.0
+    - pytest-cov>=4.0.0
+    - pytest-mock>=3.10.0
+    - pytest-xdist>=3.0.0  # Optional: parallel test execution
+    - httpx>=0.24.0  # Required by fastapi.testclient.TestClient for API tests
+    - pymupdf>=1.23.0  # PDF text extraction (default extractor)
+    - pdfplumber>=0.10.0  # Alternative PDF text extraction
+    - python-multipart>=0.0.6  # Required for FastAPI file uploads
 
 
 

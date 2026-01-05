@@ -1,0 +1,36 @@
+# Best Model Selection Configuration
+# Controls how the best model is selected from MLflow
+
+# Import tag names (reference, not duplication)
+# Tags are defined in config/tags.yaml
+
+# Objective metric configuration
+objective:
+  metric: "macro-f1"
+  goal: "maximize"
+
+# Composite scoring configuration
+scoring:
+  f1_weight: 0.7
+  latency_weight: 0.3
+  normalize_weights: true  # Auto-normalize if weights don't sum to 1.0
+
+# Grouping tag requirements
+grouping:
+  require_trial_hash: false
+  min_confidence: "low"  # "high" | "low" | "any"
+
+# Training run filtering (for ranking candidates only)
+filtering:
+  preferred_stages:
+    - "final_training"
+    - "hpo_refit"
+  allow_no_stage: true
+  enable_fallbacks: true
+
+# Benchmark requirements
+benchmark:
+  required_metrics:
+    - "latency_batch_1_ms"
+  min_benchmark_runs: 1
+
