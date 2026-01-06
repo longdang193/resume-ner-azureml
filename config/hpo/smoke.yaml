@@ -1,7 +1,7 @@
 search_space:
   backbone:
     type: "choice"
-    values: ["distilbert"]  # ["distilbert", "distilroberta"]
+    values: ["distilbert", "distilroberta"]  # ["distilbert", "distilroberta"]
     # Note: "deberta" excluded from smoke tests due to CUDA/NVRTC issues on Windows
     # DeBERTa requires nvrtc-builtins64_129.dll which may not be available in all environments
   
@@ -33,7 +33,7 @@ sampling:
 # Enables saving study state to SQLite database for resuming interrupted runs
 checkpoint:
   enabled: true
-  study_name: "hpo_{backbone}_smoke_test_5"
+  study_name: "hpo_{backbone}_smoke_test_6"
   storage_path: "{study_name}/study.db"
   auto_resume: true
   # Only save checkpoints for best trials locally (reduces storage from ~30 GB to ~300 MB)

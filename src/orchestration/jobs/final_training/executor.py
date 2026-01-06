@@ -433,10 +433,43 @@ def execute_final_training(
             f"STDERR: {result.stderr}"
         )
     else:
+        # Filter out verbose debug messages from subprocess output
         if result.stdout:
-            print(result.stdout)
+            # Filter out "Attempted to log scalar metric" debug messages and their values
+            lines = result.stdout.split("\n")
+            filtered_lines = []
+            skip_next = False
+            for line in lines:
+                if line.strip().startswith("Attempted to log scalar metric"):
+                    skip_next = True  # Skip the value line that follows
+                    continue
+                if skip_next and line.strip() and not line.strip().startswith("["):
+                    # Skip the value line (unless it's a log message starting with [)
+                    skip_next = False
+                    continue
+                skip_next = False
+                filtered_lines.append(line)
+            filtered_stdout = "\n".join(filtered_lines)
+            if filtered_stdout.strip():
+                print(filtered_stdout)
         if result.stderr:
-            print(result.stderr)
+            # Filter out "Attempted to log scalar metric" debug messages and their values
+            lines = result.stderr.split("\n")
+            filtered_lines = []
+            skip_next = False
+            for line in lines:
+                if line.strip().startswith("Attempted to log scalar metric"):
+                    skip_next = True  # Skip the value line that follows
+                    continue
+                if skip_next and line.strip() and not line.strip().startswith("["):
+                    # Skip the value line (unless it's a log message starting with [)
+                    skip_next = False
+                    continue
+                skip_next = False
+                filtered_lines.append(line)
+            filtered_stderr = "\n".join(filtered_lines)
+            if filtered_stderr.strip():
+                print(filtered_stderr, file=sys.stderr)
         # Subprocess should have ended the run, but verify it's terminated
         if run_id:
             try:

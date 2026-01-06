@@ -77,11 +77,12 @@ class AzureMLLoggingAdapter(LoggingAdapter):
         """Log metrics to both MLflow and Azure ML native logging."""
         import mlflow
         import os
-        
+
         # Check if we should use client API (refit mode without active run)
-        use_run_id = os.environ.get("MLFLOW_RUN_ID") or os.environ.get("MLFLOW_USE_RUN_ID")
+        use_run_id = os.environ.get(
+            "MLFLOW_RUN_ID") or os.environ.get("MLFLOW_USE_RUN_ID")
         active_run = mlflow.active_run()
-        
+
         # MLflow only accepts numeric values
         for k, v in metrics.items():
             val = self._to_float_or_none(v)
@@ -108,11 +109,12 @@ class AzureMLLoggingAdapter(LoggingAdapter):
         """Log parameters to both MLflow and Azure ML native logging."""
         import mlflow
         import os
-        
+
         # Check if we should use client API (refit mode without active run)
-        use_run_id = os.environ.get("MLFLOW_RUN_ID") or os.environ.get("MLFLOW_USE_RUN_ID")
+        use_run_id = os.environ.get(
+            "MLFLOW_RUN_ID") or os.environ.get("MLFLOW_USE_RUN_ID")
         active_run = mlflow.active_run()
-        
+
         if use_run_id and not active_run:
             # Use client API when logging to existing run without active context
             client = mlflow.tracking.MlflowClient()
@@ -165,11 +167,12 @@ class LocalLoggingAdapter(LoggingAdapter):
         """Log metrics to MLflow only."""
         import mlflow
         import os
-        
+
         # Check if we should use client API (refit mode without active run)
-        use_run_id = os.environ.get("MLFLOW_RUN_ID") or os.environ.get("MLFLOW_USE_RUN_ID")
+        use_run_id = os.environ.get(
+            "MLFLOW_RUN_ID") or os.environ.get("MLFLOW_USE_RUN_ID")
         active_run = mlflow.active_run()
-        
+
         # MLflow only accepts numeric values
         for k, v in metrics.items():
             val = self._to_float_or_none(v)
@@ -186,11 +189,12 @@ class LocalLoggingAdapter(LoggingAdapter):
         """Log parameters to MLflow only."""
         import mlflow
         import os
-        
+
         # Check if we should use client API (refit mode without active run)
-        use_run_id = os.environ.get("MLFLOW_RUN_ID") or os.environ.get("MLFLOW_USE_RUN_ID")
+        use_run_id = os.environ.get(
+            "MLFLOW_RUN_ID") or os.environ.get("MLFLOW_USE_RUN_ID")
         active_run = mlflow.active_run()
-        
+
         if use_run_id and not active_run:
             # Use client API when logging to existing run without active context
             client = mlflow.tracking.MlflowClient()
