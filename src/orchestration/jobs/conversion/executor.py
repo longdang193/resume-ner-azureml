@@ -301,27 +301,37 @@ def _find_onnx_model(output_dir: Path, quantization: str, filename_pattern: str)
     Returns:
         Path to ONNX model file.
     """
-    # Try filename_pattern first
+    # Try filename_pattern first (check both root and onnx_model subdirectory)
     if "{quantization}" in filename_pattern:
         quant_str = "int8" if quantization == "int8" else "fp32"
         expected_name = filename_pattern.format(quantization=quant_str)
+        # Check root directory
         expected_path = output_dir / expected_name
         if expected_path.exists():
             return expected_path
+        # Check onnx_model subdirectory
+        expected_path = output_dir / "onnx_model" / expected_name
+        if expected_path.exists():
+            return expected_path
     
-    # Fallback: try common patterns
+    # Fallback: try common patterns (check both root and onnx_model subdirectory)
     if quantization == "int8":
         patterns = ["model_int8.onnx", "model.onnx"]
     else:
         patterns = ["model.onnx", "model_fp32.onnx"]
     
     for pattern in patterns:
+        # Check root directory
         model_path = output_dir / pattern
         if model_path.exists():
             return model_path
+        # Check onnx_model subdirectory
+        model_path = output_dir / "onnx_model" / pattern
+        if model_path.exists():
+            return model_path
     
-    # Last resort: find any .onnx file
-    onnx_files = list(output_dir.glob("*.onnx"))
+    # Last resort: find any .onnx file (search recursively, as model may be in subdirectory)
+    onnx_files = list(output_dir.rglob("*.onnx"))
     if onnx_files:
         return onnx_files[0]
     
