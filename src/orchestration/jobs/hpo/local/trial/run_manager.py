@@ -63,6 +63,16 @@ def create_trial_run_no_cv(
                 backbone_full.split("-")[0] if "-" in backbone_full else backbone_full
             )
 
+            # Derive grouping hashes from parent run if available
+            study_key_hash = None
+            study_family_hash = None
+            try:
+                parent_run = client.get_run(hpo_parent_run_id)
+                study_key_hash = parent_run.data.tags.get("code.study_key_hash")
+                study_family_hash = parent_run.data.tags.get("code.study_family_hash")
+            except Exception:
+                pass
+
             # Build trial_id from trial_number and run_id if available
             run_id = trial_params.get("run_id")
             if run_id:
@@ -75,7 +85,11 @@ def create_trial_run_no_cv(
                 process_type="hpo",
                 model=backbone_short,
                 environment=detect_platform(),
+                storage_env=detect_platform(),
+                stage="hpo_trial",
                 trial_id=trial_id,
+                study_key_hash=study_key_hash,
+                trial_key_hash=None,
             )
 
             # Build systematic run name
@@ -86,6 +100,8 @@ def create_trial_run_no_cv(
                 context=trial_context,
                 output_dir=output_base_dir,
                 config_dir=config_dir,
+                study_key_hash=study_key_hash,
+                study_family_hash=study_family_hash,
             )
             # Merge with trial-specific tags
             trial_tags.update(

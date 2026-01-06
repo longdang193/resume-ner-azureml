@@ -442,6 +442,9 @@ def run_local_hpo_sweep(
         run_id=run_id,
         should_resume=should_resume,
         checkpoint_enabled=checkpoint_enabled,
+        data_config=data_config,
+        hpo_config=hpo_config,
+        benchmark_config=benchmark_config,
     )
 
     tracker = MLflowSweepTracker(mlflow_experiment_name)

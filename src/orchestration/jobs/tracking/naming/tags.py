@@ -10,6 +10,36 @@ from shared.platform_detection import detect_platform
 from orchestration.naming_centralized import NamingContext
 from orchestration.jobs.tracking.config.loader import get_naming_config
 
+# ---------------------------------------------------------------------------
+# Centralized tag keys
+# ---------------------------------------------------------------------------
+CODE_STAGE = "code.stage"
+CODE_MODEL = "code.model"
+CODE_ENV = "code.env"  # legacy; prefer CODE_STORAGE_ENV / CODE_EXECUTION_PLATFORM
+CODE_STORAGE_ENV = "code.storage_env"
+CODE_EXECUTION_PLATFORM = "code.execution_platform"
+CODE_CREATED_BY = "code.created_by"
+CODE_PROJECT = "code.project"
+CODE_SPEC_FP = "code.spec_fp"
+CODE_EXEC_FP = "code.exec_fp"
+CODE_VARIANT = "code.variant"
+CODE_TRIAL_ID = "code.trial_id"  # legacy; prefer study/trial hashes
+CODE_PARENT_TRAINING_ID = "code.parent_training_id"
+CODE_CONV_FP = "code.conv_fp"
+CODE_STUDY_KEY_HASH = "code.study_key_hash"
+CODE_STUDY_FAMILY_HASH = "code.study_family_hash"
+CODE_TRIAL_KEY_HASH = "code.trial_key_hash"
+CODE_BENCHMARK_CONFIG_HASH = "code.benchmark_config_hash"
+CODE_OUTPUT_DIR = "code.output_dir"
+CODE_PARENT_RUN_ID = "code.parent_run_id"
+CODE_GROUP_ID = "code.group_id"
+CODE_GROUPING_SCHEMA_VERSION = "code.grouping_schema_version"
+CODE_REFIT_PROTOCOL_FP = "code.refit_protocol_fp"
+CODE_RUN_KEY_HASH = "code.run_key_hash"
+CODE_RUN_ID_PREFIX = "code.run_id_prefix"
+CODE_LINEAGE_PARENT_TRAINING_RUN_ID = "code.lineage.parent_training_run_id"
+CODE_LINEAGE_HPO_REFIT_RUN_ID = "code.lineage.hpo_refit_run_id"
+
 
 def sanitize_tag_value(
     value: str,
@@ -86,16 +116,22 @@ def build_mlflow_tags(
         if sanitize_tags:
             # For hpo_refit, set code.stage to "hpo_refit" and code.run_type to "refit"
             if context.process_type == "hpo_refit":
-                tags["code.stage"] = sanitize_tag_value(
+                tags[CODE_STAGE] = sanitize_tag_value(
                     "hpo_refit", max_length=tag_max_length, config_dir=config_dir)
                 tags["code.run_type"] = sanitize_tag_value(
                     "refit", max_length=tag_max_length, config_dir=config_dir)
             else:
-                tags["code.stage"] = sanitize_tag_value(
+                tags[CODE_STAGE] = sanitize_tag_value(
                     context.process_type, max_length=tag_max_length, config_dir=config_dir)
-            tags["code.model"] = sanitize_tag_value(
+            tags[CODE_MODEL] = sanitize_tag_value(
                 context.model, max_length=tag_max_length, config_dir=config_dir)
-            tags["code.env"] = sanitize_tag_value(
+            # Prefer storage_env; keep legacy env for backward compatibility
+            storage_env = getattr(context, "storage_env", context.environment)
+            tags[CODE_STORAGE_ENV] = sanitize_tag_value(
+                storage_env, max_length=tag_max_length, config_dir=config_dir)
+            tags[CODE_ENV] = sanitize_tag_value(
+                context.environment, max_length=tag_max_length, config_dir=config_dir)
+            tags[CODE_EXECUTION_PLATFORM] = sanitize_tag_value(
                 context.environment, max_length=tag_max_length, config_dir=config_dir)
         else:
             # For hpo_refit, set code.stage to "hpo_refit" and code.run_type to "refit"
@@ -121,103 +157,103 @@ def build_mlflow_tags(
     # Created by (user or system)
     created_by = os.environ.get("USER", os.environ.get("USERNAME", "system"))
     if sanitize_tags:
-        tags["code.created_by"] = sanitize_tag_value(
+        tags[CODE_CREATED_BY] = sanitize_tag_value(
             created_by, max_length=tag_max_length, config_dir=config_dir)
     else:
-        tags["code.created_by"] = created_by
+        tags[CODE_CREATED_BY] = created_by
 
     # Project name
     if project_name:
         if sanitize_tags:
-            tags["code.project"] = sanitize_tag_value(
+            tags[CODE_PROJECT] = sanitize_tag_value(
                 project_name, max_length=tag_max_length, config_dir=config_dir)
         else:
-            tags["code.project"] = project_name
+            tags[CODE_PROJECT] = project_name
     else:
         naming_config = get_naming_config(config_dir)
         default_project = naming_config.get("project_name", "resume-ner")
         if sanitize_tags:
-            tags["code.project"] = sanitize_tag_value(
+            tags[CODE_PROJECT] = sanitize_tag_value(
                 default_project, max_length=tag_max_length, config_dir=config_dir)
         else:
-            tags["code.project"] = default_project
+            tags[CODE_PROJECT] = default_project
 
     # Optional context fields
     if context:
         if context.spec_fp:
             if sanitize_tags:
-                tags["code.spec_fp"] = sanitize_tag_value(
+                tags[CODE_SPEC_FP] = sanitize_tag_value(
                     context.spec_fp, max_length=tag_max_length, config_dir=config_dir)
             else:
-                tags["code.spec_fp"] = context.spec_fp
+                tags[CODE_SPEC_FP] = context.spec_fp
         if context.exec_fp:
             if sanitize_tags:
-                tags["code.exec_fp"] = sanitize_tag_value(
+                tags[CODE_EXEC_FP] = sanitize_tag_value(
                     context.exec_fp, max_length=tag_max_length, config_dir=config_dir)
             else:
-                tags["code.exec_fp"] = context.exec_fp
+                tags[CODE_EXEC_FP] = context.exec_fp
         if context.variant:
-            tags["code.variant"] = str(context.variant)
+            tags[CODE_VARIANT] = str(context.variant)
             if context.trial_id:
                 if sanitize_tags:
-                    tags["code.trial_id"] = sanitize_tag_value(
+                    tags[CODE_TRIAL_ID] = sanitize_tag_value(
                         context.trial_id, max_length=tag_max_length, config_dir=config_dir)
                 else:
-                    tags["code.trial_id"] = context.trial_id
+                    tags[CODE_TRIAL_ID] = context.trial_id
             if context.parent_training_id:
                 if sanitize_tags:
-                    tags["code.parent_training_id"] = sanitize_tag_value(
+                    tags[CODE_PARENT_TRAINING_ID] = sanitize_tag_value(
                         context.parent_training_id, max_length=tag_max_length, config_dir=config_dir)
                 else:
-                    tags["code.parent_training_id"] = context.parent_training_id
+                    tags[CODE_PARENT_TRAINING_ID] = context.parent_training_id
             if context.conv_fp:
                 if sanitize_tags:
-                    tags["code.conv_fp"] = sanitize_tag_value(
+                    tags[CODE_CONV_FP] = sanitize_tag_value(
                         context.conv_fp, max_length=tag_max_length, config_dir=config_dir)
                 else:
-                    tags["code.conv_fp"] = context.conv_fp
+                    tags[CODE_CONV_FP] = context.conv_fp
 
     if output_dir:
         if sanitize_tags:
-            tags["code.output_dir"] = sanitize_tag_value(
+            tags[CODE_OUTPUT_DIR] = sanitize_tag_value(
                 str(output_dir), max_length=tag_max_length, config_dir=config_dir)
         else:
-            tags["code.output_dir"] = str(output_dir)
+            tags[CODE_OUTPUT_DIR] = str(output_dir)
 
     if parent_run_id:
         if sanitize_tags:
-            tags["code.parent_run_id"] = sanitize_tag_value(
+            tags[CODE_PARENT_RUN_ID] = sanitize_tag_value(
                 parent_run_id, max_length=tag_max_length, config_dir=config_dir)
         else:
-            tags["code.parent_run_id"] = parent_run_id
+            tags[CODE_PARENT_RUN_ID] = parent_run_id
 
     if group_id:
         if sanitize_tags:
-            tags["code.group_id"] = sanitize_tag_value(
+            tags[CODE_GROUP_ID] = sanitize_tag_value(
                 group_id, max_length=tag_max_length, config_dir=config_dir)
         else:
-            tags["code.group_id"] = group_id
+            tags[CODE_GROUP_ID] = group_id
 
     # Grouping tags (always set schema version if any grouping tag is present)
     # This allows safe interpretation of hash meanings even if only some hashes are present
     has_grouping_tags = study_key_hash or study_family_hash or trial_key_hash
     if has_grouping_tags:
-        tags["code.grouping_schema_version"] = "1"
+        tags[CODE_GROUPING_SCHEMA_VERSION] = "1"
 
     if study_key_hash:
-        tags["code.study_key_hash"] = study_key_hash
+        tags[CODE_STUDY_KEY_HASH] = study_key_hash
     if study_family_hash:
-        tags["code.study_family_hash"] = study_family_hash
+        tags[CODE_STUDY_FAMILY_HASH] = study_family_hash
     if trial_key_hash:
-        tags["code.trial_key_hash"] = trial_key_hash
+        tags[CODE_TRIAL_KEY_HASH] = trial_key_hash
 
     # Refit protocol fingerprint
     if refit_protocol_fp:
-        tags["code.refit_protocol_fp"] = refit_protocol_fp
+        tags[CODE_REFIT_PROTOCOL_FP] = refit_protocol_fp
 
     # Run key hash (for cleanup and run finding)
     if run_key_hash:
-        tags["code.run_key_hash"] = run_key_hash
+        tags[CODE_RUN_KEY_HASH] = run_key_hash
 
     return tags
 

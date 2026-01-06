@@ -155,14 +155,18 @@ files:
 # Placeholders are replaced at runtime with actual values.
 #
 # Placeholders for v2 patterns (fingerprint-based):
-#   - {environment}: Execution environment (e.g., "local", "colab", "kaggle", "azure")
+#   - {storage_env}: Logical storage environment for outputs
+#                   (e.g., "local", "colab", "kaggle", "azureml")
 #   - {model}: Model backbone name (e.g., "distilbert", "distilroberta")
 #   - {spec_fp}: Specification fingerprint (platform-independent experiment identity)
 #   - {exec_fp}: Execution fingerprint (toolchain/runtime identity)
 #   - {variant}: Variant number for final_training (e.g., 1, 2, 3)
-#   - {trial_id}: Trial identifier for HPO/benchmarking (e.g., "trial_1_20251229_100000")
+#   - {trial_id}: Legacy trial identifier for HPO/benchmarking
 #   - {parent_training_id}: Parent training identifier for conversion (e.g., "spec_abc_exec_xyz/v1")
 #   - {conv_fp}: Conversion fingerprint for conversion variants
+#   - {study8}: Short study hash (study_key_hash[:8]) for HPO/benchmarking
+#   - {trial8}: Short trial hash (trial_key_hash[:8]) for HPO/benchmarking
+#   - {bench8}: Optional short benchmark-config hash for benchmarking
 #
 # Placeholders for cache file patterns:
 #   - {backbone}: Model backbone name (e.g., "distilbert", "distilroberta")
@@ -171,8 +175,8 @@ files:
 #   - {timestamp}: Timestamp string (e.g., "20251228_001000")
 #
 # Examples (v2 patterns):
-#   final_training_v2: "{environment}/{model}/spec_{spec_fp}_exec_{exec_fp}/v{variant}"
-#   With environment="local", model="distilbert", spec_fp="abc123", exec_fp="xyz789", variant=1
+#   final_training_v2: "{storage_env}/{model}/spec_{spec_fp}_exec_{exec_fp}/v{variant}"
+#   With storage_env="local", model="distilbert", spec_fp="abc123", exec_fp="xyz789", variant=1
 #   Result: "local/distilbert/spec_abc123_exec_xyz789/v1"
 #   Full path: outputs/final_training/local/distilbert/spec_abc123_exec_xyz789/v1/
 #
@@ -195,27 +199,36 @@ patterns:
 
   # Fingerprint-based paths (v2) - used by build_output_path()
   # These patterns are used by build_output_path() in naming_centralized.py
-  # to generate fingerprint-based, environment-aware output paths.
+  # to generate fingerprint-based, storage-env-aware output paths.
   # Pattern placeholders are replaced at runtime with values from NamingContext.
   #
   # Final training with fingerprints
-  final_training_v2: "{environment}/{model}/spec_{spec_fp}_exec_{exec_fp}/v{variant}"
+  # Example resolved fragment:
+  #   "local/distilbert/spec_abc123_exec_xyz789/v1"
+  final_training_v2: "{storage_env}/{model}/spec_{spec_fp}_exec_{exec_fp}/v{variant}"
   
   # Conversion with parent reference
-  conversion_v2: "{environment}/{model}/{parent_training_id}/conv_{conv_fp}"
+  # parent_training_id should match final_training_v2 fragment, e.g.:
+  #   "spec_abc123_exec_xyz789/v1"
+  conversion_v2: "{storage_env}/{model}/{parent_training_id}/conv_{conv_fp}"
   
-  # Best config with spec_fp
+  # Best config with spec_fp (cache layout)
   best_config_v2: "{model}/spec_{spec_fp}"
   
-  # HPO with environment
-  # Base pattern: {environment}/{model}/trial_{trial_id}
-  # Subdirectories (handled in code, not in pattern):
-  #   - cv/fold{k}/ for k-fold CV folds
-  #   - refit/ for refit training (trained on full training set)
-  hpo_v2: "{environment}/{model}/trial_{trial_id}"
+  # HPO v2 with study/trial hashes
+  # Stable structure:
+  #   outputs/hpo/{storage_env}/{model}/study_{study8}/trial_{trial8}/...
+  # where study8 = study_key_hash[:8], trial8 = trial_key_hash[:8]
+  # NOTE: When study/trial hashes are not available, code falls back to the
+  # legacy trial_id-based layout for backward compatibility.
+  hpo_v2: "{storage_env}/{model}/study_{study8}/trial_{trial8}"
   
-  # Benchmarking with environment
-  benchmarking_v2: "{environment}/{model}/trial_{trial_id}"
+  # Benchmarking v2 with study/trial + optional benchmark-config hash
+  # Stable structure:
+  #   outputs/benchmarking/{storage_env}/{model}/study_{study8}/trial_{trial8}/bench_{bench8}/...
+  # where bench8 is derived from benchmark_config_hash (if used).
+  # When hashes are not available, code falls back to the legacy layout.
+  benchmarking_v2: "{storage_env}/{model}/study_{study8}/trial_{trial8}/bench_{bench8}"
 
 # ----------------------------------------------------------------------------
 # Cache File Strategies

@@ -12,7 +12,8 @@ def build_mlflow_run_key(context: NamingContext) -> str:
     Build stable run_key identifier from context using stage-specific templates.
 
     Templates:
-    - HPO: "hpo:{model}:{trial_id}"
+    - HPO trial: "hpo:{model}:{trial_id}"
+    - HPO parent: "hpo:{model}:study_{study_key_hash|study_unknown}"
     - Benchmarking: "benchmark:{model}:{trial_id}"
     - Final Training: "final_training:{model}:spec_{spec_fp}:exec_{exec_fp}:v{variant}"
     - Conversion: "conversion:{model}:{parent_training_id}:conv_{conv_fp}"
@@ -27,9 +28,18 @@ def build_mlflow_run_key(context: NamingContext) -> str:
         ValueError: If required fields are missing for the process type.
     """
     if context.process_type == "hpo":
-        if not context.trial_id:
-            raise ValueError("HPO requires trial_id for run_key")
-        return f"hpo:{context.model}:{context.trial_id}"
+        # Trial-level HPO run: identified by concrete trial_id
+        if context.trial_id:
+            return f"hpo:{context.model}:{context.trial_id}"
+
+        # Parent/sweep HPO run: use stable study identity when available
+        study_hash = getattr(context, "study_key_hash", None)
+        if study_hash:
+            return f"hpo:{context.model}:study_{study_hash}"
+
+        # Last resort: still return a key so auto-increment can function,
+        # but mark identity as unknown for debugging.
+        return f"hpo:{context.model}:study_unknown"
 
     elif context.process_type == "hpo_refit":
         if not context.trial_id:

@@ -22,6 +22,9 @@ def setup_hpo_mlflow_run(
     run_id: str,
     should_resume: bool,
     checkpoint_enabled: bool,
+    data_config: Optional[Dict[str, Any]] = None,
+    hpo_config: Optional[Dict[str, Any]] = None,
+    benchmark_config: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Any, str]:
     """
     Set up MLflow run name and context for HPO parent run.
@@ -46,13 +49,37 @@ def setup_hpo_mlflow_run(
     try:
         from orchestration.naming_centralized import create_naming_context
         from orchestration.jobs.tracking.mlflow_naming import build_mlflow_run_name, build_mlflow_tags
+        from orchestration.jobs.tracking.naming.hpo_keys import (
+            build_hpo_study_key,
+            build_hpo_study_key_hash,
+        )
         from shared.platform_detection import detect_platform
+
+        # Compute stable study_key_hash for parent run naming if configs are available.
+        study_key_hash = None
+        if data_config and hpo_config:
+            try:
+                study_key = build_hpo_study_key(
+                    data_config=data_config,
+                    hpo_config=hpo_config,
+                    model=backbone,
+                    benchmark_config=benchmark_config,
+                )
+                study_key_hash = build_hpo_study_key_hash(study_key)
+                # Expose via env for subprocesses / notebooks that may not reconstruct context.
+                os.environ["HPO_STUDY_KEY_HASH"] = study_key_hash
+            except Exception as e:
+                logger.debug(f"[HPO Parent Run] Could not compute study_key_hash for naming: {e}")
 
         hpo_parent_context = create_naming_context(
             process_type="hpo",
             model=backbone,
             environment=detect_platform(),
-            trial_id=study_name,
+            storage_env=detect_platform(),
+             stage="hpo_sweep",
+            study_name=study_name,
+            trial_id=None,
+            study_key_hash=study_key_hash,
         )
 
         # Infer root_dir from output_dir by finding the "outputs" directory
@@ -76,7 +103,8 @@ def setup_hpo_mlflow_run(
         logger.info(
             f"[HPO Parent Run] Building MLflow run name: "
             f"output_dir={output_dir}, inferred_root_dir={root_dir}, config_dir={config_dir}, "
-            f"trial_id={hpo_parent_context.trial_id if hpo_parent_context else None}"
+            f"study_name={hpo_parent_context.study_name if hpo_parent_context else None}, "
+            f"study_key_hash={study_key_hash[:16] + '...' if study_key_hash else None}"
         )
 
         mlflow_run_name = build_mlflow_run_name(

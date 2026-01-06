@@ -17,32 +17,67 @@ class NamingContext:
     """
     Complete context for path generation with fingerprint-based identity.
 
+    This context is used both for human-readable naming (run names) and for
+    stable, fingerprint-based output paths.
+
     Attributes:
-        process_type: Type of process (hpo, benchmarking, final_training, conversion).
+        process_type: Type of process
+            ("hpo", "hpo_refit", "benchmarking", "final_training",
+             "conversion", "best_configurations").
+        stage: Optional fine-grained stage identifier
+            (e.g., "hpo_sweep", "hpo_trial") used for naming/validation.
         model: Model backbone name (e.g., "distilbert").
-        environment: Execution environment (local, colab, kaggle, azure).
-        spec_fp: Specification fingerprint (platform-independent experiment identity).
-        exec_fp: Execution fingerprint (toolchain/runtime identity).
-        variant: Variant number for final_training (default 1, increments for force_new).
-        trial_id: Trial identifier for HPO/benchmarking (e.g., "trial_1_20251229_100000").
-        parent_training_id: Parent training identifier for conversion.
+        environment: Execution platform identifier
+            (legacy name, e.g., "local", "colab", "kaggle", "azure").
+        storage_env: Logical storage environment used in outputs paths
+            (e.g., "local", "colab", "kaggle", "azureml").
+            Defaults to the same value as ``environment``.
+        study_name: Human-readable HPO study/sweep name (e.g.,
+            "hpo_distilbert_smoke_test_4.3"). Used for UX only.
+        spec_fp: Specification fingerprint (platform-independent experiment
+            identity) for training/final_training.
+        exec_fp: Execution fingerprint (toolchain/runtime identity) for
+            training/final_training.
+        variant: Variant number for final_training (default 1, increments for
+            force_new / retries).
+        trial_id: Legacy trial identifier for HPO/benchmarking
+            (e.g., "trial_1_20251229_100000").
+        parent_training_id: Parent training identifier for conversion (matches
+            the final_training directory fragment, e.g.,
+            "spec_abc_exec_xyz/v1").
         conv_fp: Conversion fingerprint for conversion variants.
+        study_key_hash: Stable HPO study identifier (full hash).
+        trial_key_hash: Stable HPO trial identifier (full hash).
+        benchmark_config_hash: Optional benchmark configuration hash used to
+            distinguish different benchmarking setups.
     """
     process_type: str
     model: str
     environment: str
+    stage: Optional[str] = None
+    storage_env: Optional[str] = None
+    study_name: Optional[str] = None
     spec_fp: Optional[str] = None
     exec_fp: Optional[str] = None
     variant: int = 1
     trial_id: Optional[str] = None
     parent_training_id: Optional[str] = None
     conv_fp: Optional[str] = None
+    study_key_hash: Optional[str] = None
+    trial_key_hash: Optional[str] = None
+    benchmark_config_hash: Optional[str] = None
 
     def __post_init__(self):
         """Validate context after initialization."""
-        valid_processes = {"hpo", "hpo_refit", "benchmarking",
-                           "final_training", "conversion", "best_configurations"}
-        valid_environments = {"local", "colab", "kaggle", "azure"}
+        valid_processes = {
+            "hpo",
+            "hpo_refit",
+            "benchmarking",
+            "final_training",
+            "conversion",
+            "best_configurations",
+        }
+        valid_environments = {"local", "colab", "kaggle", "azure", "azureml"}
 
         if self.process_type not in valid_processes:
             raise ValueError(
@@ -55,6 +90,9 @@ class NamingContext:
                 f"Invalid environment: {self.environment}. "
                 f"Must be one of {valid_environments}"
             )
+
+        # Default storage_env to environment if not explicitly provided
+        object.__setattr__(self, "storage_env", self.storage_env or self.environment)
 
         if self.variant < 1:
             raise ValueError(f"Variant must be >= 1, got {self.variant}")
@@ -85,10 +123,16 @@ def create_naming_context(
     spec_fp: Optional[str] = None,
     exec_fp: Optional[str] = None,
     environment: Optional[str] = None,
+    stage: Optional[str] = None,
+    storage_env: Optional[str] = None,
+    study_name: Optional[str] = None,
     variant: int = 1,
     trial_id: Optional[str] = None,
     parent_training_id: Optional[str] = None,
-    conv_fp: Optional[str] = None
+    conv_fp: Optional[str] = None,
+    study_key_hash: Optional[str] = None,
+    trial_key_hash: Optional[str] = None,
+    benchmark_config_hash: Optional[str] = None,
 ) -> NamingContext:
     """
     Factory function to create NamingContext with auto-detection.
@@ -110,6 +154,10 @@ def create_naming_context(
     if environment is None:
         environment = detect_platform()
 
+    # Default storage_env to environment if not explicitly provided
+    if storage_env is None:
+        storage_env = environment
+
     # Layer B: Ensure trial_id is never None/empty/whitespace for hpo_refit
     if process_type == "hpo_refit":
         if not trial_id or not trial_id.strip():
@@ -127,12 +175,18 @@ def create_naming_context(
         process_type=process_type,
         model=model,
         environment=environment,
+        stage=stage,
+        storage_env=storage_env,
+        study_name=study_name,
         spec_fp=spec_fp,
         exec_fp=exec_fp,
         variant=variant,
         trial_id=trial_id,
         parent_training_id=parent_training_id,
-        conv_fp=conv_fp
+        conv_fp=conv_fp,
+        study_key_hash=study_key_hash,
+        trial_key_hash=trial_key_hash,
+        benchmark_config_hash=benchmark_config_hash,
     )
 
 
@@ -248,11 +302,20 @@ def build_output_path(
     This ensures path structures are configurable and maintainable.
 
     Path structures (from paths.yaml patterns):
-    - HPO: outputs/hpo/{environment}/{model}/trial_{trial_id}/
-    - Benchmarking: outputs/benchmarking/{environment}/{model}/trial_{trial_id}/
-    - Final training: outputs/final_training/{environment}/{model}/spec_{spec_fp}_exec_{exec_fp}/v{variant}/
-    - Conversion: outputs/conversion/{environment}/{model}/{parent_training_id}/conv_{conv_fp}/
-    - Best config: outputs/cache/best_configurations/{model}/spec_{spec_fp}/
+    - HPO v2:
+        outputs/hpo/{storage_env}/{model}/study_{study8}/trial_{trial8}/...
+      (falls back to legacy trial_id-based layout when study/trial hashes
+       are not available)
+    - Benchmarking v2:
+        outputs/benchmarking/{storage_env}/{model}/study_{study8}/trial_{trial8}/bench_{bench8}/...
+      (falls back to legacy trial_id-based layout when hashes are not
+       available)
+    - Final training:
+        outputs/final_training/{storage_env}/{model}/spec_{spec_fp}_exec_{exec_fp}/v{variant}/
+    - Conversion:
+        outputs/conversion/{storage_env}/{model}/{parent_training_id}/conv_{conv_fp}/
+    - Best config:
+        outputs/cache/best_configurations/{model}/spec_{spec_fp}/
 
     Args:
         root_dir: Project root directory.
@@ -311,8 +374,10 @@ def build_output_path(
         return _build_output_path_fallback(root_dir, context, base_outputs)
 
     # Extract values from context
+    # NOTE: storage_env defaults to environment in NamingContext.__post_init__
     values = {
         "environment": context.environment,
+        "storage_env": getattr(context, "storage_env", context.environment),
         "model": context.model,
         "spec_fp": context.spec_fp or "",
         "exec_fp": context.exec_fp or "",
@@ -320,6 +385,14 @@ def build_output_path(
         "trial_id": context.trial_id or "",
         "parent_training_id": context.parent_training_id or "",
         "conv_fp": context.conv_fp or "",
+        # Optional short forms for HPO/benchmark v2 layouts
+        "study8": (context.study_key_hash or "")[:8] if context.study_key_hash else "",
+        "trial8": (context.trial_key_hash or "")[:8] if context.trial_key_hash else "",
+        "bench8": (context.benchmark_config_hash or "")[
+            :8
+        ]
+        if context.benchmark_config_hash
+        else "",
     }
 
     # Resolve pattern by replacing placeholders
