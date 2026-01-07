@@ -29,7 +29,7 @@ run_names:
 
   # HPO Trial Fold Run (CV fold child runs)
   hpo_trial_fold:
-    pattern: "{env}_{model}_hpo_trial_study-{study_hash}_t{trial_number}_fold{fold_idx}{version}"
+    pattern: "{env}_{model}_hpo_trial_study-{study_hash}_t{trial_number}_fold{fold_idx}"
     components:
       study_hash:
         length: 8
