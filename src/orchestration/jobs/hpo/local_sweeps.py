@@ -216,12 +216,60 @@ def create_local_hpo_objective(
                 hpo_parent_run_id=hpo_parent_run_id,
             )
 
+            # Create v2 trial folder for non-CV trials (similar to CV trials)
+            trial_output_dir = output_base_dir
+            trial_key_hash = None
+            if study_key_hash:
+                try:
+                    from orchestration.jobs.tracking.mlflow_naming import (
+                        build_hpo_trial_key,
+                        build_hpo_trial_key_hash,
+                    )
+                    # Extract hyperparameters (exclude metadata fields)
+                    hyperparameters = {
+                        k: v for k, v in trial_params.items()
+                        if k not in ("backbone", "trial_number", "run_id")
+                    }
+                    trial_key = build_hpo_trial_key(study_key_hash, hyperparameters)
+                    trial_key_hash = build_hpo_trial_key_hash(trial_key)
+                    trial8 = trial_key_hash[:8]
+                    
+                    # Create trial-{hash} folder in study folder
+                    trial_output_dir = output_base_dir / f"trial-{trial8}"
+                    trial_output_dir.mkdir(parents=True, exist_ok=True)
+                    
+                    # Create trial_meta.json for easy lookup
+                    import json
+                    study_folder_name = output_base_dir.name
+                    trial_meta = {
+                        "study_key_hash": study_key_hash,
+                        "trial_key_hash": trial_key_hash,
+                        "trial_number": trial.number,
+                        "study_name": study_folder_name,
+                        "run_id": captured_run_id,
+                        "created_at": datetime.now().isoformat(),
+                    }
+                    trial_meta_path = trial_output_dir / "trial_meta.json"
+                    with open(trial_meta_path, "w") as f:
+                        json.dump(trial_meta, f, indent=2)
+                    
+                    logger.debug(
+                        f"Created v2 trial folder for non-CV trial {trial.number}: {trial_output_dir.name}"
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Could not create v2 trial folder for non-CV trial {trial.number}: {e}. "
+                        f"Using study folder directly."
+                    )
+                    # Fallback to study folder if trial folder creation fails
+                    trial_output_dir = output_base_dir
+
             metric_value = run_training_trial(
                 trial_params=trial_params,
                 dataset_path=dataset_path,
                 config_dir=config_dir,
                 backbone=backbone,
-                output_dir=output_base_dir,
+                output_dir=trial_output_dir,  # Use trial folder instead of study folder
                 train_config=train_config,
                 mlflow_experiment_name=mlflow_experiment_name,
                 objective_metric=objective_metric,
