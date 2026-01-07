@@ -8,8 +8,6 @@ from typing import Any, Callable, Dict, Optional, Tuple
 
 from shared.logging_utils import get_logger
 
-from .local.checkpoint.manager import get_storage_uri, resolve_storage_path
-
 logger = get_logger(__name__)
 
 
@@ -44,6 +42,9 @@ def setup_checkpoint_storage(
     Returns:
         Tuple of (storage_path, storage_uri, should_resume).
     """
+    # Lazy import to avoid circular dependency
+    from .local.checkpoint.manager import get_storage_uri, resolve_storage_path
+
     checkpoint_config = checkpoint_config or {}
     storage_path = resolve_storage_path(
         output_dir=output_dir,

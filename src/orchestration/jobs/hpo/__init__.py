@@ -5,13 +5,15 @@ This module provides HPO functionality for both local (Optuna) and Azure ML exec
 
 from __future__ import annotations
 
-from .local.checkpoint.manager import get_storage_uri, resolve_storage_path
+# Import hpo_helpers first to avoid circular dependency
 from .hpo_helpers import (
     create_mlflow_run_name,
     create_study_name,
     generate_run_id,
     setup_checkpoint_storage,
 )
+# Import checkpoint.manager after hpo_helpers to break circular dependency
+from .local.checkpoint.manager import get_storage_uri, resolve_storage_path
 from .local_sweeps import run_local_hpo_sweep, translate_search_space_to_optuna
 from .search_space import (
     SearchSpaceTranslator,

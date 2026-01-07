@@ -292,10 +292,12 @@ def _build_output_path_fallback(
             )
         study8 = context.study_key_hash[:8]
         trial8 = context.trial_key_hash[:8]
-        bench8 = (context.benchmark_config_hash or "")[:8] if context.benchmark_config_hash else ""
+        bench8 = (context.benchmark_config_hash or "")[
+            :8] if context.benchmark_config_hash else ""
         if bench8:
             final_path = base_path / "benchmarking" / context.storage_env / \
-                context.model / f"study-{study8}" / f"trial-{trial8}" / f"bench-{bench8}"
+                context.model / f"study-{study8}" / \
+                f"trial-{trial8}" / f"bench-{bench8}"
         else:
             final_path = base_path / "benchmarking" / context.storage_env / \
                 context.model / f"study-{study8}" / f"trial-{trial8}"
@@ -381,7 +383,7 @@ def build_output_path(
     if base_outputs_path.is_absolute():
         base_path = base_outputs_path
     else:
-    base_path = root_dir / base_outputs
+        base_path = root_dir / base_outputs
 
     # Map process_type to output category
     category_map = {

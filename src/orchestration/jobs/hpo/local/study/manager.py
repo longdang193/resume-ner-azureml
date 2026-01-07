@@ -11,8 +11,6 @@ from typing import Any, Dict, Optional, Tuple
 
 from shared.logging_utils import get_logger
 from ..optuna.integration import import_optuna as _import_optuna, create_optuna_pruner
-from ...hpo_helpers import create_study_name, setup_checkpoint_storage
-from ..checkpoint.manager import get_storage_uri
 
 logger = get_logger(__name__)
 
@@ -60,7 +58,8 @@ class StudyManager:
             self.sampler = self.RandomSampler()  # Default to random
 
         self.checkpoint_enabled = (
-            checkpoint_config is not None and checkpoint_config.get("enabled", False)
+            checkpoint_config is not None and checkpoint_config.get(
+                "enabled", False)
         )
 
     def create_or_load_study(
@@ -80,6 +79,10 @@ class StudyManager:
         Returns:
             Tuple of (study, study_name, storage_path, storage_uri, should_resume).
         """
+        # Lazy imports to avoid circular dependency
+        from ...hpo_helpers import create_study_name, setup_checkpoint_storage
+        from ..checkpoint.manager import get_storage_uri
+
         # Resolve study_name FIRST (needed for {study_name} placeholder in storage_path)
         # Use temporary should_resume=False for initial study_name resolution
         # We'll recalculate should_resume after checking if study exists
@@ -104,13 +107,14 @@ class StudyManager:
                 self.checkpoint_config.get("auto_resume", True)
                 and storage_path.exists()
             )
-            
+
             # If not found in v2 folder, check if legacy folder has it (for migration)
             if not storage_path.exists() and self.restore_from_drive is not None:
                 try:
                     restored = self.restore_from_drive(storage_path)
                     if restored:
-                        logger.info(f"Restored HPO checkpoint from Drive: {storage_path}")
+                        logger.info(
+                            f"Restored HPO checkpoint from Drive: {storage_path}")
                 except Exception as e:
                     logger.debug(f"Drive backup not found for checkpoint: {e}")
         else:
@@ -147,15 +151,19 @@ class StudyManager:
             )
 
             # Check if HPO is already complete
-            user_attrs = study.user_attrs if hasattr(study, "user_attrs") else {}
-            hpo_complete = user_attrs.get("hpo_complete", "false").lower() == "true"
+            user_attrs = study.user_attrs if hasattr(
+                study, "user_attrs") else {}
+            hpo_complete = user_attrs.get(
+                "hpo_complete", "false").lower() == "true"
             checkpoint_uploaded = (
-                user_attrs.get("checkpoint_uploaded", "false").lower() == "true"
+                user_attrs.get("checkpoint_uploaded",
+                               "false").lower() == "true"
             )
 
             if hpo_complete and checkpoint_uploaded:
                 best_trial_num = user_attrs.get("best_trial_number", "unknown")
-                completion_time = user_attrs.get("completion_timestamp", "unknown")
+                completion_time = user_attrs.get(
+                    "completion_timestamp", "unknown")
                 logger.info(
                     f"✓ HPO already completed and checkpoint uploaded (best trial: {best_trial_num}, "
                     f"completed: {completion_time}). Skipping HPO execution."
@@ -277,7 +285,8 @@ class StudyManager:
         """Mark any RUNNING trials as FAILED (they were interrupted)."""
         # Can be disabled via config or environment variable
         cleanup_config = self.hpo_config.get("cleanup", {})
-        skip_optuna_mark_config = cleanup_config.get("disable_auto_optuna_mark", False)
+        skip_optuna_mark_config = cleanup_config.get(
+            "disable_auto_optuna_mark", False)
         skip_optuna_mark_env = (
             os.environ.get("DISABLE_AUTO_OPTUNA_MARK", "").lower() == "true"
         )
@@ -302,5 +311,5 @@ class StudyManager:
                     f"Marking them as FAILED (interrupted)."
                 )
                 for trial in running_trials:
-                    study.tell(trial.number, state=self.optuna.trial.TrialState.FAIL)
-
+                    study.tell(
+                        trial.number, state=self.optuna.trial.TrialState.FAIL)
