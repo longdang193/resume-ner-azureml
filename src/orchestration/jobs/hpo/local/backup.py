@@ -82,24 +82,40 @@ def backup_hpo_study_to_drive(
         logger.warning(f"  Resolved path: {actual_storage_path}")
         logger.warning(f"  Study name: {study_name}")
 
-    # Backup entire study folder (new structure: outputs/hpo/{env}/{model}/{study_name}/...)
+    # Backup entire study folder (v2 structure: outputs/hpo/{env}/{model}/study-{hash}/...)
     # Check if checkpoint is already in Drive - if so, study folder is also in Drive
     checkpoint_in_drive = actual_storage_path and str(actual_storage_path).startswith("/content/drive")
 
     # Use Drive path if checkpoint is in Drive, otherwise use local path
     if checkpoint_in_drive and actual_storage_path:
-        # Study folder is in Drive - use the Drive path
+        # Study folder is in Drive - use the Drive path (v2 format: study-{hash})
         study_folder = actual_storage_path.parent
     else:
-        # Study folder is local
-        study_folder = backbone_output_dir / study_name if study_name else backbone_output_dir
+        # Study folder is local - use the actual storage path's parent (v2 format: study-{hash})
+        # This ensures we use the v2 format instead of old study_name format
+        if actual_storage_path and actual_storage_path.exists():
+            study_folder = actual_storage_path.parent
+        elif local_checkpoint_path.exists():
+            study_folder = local_checkpoint_path.parent
+        else:
+            # Fallback: try to find v2 study folder by looking for study-{hash} pattern
+            study_folder = None
+            if backbone_output_dir.exists():
+                for item in backbone_output_dir.iterdir():
+                    if item.is_dir() and item.name.startswith("study-") and len(item.name) > 7:
+                        study_folder = item
+                        break
+            if study_folder is None:
+                # Last resort: use old format if v2 folder not found (for backward compatibility)
+                study_folder = backbone_output_dir / study_name if study_name else backbone_output_dir
 
     if study_folder.exists():
         if checkpoint_in_drive:
             # study.db and study folder are already in Drive
             # Verify trial_meta.json files exist in Drive
             logger.info(f"Study folder is in Drive: {study_folder}")
-            trial_dirs = [d for d in study_folder.iterdir() if d.is_dir() and d.name.startswith("trial_")]
+            # Look for both v2 format (trial-{hash}) and legacy format (trial_*)
+            trial_dirs = [d for d in study_folder.iterdir() if d.is_dir() and (d.name.startswith("trial-") or d.name.startswith("trial_"))]
             trial_meta_count = 0
             for trial_dir in trial_dirs:
                 trial_meta_path = trial_dir / "trial_meta.json"
@@ -118,7 +134,8 @@ def backup_hpo_study_to_drive(
                 logger.info(f"Backed up entire study folder to Drive: {study_folder.name}")
 
                 # Verify trial_meta.json files were backed up
-                trial_dirs = [d for d in study_folder.iterdir() if d.is_dir() and d.name.startswith("trial_")]
+                # Look for both v2 format (trial-{hash}) and legacy format (trial_*)
+                trial_dirs = [d for d in study_folder.iterdir() if d.is_dir() and (d.name.startswith("trial-") or d.name.startswith("trial_"))]
                 for trial_dir in trial_dirs:
                     trial_meta_path = trial_dir / "trial_meta.json"
                     if trial_meta_path.exists():
@@ -137,4 +154,5 @@ def backup_hpo_study_to_drive(
     else:
         # Checkpoint is local but study folder doesn't exist - this is an error
         logger.warning(f"Study folder not found: {study_folder}")
+
 
