@@ -1,5 +1,7 @@
 """Centralized path resolution from config."""
 
+from typing import Dict, Optional
+import re
 import logging
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
@@ -98,7 +100,8 @@ def validate_paths_config(config: Dict[str, Any], config_path: Optional[Path] = 
     # Core requirement: base.outputs must exist and be non-empty
     base = config.get("base")
     if not isinstance(base, dict):
-        raise ValueError(f"[paths.yaml] 'base' section must be a mapping{location}")
+        raise ValueError(
+            f"[paths.yaml] 'base' section must be a mapping{location}")
     outputs_base = base.get("outputs")
     if not outputs_base or not isinstance(outputs_base, str):
         raise ValueError(
@@ -232,7 +235,8 @@ def resolve_output_path(
     paths_config = load_paths_config(config_dir)
     base_outputs = paths_config["base"]["outputs"]
     base_outputs_path = Path(base_outputs)
-    base_dir = base_outputs_path if base_outputs_path.is_absolute() else root_dir / base_outputs
+    base_dir = base_outputs_path if base_outputs_path.is_absolute() else root_dir / \
+        base_outputs
 
     if category == "cache" and "subcategory" in kwargs:
         # Special handling for cache subdirectories
@@ -315,55 +319,54 @@ def get_timestamped_cache_filename(
     cache_type: str,
     backbone: str,
     identifier: str,
-    timestamp: str
+    timestamp: str,
 ) -> str:
     """
     Generate timestamped cache filename from pattern.
-
-    Args:
-        config_dir: Config directory.
-        cache_type: Type of cache ("best_configurations", "final_training", or "best_model_selection").
-        backbone: Backbone name.
-        identifier: Identifier (trial name for best_config, run_id for final_training).
-        timestamp: Timestamp string.
-
-    Returns:
-        Generated filename.
     """
     paths_config = load_paths_config(config_dir)
+    norm_rules = paths_config.get("normalize_paths")
 
     # Get pattern based on cache type
     if cache_type == "best_configurations":
-        pattern = paths_config.get("patterns", {}).get("best_config_file",
-                                                       "best_config_{backbone}_{trial}_{timestamp}.json")
+        pattern = paths_config.get("patterns", {}).get(
+            "best_config_file",
+            "best_config_{backbone}_{trial}_{timestamp}.json",
+        )
         # Use 'identifier' placeholder for trial
         pattern = pattern.replace("{trial}", "{identifier}")
+
     elif cache_type == "final_training":
-        pattern = paths_config.get("patterns", {}).get("final_training_cache_file",
-                                                       "final_training_{backbone}_{run_id}_{timestamp}.json")
+        pattern = paths_config.get("patterns", {}).get(
+            "final_training_cache_file",
+            "final_training_{backbone}_{run_id}_{timestamp}.json",
+        )
         # Use 'identifier' placeholder for run_id
         pattern = pattern.replace("{run_id}", "{identifier}")
+
     elif cache_type == "best_model_selection":
-        pattern = paths_config.get("patterns", {}).get("best_model_selection_cache_file",
-                                                       "best_model_selection_{backbone}_{identifier}_{timestamp}.json")
-        # Pattern already uses {identifier} placeholder
+        pattern = paths_config.get("patterns", {}).get(
+            "best_model_selection_cache_file",
+            "best_model_selection_{backbone}_{identifier}_{timestamp}.json",
+        )
+        # Pattern already uses {identifier}
+
     else:
         # Generic pattern
-        pattern = "{cache_type}_{backbone}_{identifier}_{timestamp}.json"
-        pattern = pattern.replace("{cache_type}", cache_type)
+        pattern = f"{cache_type}_{{backbone}}_{{identifier}}_{{timestamp}}.json"
 
     # Sanitize values for filename
     if norm_rules:
         backbone_safe, _ = normalize_for_path(backbone, norm_rules)
         identifier_safe, _ = normalize_for_path(identifier, norm_rules)
     else:
-        backbone_safe = backbone.replace('-', '_').replace('/', '_')
-        identifier_safe = identifier.replace('-', '_').replace('/', '_')
+        backbone_safe = backbone.replace("-", "_").replace("/", "_")
+        identifier_safe = identifier.replace("-", "_").replace("/", "_")
 
     return pattern.format(
         backbone=backbone_safe,
         identifier=identifier_safe,
-        timestamp=timestamp
+        timestamp=timestamp,
     )
 
 
@@ -707,9 +710,6 @@ def resolve_output_path_v2(
 # V2 Path Parsing and Detection Helpers
 # ============================================================================
 
-import re
-from typing import Dict, Optional
-
 
 def parse_hpo_path_v2(path: Path) -> Optional[Dict[str, str]]:
     """
@@ -726,12 +726,12 @@ def parse_hpo_path_v2(path: Path) -> Optional[Dict[str, str]]:
         Returns None if path doesn't match v2 pattern.
     """
     path_str = str(path)
-    
+
     # Pattern to match: study-{8_char_hash}/trial-{8_char_hash}
     # Also capture storage_env and model from preceding components
     pattern = r'(?:.*/)?(?:outputs/hpo/)?([^/]+)/([^/]+)/study-([a-f0-9]{8})/trial-([a-f0-9]{8})'
     match = re.search(pattern, path_str)
-    
+
     if match:
         storage_env, model, study8, trial8 = match.groups()
         return {
@@ -740,7 +740,7 @@ def parse_hpo_path_v2(path: Path) -> Optional[Dict[str, str]]:
             'study8': study8,
             'trial8': trial8,
         }
-    
+
     return None
 
 
@@ -783,26 +783,26 @@ def find_study_by_hash(
     """
     if not study_key_hash or len(study_key_hash) < 8:
         return None
-    
+
     study8 = study_key_hash[:8]
-    
+
     # Get HPO base directory
     hpo_base = resolve_output_path(root_dir, config_dir, "hpo")
-    
+
     # Search for study-{study8} pattern in all storage_env directories
     for storage_env_dir in hpo_base.iterdir():
         if not storage_env_dir.is_dir():
             continue
-        
+
         model_dir = storage_env_dir / model
         if not model_dir.exists():
             continue
-        
+
         # Look for study-{study8} folder
         study_folder = model_dir / f"study-{study8}"
         if study_folder.exists() and study_folder.is_dir():
             return study_folder
-    
+
     return None
 
 
@@ -834,28 +834,28 @@ def find_trial_by_hash(
         return None
     if not trial_key_hash or len(trial_key_hash) < 8:
         return None
-    
+
     study8 = study_key_hash[:8]
     trial8 = trial_key_hash[:8]
-    
+
     # Get HPO base directory
     hpo_base = resolve_output_path(root_dir, config_dir, "hpo")
-    
+
     # Search for trial-{trial8} pattern in study-{study8} folders
     for storage_env_dir in hpo_base.iterdir():
         if not storage_env_dir.is_dir():
             continue
-        
+
         model_dir = storage_env_dir / model
         if not model_dir.exists():
             continue
-        
+
         study_folder = model_dir / f"study-{study8}"
         if not study_folder.exists():
             continue
-        
+
         trial_folder = study_folder / f"trial-{trial8}"
         if trial_folder.exists() and trial_folder.is_dir():
             return trial_folder
-    
+
     return None

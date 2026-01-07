@@ -98,7 +98,7 @@ class StudyManager:
             storage_path = v2_study_folder / "study.db"
             storage_path.parent.mkdir(parents=True, exist_ok=True)
             storage_uri = get_storage_uri(storage_path)
-            
+
             # Check if should resume (if study.db already exists in v2 folder)
             should_resume = (
                 self.checkpoint_config.get("auto_resume", True)

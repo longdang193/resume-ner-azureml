@@ -188,6 +188,8 @@ def run_training_trial_with_cv(
             config_dir = root_dir / "config"
             
             # Create NamingContext for trial
+            # For v2 paths, set trial_id to trial-{hash8} format so build_output_path can use it
+            trial_id_v2 = f"trial-{computed_trial_key_hash[:8]}" if computed_trial_key_hash else None
             trial_context = create_naming_context(
                 process_type="hpo",
                 model=backbone.split("-")[0] if "-" in backbone else backbone,
@@ -196,6 +198,7 @@ def run_training_trial_with_cv(
                 study_key_hash=computed_study_key_hash,
                 trial_key_hash=computed_trial_key_hash,
                 trial_number=trial_number,
+                trial_id=trial_id_v2,  # Set trial_id for v2 path building
             )
             
             # Build trial path using v2 pattern

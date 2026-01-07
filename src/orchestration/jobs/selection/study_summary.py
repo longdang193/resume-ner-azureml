@@ -87,16 +87,23 @@ def load_study_from_disk(
     if study_name_template:
         study_name = study_name_template.replace("{backbone}", backbone_name)
 
-    actual_storage_path = resolve_storage_path(
-        output_dir=backbone_output_dir,
-        checkpoint_config=checkpoint_config,
-        backbone=backbone_name,
-        study_name=study_name,
-    )
-
-    if actual_storage_path and actual_storage_path.exists():
-        study_folder = actual_storage_path.parent
-    else:
+    # Prefer v2 study folders first (check before calling resolve_storage_path to avoid creating legacy folders)
+    from .trial_finder import find_study_folder_in_backbone_dir
+    study_folder = find_study_folder_in_backbone_dir(backbone_output_dir)
+    
+    # If no v2 folder found, try to locate legacy folder via resolve_storage_path (read-only)
+    if not study_folder:
+        actual_storage_path = resolve_storage_path(
+            output_dir=backbone_output_dir,
+            checkpoint_config=checkpoint_config,
+            backbone=backbone_name,
+            study_name=study_name,
+            create_dirs=False,  # Read-only: don't create legacy folders
+        )
+        if actual_storage_path and actual_storage_path.exists():
+            study_folder = actual_storage_path.parent
+    
+    if not study_folder:
         study_folder = backbone_output_dir / \
             study_name if study_name else backbone_output_dir
         if not study_folder.exists() and backbone_output_dir.exists():

@@ -69,3 +69,4 @@ def normalize_for_path(value: Any, rules: Dict[str, Any] | None = None) -> Tuple
                 result = result[:max_component_length]
     return result, warnings
 
+

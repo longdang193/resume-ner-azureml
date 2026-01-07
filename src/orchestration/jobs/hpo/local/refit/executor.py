@@ -22,6 +22,7 @@ from orchestration.jobs.tracking.mlflow_naming import (
     build_mlflow_run_key,
     build_mlflow_run_key_hash,
 )
+from orchestration.jobs.tracking.naming.tags import get_tag_key
 from orchestration.jobs.tracking.utils.mlflow_utils import get_mlflow_run_url
 from shared.platform_detection import detect_platform
 
@@ -270,6 +271,7 @@ def run_refit_training(
             refit_run_id=refit_run_id,
             metrics=metrics,
             refit_params=refit_params,
+            config_dir=config_dir,
         )
 
     checkpoint_dir = refit_output_dir / "checkpoint"
@@ -460,6 +462,7 @@ def _log_refit_metrics_to_mlflow(
     refit_run_id: str,
     metrics: Dict[str, Any],
     refit_params: Dict[str, Any],
+    config_dir: Path,
 ) -> None:
     """Log metrics and parameters to MLflow refit run."""
     try:
@@ -518,6 +521,7 @@ from orchestration.jobs.tracking.mlflow_naming import (
     build_mlflow_run_key,
     build_mlflow_run_key_hash,
 )
+from orchestration.jobs.tracking.naming.tags import get_tag_key
 from orchestration.jobs.tracking.utils.mlflow_utils import get_mlflow_run_url
 from shared.platform_detection import detect_platform
 
@@ -766,6 +770,7 @@ def run_refit_training(
             refit_run_id=refit_run_id,
             metrics=metrics,
             refit_params=refit_params,
+            config_dir=config_dir,
         )
 
     checkpoint_dir = refit_output_dir / "checkpoint"
@@ -956,6 +961,7 @@ def _log_refit_metrics_to_mlflow(
     refit_run_id: str,
     metrics: Dict[str, Any],
     refit_params: Dict[str, Any],
+    config_dir: Path,
 ) -> None:
     """Log metrics and parameters to MLflow refit run."""
     try:

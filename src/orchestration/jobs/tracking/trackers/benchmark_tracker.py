@@ -170,9 +170,9 @@ class MLflowBenchmarkTracker(BaseTracker):
 
                 # Use pre-computed lineage_parent_run_id and parent_kind from before run creation
 
-                # Get tag keys from registry (config_dir should be available from context)
+                # Get tag keys from registry (config_dir was already inferred from output_dir above)
                 from orchestration.jobs.tracking.naming.tags import get_tag_key
-                config_dir = None  # Could be inferred from context if available
+                # Note: config_dir was already inferred from output_dir at line 104, don't overwrite it
                 lineage_hpo_trial_run_id_tag = get_tag_key("lineage", "hpo_trial_run_id", config_dir, "code.lineage.hpo_trial_run_id")
                 lineage_hpo_refit_run_id_tag = get_tag_key("lineage", "hpo_refit_run_id", config_dir, "code.lineage.hpo_refit_run_id")
                 lineage_hpo_sweep_run_id_tag = get_tag_key("lineage", "hpo_sweep_run_id", config_dir, "code.lineage.hpo_sweep_run_id")
@@ -261,7 +261,7 @@ class MLflowBenchmarkTracker(BaseTracker):
                                             root_dir = current.parent
                                             break
                                         current = current.parent
-                                
+
                                 if root_dir is None:
                                     # Fallback: try to find project root by looking for config directory
                                     root_dir = Path.cwd()

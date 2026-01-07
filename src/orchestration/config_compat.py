@@ -65,3 +65,4 @@ def validate_paths_and_naming_compatible(
 
     return issues
 
+

@@ -78,12 +78,12 @@ def load_best_trial_from_disk(
 
     # Collect all trial directories (support both v2 and legacy paths)
     trial_dirs = []
-    
+
     # First, check for v2 paths: study-{study8}/trial-{trial8}
     for study_dir in backbone_dir.iterdir():
         if not study_dir.is_dir():
             continue
-        
+
         # Check if this is a v2 study folder (study-{hash})
         if study_dir.name.startswith("study-") and len(study_dir.name) > 7:
             # Look for trial folders inside study folder
@@ -96,7 +96,7 @@ def load_best_trial_from_disk(
             for trial_dir in study_dir.iterdir():
                 if trial_dir.is_dir() and trial_dir.name.startswith("trial_"):
                     trial_dirs.append(trial_dir)
-    
+
     # Also check for legacy direct trial directories (trial_N directly under backbone_dir)
     for trial_dir in backbone_dir.iterdir():
         if trial_dir.is_dir() and trial_dir.name.startswith("trial_") and trial_dir not in trial_dirs:
@@ -226,4 +226,3 @@ def load_best_trial_from_disk(
         result["trial_run_id"] = trial_run_id
 
     return result
-

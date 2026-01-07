@@ -227,7 +227,7 @@ def commit_run_name_version(
     version: int,
     root_dir: Path,
     config_dir: Optional[Path] = None,
-) -> None:
+) -> bool:
     """
     Commit a reserved version number after MLflow run is successfully created.
 
@@ -322,6 +322,7 @@ def commit_run_name_version(
                 logger.info(
                     f"[Commit Version] ✓ Successfully saved committed version {version} to {counter_path}"
                 )
+            return found
         except Exception as e:
             temp_path.unlink(missing_ok=True)
             logger.error(
@@ -332,6 +333,7 @@ def commit_run_name_version(
 
     finally:
         release_lock(lock_fd, counter_path)
+    return False
 
 
 def cleanup_stale_reservations(

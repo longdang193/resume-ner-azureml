@@ -330,7 +330,8 @@ def run_local_hpo_sweep(
                 benchmark_config=benchmark_config,
             )
             study_key_hash = build_hpo_study_key_hash(study_key)
-            logger.info(f"✓ Computed study_key_hash early: {study_key_hash[:16]}... (full: {study_key_hash[:64]}...)")
+            logger.info(
+                f"✓ Computed study_key_hash early: {study_key_hash[:16]}... (full: {study_key_hash[:64]}...)")
         except Exception as e:
             logger.warning(f"✗ Could not compute study_key_hash early: {e}")
             import traceback
@@ -351,7 +352,7 @@ def run_local_hpo_sweep(
         try:
             from orchestration.paths import load_paths_config, apply_env_overrides, resolve_output_path
             from shared.platform_detection import detect_platform
-            
+
             # Derive root_dir by walking up from output_dir until we find "outputs" directory
             root_dir = None
             current = output_dir
@@ -360,7 +361,7 @@ def run_local_hpo_sweep(
                     root_dir = current.parent
                     break
                 current = current.parent
-            
+
             if root_dir is None:
                 # Fallback: try to find project root by looking for config directory
                 root_dir = Path.cwd()
@@ -368,27 +369,31 @@ def run_local_hpo_sweep(
                     if (candidate / "config").exists():
                         root_dir = candidate
                         break
-            
+
             config_dir = root_dir / "config"
             hpo_base = resolve_output_path(root_dir, config_dir, "hpo")
             paths_config = load_paths_config(config_dir)
             storage_env = detect_platform()
             paths_config = apply_env_overrides(paths_config, storage_env)
-            
+
             pattern = paths_config.get("patterns", {}).get("hpo_v2", "")
             if pattern:
                 study8 = study_key_hash[:8]
                 model = backbone.split("-")[0] if "-" in backbone else backbone
-                
-                v2_study_folder = hpo_base / storage_env / model / f"study-{study8}"
+
+                v2_study_folder = hpo_base / \
+                    storage_env / model / f"study-{study8}"
                 v2_study_folder.mkdir(parents=True, exist_ok=True)
-                logger.info(f"Created v2 study folder early: {v2_study_folder}")
+                logger.info(
+                    f"Created v2 study folder early: {v2_study_folder}")
         except Exception as e:
-            logger.warning(f"Could not create v2 study folder early, will use legacy: {e}")
+            logger.warning(
+                f"Could not create v2 study folder early, will use legacy: {e}")
 
     # Create or load study - pass v2_study_folder if available to use for study.db
     study, study_name, storage_path, storage_uri, should_resume = (
-        study_manager.create_or_load_study(output_dir, run_id, v2_study_folder=v2_study_folder)
+        study_manager.create_or_load_study(
+            output_dir, run_id, v2_study_folder=v2_study_folder)
     )
 
     # Check if HPO is already complete (early return)
@@ -407,21 +412,23 @@ def run_local_hpo_sweep(
 
     # Determine study folder: use v2 if created, otherwise use legacy
     study_folder_legacy = storage_path.parent if storage_path else output_dir / study_name
-    
+
     if v2_study_folder and v2_study_folder.exists():
         # Use v2 folder (study.db was created there)
         study_folder = v2_study_folder
         study_output_dir = study_folder
         logger.info(f"Using v2 study folder (created early): {study_folder}")
-        
+
         # If legacy folder was created (shouldn't happen now, but check for cleanup)
         if study_folder_legacy.exists() and study_folder_legacy != study_folder:
             # Check if legacy folder only contains study.db (could be a stale file)
             legacy_contents = list(study_folder_legacy.iterdir())
             if len(legacy_contents) == 1 and legacy_contents[0].name == "study.db":
-                logger.debug(f"Legacy folder {study_folder_legacy} contains only study.db, which has been moved to v2 folder. Legacy folder can be cleaned up.")
+                logger.debug(
+                    f"Legacy folder {study_folder_legacy} contains only study.db, which has been moved to v2 folder. Legacy folder can be cleaned up.")
             else:
-                logger.warning(f"Legacy folder {study_folder_legacy} exists with additional contents. Not removing to preserve data.")
+                logger.warning(
+                    f"Legacy folder {study_folder_legacy} exists with additional contents. Not removing to preserve data.")
     else:
         # Fall back to legacy folder
         study_folder = study_folder_legacy
@@ -459,11 +466,12 @@ def run_local_hpo_sweep(
     # Legacy v2 folder construction code (now redundant, but kept for backward compatibility)
     # This code path should not execute if v2_study_folder was created early
     if False and hpo_parent_context and hpo_parent_context.study_key_hash:
-        logger.debug(f"Attempting v2 study folder construction with study_key_hash={hpo_parent_context.study_key_hash[:16]}...")
+        logger.debug(
+            f"Attempting v2 study folder construction with study_key_hash={hpo_parent_context.study_key_hash[:16]}...")
         try:
             from orchestration.naming_centralized import build_output_path
             from orchestration.paths import load_paths_config, apply_env_overrides, resolve_output_path
-            
+
             # Derive root_dir by walking up from output_dir until we find "outputs" directory
             root_dir = None
             current = output_dir
@@ -472,7 +480,7 @@ def run_local_hpo_sweep(
                     root_dir = current.parent
                     break
                 current = current.parent
-            
+
             if root_dir is None:
                 # Fallback: try to find project root by looking for config directory
                 root_dir = Path.cwd()
@@ -480,25 +488,28 @@ def run_local_hpo_sweep(
                     if (candidate / "config").exists():
                         root_dir = candidate
                         break
-            
+
             config_dir = root_dir / "config"
             hpo_base = resolve_output_path(root_dir, config_dir, "hpo")
             paths_config = load_paths_config(config_dir)
-            paths_config = apply_env_overrides(paths_config, hpo_parent_context.storage_env or hpo_parent_context.environment)
-            
+            paths_config = apply_env_overrides(
+                paths_config, hpo_parent_context.storage_env or hpo_parent_context.environment)
+
             pattern = paths_config.get("patterns", {}).get("hpo_v2", "")
             if pattern:
                 study8 = hpo_parent_context.study_key_hash[:8]
                 storage_env = hpo_parent_context.storage_env or hpo_parent_context.environment
                 model = hpo_parent_context.model
-                
-                study_folder = hpo_base / storage_env / model / f"study-{study8}"
+
+                study_folder = hpo_base / storage_env / \
+                    model / f"study-{study8}"
                 study_folder.mkdir(parents=True, exist_ok=True)
                 logger.info(f"Using v2 study folder: {study_folder}")
                 study_output_dir = study_folder
         except Exception as e:
             import traceback
-            logger.warning(f"Could not construct v2 study folder, falling back to legacy: {e}")
+            logger.warning(
+                f"Could not construct v2 study folder, falling back to legacy: {e}")
             logger.debug(f"Traceback: {traceback.format_exc()}")
 
     # Write .active_study.json marker for fast lookup in selection code
@@ -511,7 +522,8 @@ def run_local_hpo_sweep(
             study_name=study_name,
             study_key_hash=None,  # Will be updated later when MLflow run is created
         )
-        logger.debug(f"Wrote .active_study.json marker to {backbone_dir / '.active_study.json'}")
+        logger.debug(
+            f"Wrote .active_study.json marker to {backbone_dir / '.active_study.json'}")
     except Exception as e:
         logger.debug(f"Could not write .active_study.json marker: {e}")
 
@@ -568,11 +580,11 @@ def run_local_hpo_sweep(
                 f"Cleaned up {cleaned_count} stale run name reservations")
     except Exception as e:
         logger.debug(f"Could not cleanup stale reservations: {e}")
-    
+
     # Update study_output_dir to use the final study_folder (already set above if v2 succeeded)
     # If v2 failed, study_output_dir is still set to legacy folder
     study_folder = study_output_dir
-    
+
     # IMPORTANT: Do NOT move study.db after the study object has been created.
     # The Optuna study object maintains a connection to the database at the original location.
     # Moving the file breaks this connection and causes "no such table: studies" errors.
@@ -584,7 +596,7 @@ def run_local_hpo_sweep(
             f"Database at {storage_path} is in different location than study folder {study_folder}. "
             f"Keeping database in original location to maintain Optuna study connection."
         )
-    
+
     # Use study folder as base for trials (so trials are created inside study folder)
     logger.info(f"Using study folder as base for trials: {study_output_dir}")
 
@@ -619,14 +631,15 @@ def run_local_hpo_sweep(
                 mlflow_run_name=mlflow_run_name,
                 output_dir=output_dir,
             )
-            
+
             # Update .active_study.json marker with study_key_hash from MLflow run
             try:
                 from orchestration.jobs.local_selection_v2 import write_active_study_marker
                 import mlflow
                 client = mlflow.tracking.MlflowClient()
                 parent_run = client.get_run(parent_run_id)
-                study_key_hash = parent_run.data.tags.get("code.study_key_hash")
+                study_key_hash = parent_run.data.tags.get(
+                    "code.study_key_hash")
                 if study_key_hash:
                     backbone_dir = study_folder.parent
                     write_active_study_marker(
@@ -635,9 +648,11 @@ def run_local_hpo_sweep(
                         study_name=study_name,
                         study_key_hash=study_key_hash,
                     )
-                    logger.debug(f"Updated .active_study.json marker with study_key_hash")
+                    logger.debug(
+                        f"Updated .active_study.json marker with study_key_hash")
             except Exception as e:
-                logger.debug(f"Could not update .active_study.json marker with study_key_hash: {e}")
+                logger.debug(
+                    f"Could not update .active_study.json marker with study_key_hash: {e}")
 
             # Cleanup: Tag interrupted runs from previous sessions
             parent_to_children = cleanup_interrupted_runs(
@@ -865,9 +880,11 @@ def run_local_hpo_sweep(
                         if refit_run_id:
                             try:
                                 client = mlflow.tracking.MlflowClient()
-                                client.set_tag(refit_run_id, "code.refit_training_done", "true")
+                                client.set_tag(
+                                    refit_run_id, "code.refit_training_done", "true")
                             except Exception as tag_error:
-                                logger.debug(f"Could not set refit_training_done tag: {tag_error}")
+                                logger.debug(
+                                    f"Could not set refit_training_done tag: {tag_error}")
 
                         # Link back from parent: add tags and metrics pointing to refit run
                         if parent_run_id and refit_run_id:
@@ -934,20 +951,27 @@ def run_local_hpo_sweep(
                                 client = mlflow.tracking.MlflowClient()
                                 # Check current status before terminating
                                 run = client.get_run(refit_run_id)
-                                logger.debug(f"[REFIT] Refit run {refit_run_id[:12]}... current status: {run.info.status}, upload_succeeded: {upload_succeeded}")
+                                logger.debug(
+                                    f"[REFIT] Refit run {refit_run_id[:12]}... current status: {run.info.status}, upload_succeeded: {upload_succeeded}")
                                 if run.info.status == "RUNNING":
                                     if upload_succeeded:
                                         # Success: mark as FINISHED with tag
-                                        client.set_tag(refit_run_id, "code.refit_artifacts_uploaded", "true")
-                                        client.set_terminated(refit_run_id, status="FINISHED")
+                                        client.set_tag(
+                                            refit_run_id, "code.refit_artifacts_uploaded", "true")
+                                        client.set_terminated(
+                                            refit_run_id, status="FINISHED")
                                         logger.info(
                                             f"[REFIT] ✓ Artifacts uploaded and run marked as FINISHED: {refit_run_id[:12]}...")
                                     else:
                                         # Failure: mark as FAILED with error tag
-                                        client.set_tag(refit_run_id, "code.refit_artifacts_uploaded", "false")
-                                        error_msg = str(upload_error)[:200] if upload_error else "Unknown error"
-                                        client.set_tag(refit_run_id, "code.refit_error", error_msg)
-                                        client.set_terminated(refit_run_id, status="FAILED")
+                                        client.set_tag(
+                                            refit_run_id, "code.refit_artifacts_uploaded", "false")
+                                        error_msg = str(upload_error)[
+                                            :200] if upload_error else "Unknown error"
+                                        client.set_tag(
+                                            refit_run_id, "code.refit_error", error_msg)
+                                        client.set_terminated(
+                                            refit_run_id, status="FAILED")
                                         logger.warning(
                                             f"[REFIT] Artifact upload failed, run marked as FAILED: {refit_run_id[:12]}... (error: {error_msg})")
                                 else:

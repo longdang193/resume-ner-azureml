@@ -340,18 +340,20 @@ def find_best_trial_from_study(
             study_name = study_name_template.replace(
                 "{backbone}", backbone_name)
 
-        actual_storage_path = resolve_storage_path(
-            output_dir=hpo_backbone_dir,
-            checkpoint_config=checkpoint_config,
-            backbone=backbone_name,
-            study_name=study_name,
-        )
-
-        if actual_storage_path and actual_storage_path.exists():
-            study_folder = actual_storage_path.parent
-        else:
-            # Fallback: use find_study_folder_in_backbone_dir
-            study_folder = find_study_folder_in_backbone_dir(hpo_backbone_dir)
+        # Prefer v2 study folders first (check before calling resolve_storage_path to avoid creating legacy folders)
+        study_folder = find_study_folder_in_backbone_dir(hpo_backbone_dir)
+        
+        # If no v2 folder found, try to locate legacy folder via resolve_storage_path (read-only)
+        if not study_folder:
+            actual_storage_path = resolve_storage_path(
+                output_dir=hpo_backbone_dir,
+                checkpoint_config=checkpoint_config,
+                backbone=backbone_name,
+                study_name=study_name,
+                create_dirs=False,  # Read-only: don't create legacy folders
+            )
+            if actual_storage_path and actual_storage_path.exists():
+                study_folder = actual_storage_path.parent
 
         if not study_folder:
             logger.debug(f"Study folder not found in {hpo_backbone_dir}")
@@ -736,18 +738,20 @@ def find_best_trials_for_backbones(
                     else None
                 )
 
-                actual_storage_path = resolve_storage_path(
-                    output_dir=hpo_backbone_dir,
-                    checkpoint_config=checkpoint_config,
-                    backbone=backbone_name,
-                    study_name=study_name,
-                )
-
-                study_folder = (
-                    actual_storage_path.parent
-                    if actual_storage_path and actual_storage_path.exists()
-                    else find_study_folder_in_backbone_dir(hpo_backbone_dir)
-                )
+                # Prefer v2 study folders first (check before calling resolve_storage_path to avoid creating legacy folders)
+                study_folder = find_study_folder_in_backbone_dir(hpo_backbone_dir)
+                
+                # If no v2 folder found, try to locate legacy folder via resolve_storage_path (read-only)
+                if not study_folder:
+                    actual_storage_path = resolve_storage_path(
+                        output_dir=hpo_backbone_dir,
+                        checkpoint_config=checkpoint_config,
+                        backbone=backbone_name,
+                        study_name=study_name,
+                        create_dirs=False,  # Read-only: don't create legacy folders
+                    )
+                    if actual_storage_path and actual_storage_path.exists():
+                        study_folder = actual_storage_path.parent
 
                 if study_folder:
                     study_db_path = study_folder / "study.db"
@@ -836,18 +840,20 @@ def find_best_trials_for_backbones(
                     else None
                 )
 
-                actual_storage_path = resolve_storage_path(
-                    output_dir=hpo_backbone_dir,
-                    checkpoint_config=checkpoint_config,
-                    backbone=backbone_name,
-                    study_name=study_name,
-                )
-
-                study_folder = (
-                    actual_storage_path.parent
-                    if actual_storage_path and actual_storage_path.exists()
-                    else find_study_folder_in_backbone_dir(hpo_backbone_dir)
-                )
+                # Prefer v2 study folders first (check before calling resolve_storage_path to avoid creating legacy folders)
+                study_folder = find_study_folder_in_backbone_dir(hpo_backbone_dir)
+                
+                # If no v2 folder found, try to locate legacy folder via resolve_storage_path (read-only)
+                if not study_folder:
+                    actual_storage_path = resolve_storage_path(
+                        output_dir=hpo_backbone_dir,
+                        checkpoint_config=checkpoint_config,
+                        backbone=backbone_name,
+                        study_name=study_name,
+                        create_dirs=False,  # Read-only: don't create legacy folders
+                    )
+                    if actual_storage_path and actual_storage_path.exists():
+                        study_folder = actual_storage_path.parent
 
                 if study_folder:
                     best_trial_info = find_best_trial_in_study_folder(

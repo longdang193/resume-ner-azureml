@@ -203,3 +203,4 @@ def test_tags_registry_invalid_key_type():
         registry.key("grouping", "study_key_hash")
 
 
+

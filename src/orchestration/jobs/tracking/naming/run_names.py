@@ -181,7 +181,7 @@ def build_mlflow_run_name(
 
             counter_key = build_counter_key(
                 naming_config.get("project_name", "resume-ner"),
-                process_type,
+                auto_inc_process_type,  # Use mapped process type for consistency with commit
                 run_key_hash,
                 env or "",
             )

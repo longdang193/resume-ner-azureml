@@ -244,3 +244,4 @@ def load_tags_registry(config_dir: Optional[Path] = None) -> TagsRegistry:
 __all__ = ["TagKeyError", "TagsRegistry", "load_tags_registry"]
 
 
+

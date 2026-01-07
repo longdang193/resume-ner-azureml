@@ -11,6 +11,7 @@ def resolve_storage_path(
     checkpoint_config: Dict[str, Any],
     backbone: str,
     study_name: Optional[str] = None,
+    create_dirs: bool = True,
 ) -> Optional[Path]:
     """
     Resolve checkpoint storage path with platform awareness.
@@ -20,6 +21,8 @@ def resolve_storage_path(
         checkpoint_config: Checkpoint configuration from HPO config
         backbone: Model backbone name (for placeholder substitution)
         study_name: Optional resolved study name (for {study_name} placeholder)
+        create_dirs: Whether to create parent directories (default: True)
+                    Set to False for read-only path resolution
     
     Returns:
         Resolved Path for checkpoint storage, or None if checkpointing disabled
@@ -44,8 +47,9 @@ def resolve_storage_path(
     platform = detect_platform()
     storage_path = resolve_checkpoint_path(output_dir, storage_path_str)
     
-    # Ensure parent directory exists
-    storage_path.parent.mkdir(parents=True, exist_ok=True)
+    # Ensure parent directory exists (only if create_dirs is True)
+    if create_dirs:
+        storage_path.parent.mkdir(parents=True, exist_ok=True)
     
     return storage_path
 

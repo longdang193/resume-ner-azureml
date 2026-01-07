@@ -99,7 +99,8 @@ class NamingContext:
             )
 
         # Default storage_env to environment if not explicitly provided
-        object.__setattr__(self, "storage_env", self.storage_env or self.environment)
+        object.__setattr__(self, "storage_env",
+                           self.storage_env or self.environment)
 
         if self.variant < 1:
             raise ValueError(f"Variant must be >= 1, got {self.variant}")
@@ -438,7 +439,8 @@ def build_output_path(
     if path_norm_rules:
         normalized_values = {}
         for key, value in values.items():
-            normalized_value, warn_msgs = normalize_for_path(value, path_norm_rules)
+            normalized_value, warn_msgs = normalize_for_path(
+                value, path_norm_rules)
             if warn_msgs:
                 for msg in warn_msgs:
                     logger.debug(
@@ -451,6 +453,15 @@ def build_output_path(
     resolved_pattern = pattern
     for key, value in values.items():
         resolved_pattern = resolved_pattern.replace(f"{{{key}}}", str(value))
+    
+    # DEBUG: Log resolved pattern for HPO v2 to diagnose path issues
+    if context.process_type in ("hpo", "hpo_refit") and pattern_key == "hpo_v2":
+        logger.debug(
+            f"[build_output_path] Pattern '{pattern}' resolved to '{resolved_pattern}' "
+            f"with study8='{values.get('study8')}', trial8='{values.get('trial8')}', "
+            f"study_key_hash={'present' if context.study_key_hash else 'missing'}, "
+            f"trial_key_hash={'present' if context.trial_key_hash else 'missing'}"
+        )
 
     # Build final path
     if context.process_type == "best_configurations":
@@ -464,7 +475,16 @@ def build_output_path(
         # Handle nested paths (e.g., "spec_abc_exec_xyz/v1")
         # Split by "/" and create path components
         pattern_parts = resolved_pattern.split("/")
+        # Filter out empty parts (can occur if a placeholder resolved to empty string)
+        pattern_parts = [part for part in pattern_parts if part]
         base_output_path = base_path / output_dir / Path(*pattern_parts)
+        
+        # DEBUG: Log final path for HPO v2
+        if context.process_type in ("hpo", "hpo_refit") and pattern_key == "hpo_v2":
+            logger.debug(
+                f"[build_output_path] Final path components: output_dir={output_dir}, "
+                f"pattern_parts={pattern_parts}, base_output_path={base_output_path}"
+            )
 
         # For hpo_refit, append "refit" subdirectory
         if context.process_type == "hpo_refit":
