@@ -21,6 +21,7 @@ from orchestration.jobs.tracking.mlflow_index import update_mlflow_index
 from orchestration.jobs.tracking.utils.mlflow_utils import get_mlflow_run_url, retry_with_backoff
 from orchestration.jobs.tracking.artifacts.manager import create_checkpoint_archive
 from orchestration.jobs.tracking.trackers.base_tracker import BaseTracker
+from orchestration.jobs.tracking.naming.tags import get_tag_key
 
 logger = get_logger(__name__)
 
@@ -164,7 +165,7 @@ class MLflowSweepTracker(BaseTracker):
                         logger.debug(f"Could not update MLflow index: {e}")
 
                 self._log_sweep_metadata(
-                    hpo_config, backbone, study_name, checkpoint_config, storage_path, should_resume
+                    hpo_config, backbone, study_name, checkpoint_config, storage_path, should_resume, output_dir=output_dir
                 )
                 logger.info(
                     f"[START_SWEEP_RUN] Yielding RunHandle. run_id={run_id[:12]}...")
@@ -190,16 +191,26 @@ class MLflowSweepTracker(BaseTracker):
         checkpoint_config: Dict[str, Any],
         storage_path: Optional[Any],
         should_resume: bool,
+        output_dir: Optional[Path] = None,
     ) -> None:
         """Log sweep metadata to MLflow."""
         objective_metric = hpo_config["objective"]["metric"]
         goal = hpo_config.get("objective", {}).get("goal", "maximize")
         max_trials = hpo_config["sampling"]["max_trials"]
 
+        # Infer config_dir from context if available
+        config_dir = None
+        if output_dir:
+            root_dir_for_config = output_dir.parent.parent if output_dir.parent.name == "outputs" else output_dir.parent.parent.parent
+            config_dir = root_dir_for_config / "config" if root_dir_for_config else None
+
         # Mark parent run as sweep job for Azure ML UI
-        mlflow.set_tag("azureml.runType", "sweep")
-        mlflow.set_tag("mlflow.runType", "sweep")
-        mlflow.set_tag("azureml.sweep", "true")
+        azureml_run_type = get_tag_key("azureml", "run_type", config_dir, "azureml.runType")
+        mlflow_run_type = get_tag_key("mlflow", "run_type", config_dir, "mlflow.runType")
+        azureml_sweep = get_tag_key("azureml", "sweep", config_dir, "azureml.sweep")
+        mlflow.set_tag(azureml_run_type, "sweep")
+        mlflow.set_tag(mlflow_run_type, "sweep")
+        mlflow.set_tag(azureml_sweep, "true")
 
         # Log primary metric and goal for Azure ML UI to identify best trial
         mlflow.log_param("primary_metric", objective_metric)
@@ -360,7 +371,8 @@ class MLflowSweepTracker(BaseTracker):
 
                 # Set refit_planned tag if refit is enabled
                 if hpo_config and hpo_config.get("refit", {}).get("enabled", False):
-                    mlflow.set_tag("code.refit_planned", "true")
+                    refit_planned_tag = get_tag_key("hpo", "refit_planned", config_dir, "code.refit_planned")
+                    mlflow.set_tag(refit_planned_tag, "true")
             else:
                 logger.info(
                     "[LOG_FINAL_METRICS] No best trial to log "
@@ -415,7 +427,11 @@ class MLflowSweepTracker(BaseTracker):
                 pass
 
         # Strategy 2: Check alternative tag keys
-        for tag_key in ["code.trial_number", "code.trial"]:
+        # Try registry keys first, then fallback to legacy
+        config_dir = None  # Could be inferred from context if available
+        hpo_trial_number_tag = get_tag_key("hpo", "trial_number", config_dir, "code.hpo.trial_number")
+        legacy_trial_number_tag = get_tag_key("legacy", "trial_number", config_dir, "trial_number")
+        for tag_key in [hpo_trial_number_tag, legacy_trial_number_tag, "code.trial"]:
             tag_value = run.data.tags.get(tag_key)
             if tag_value:
                 try:
@@ -557,9 +573,17 @@ class MLflowSweepTracker(BaseTracker):
             best_run_id = trial_to_run_id.get(best_trial_number)
 
             if best_run_id:
+                # Infer config_dir if available
+                config_dir = None
+                if output_dir:
+                    root_dir_for_config = output_dir.parent.parent if output_dir.parent.name == "outputs" else output_dir.parent.parent.parent
+                    config_dir = root_dir_for_config / "config" if root_dir_for_config else None
+                
+                best_trial_run_id_tag = get_tag_key("hpo", "best_trial_run_id", config_dir, "best_trial_run_id")
+                best_trial_number_tag = get_tag_key("hpo", "best_trial_number", config_dir, "best_trial_number")
                 mlflow.log_param("best_trial_run_id", best_run_id)
-                mlflow.set_tag("best_trial_run_id", best_run_id)
-                mlflow.set_tag("best_trial_number", str(best_trial_number))
+                mlflow.set_tag(best_trial_run_id_tag, best_run_id)
+                mlflow.set_tag(best_trial_number_tag, str(best_trial_number))
                 logger.info(
                     f"Best trial: {best_trial_number} "
                     f"(run ID: {best_run_id[:12]}...)"

@@ -186,5 +186,42 @@ class LocalMLflowContextManager(MLflowContextManager):
                     # Fallback to standard start_run with name
                     return mlflow.start_run(run_name=run_name)
             else:
-                print(f"  [MLflow] No MLFLOW_RUN_NAME set, using auto-generated name", file=sys.stderr, flush=True)
-            return mlflow.start_run()
+                # Deterministic fallback — avoid MLflow auto-generated names
+                fallback_bits = []
+                
+                # Try to get process type
+                process_type = os.environ.get("PROCESS_TYPE", "run")
+                fallback_bits.append(process_type)
+                
+                # Try to get run ID (shortened)
+                run_id = os.environ.get("MLFLOW_RUN_ID", "")
+                if run_id:
+                    fallback_bits.append(run_id[:8])
+                else:
+                    # Try to get from other sources
+                    run_id_alt = os.environ.get("MLFLOW_CHILD_RUN_ID") or os.environ.get("MLFLOW_PARENT_RUN_ID")
+                    if run_id_alt:
+                        fallback_bits.append(run_id_alt[:8])
+                    else:
+                        fallback_bits.append("noid")
+                
+                # Try to get trial number
+                trial_number = os.environ.get("MLFLOW_TRIAL_NUMBER")
+                if trial_number:
+                    fallback_bits.append(f"t{trial_number}")
+                
+                # Try to get fold index
+                fold_idx = os.environ.get("MLFLOW_FOLD_IDX")
+                if fold_idx:
+                    fallback_bits.append(f"fold{fold_idx}")
+                
+                # Build deterministic fallback name
+                run_name = "_".join(fallback_bits)
+                
+                # Sanitize: replace problematic characters
+                run_name = run_name.replace("/", "_").replace("\\", "_").replace(":", "_")
+                
+                print(f"  [MLflow] No MLFLOW_RUN_NAME set, using fallback name: {run_name}", file=sys.stderr, flush=True)
+                print(f"  [MLflow] No MLFLOW_RUN_NAME set, using fallback name: {run_name}", flush=True)
+            
+            return mlflow.start_run(run_name=run_name)

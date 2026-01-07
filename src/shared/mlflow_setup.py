@@ -113,6 +113,13 @@ def setup_mlflow_cross_platform(
         logger.debug(
             f"Preserving existing Azure ML tracking URI: {current_tracking_uri[:50]}...")
         mlflow.set_experiment(experiment_name)
+        
+        # Set Azure ML artifact upload timeout if not already set
+        import os
+        if "AZUREML_ARTIFACTS_DEFAULT_TIMEOUT" not in os.environ:
+            os.environ["AZUREML_ARTIFACTS_DEFAULT_TIMEOUT"] = "600"
+            logger.debug("Set AZUREML_ARTIFACTS_DEFAULT_TIMEOUT=600 for artifact uploads")
+        
         return current_tracking_uri
 
     # Try Azure ML first if ml_client provided
@@ -121,6 +128,13 @@ def setup_mlflow_cross_platform(
             tracking_uri = _get_azure_ml_tracking_uri(ml_client)
             mlflow.set_tracking_uri(tracking_uri)
             mlflow.set_experiment(experiment_name)
+            
+            # Set Azure ML artifact upload timeout (default 300s, increase to 600s for large artifacts)
+            import os
+            if "AZUREML_ARTIFACTS_DEFAULT_TIMEOUT" not in os.environ:
+                os.environ["AZUREML_ARTIFACTS_DEFAULT_TIMEOUT"] = "600"
+                logger.debug("Set AZUREML_ARTIFACTS_DEFAULT_TIMEOUT=600 for artifact uploads")
+            
             logger.info("Using Azure ML workspace tracking")
             logger.debug(f"Tracking URI: {tracking_uri}")
             return tracking_uri

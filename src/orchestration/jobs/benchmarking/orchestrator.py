@@ -572,6 +572,7 @@ def benchmark_best_trials(
             hpo_trial_run_id=hpo_trial_run_id,
             hpo_refit_run_id=hpo_refit_run_id,
             hpo_sweep_run_id=hpo_sweep_run_id,
+            benchmark_config_hash=benchmark_config_hash,
         )
 
         if success:

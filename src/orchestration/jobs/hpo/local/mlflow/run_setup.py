@@ -118,9 +118,40 @@ def setup_hpo_mlflow_run(
         return hpo_parent_context, mlflow_run_name
     except Exception as e:
         logger.debug(
-            f"Could not create NamingContext for HPO parent run: {e}, using fallback"
+            f"Could not create NamingContext for HPO parent run: {e}, trying policy fallback"
         )
         hpo_parent_context = None
+        
+        # Try to use naming policy even without full context
+        try:
+            from orchestration.jobs.tracking.naming.policy import load_naming_policy, format_run_name
+            from orchestration.naming_centralized import create_naming_context
+            from shared.platform_detection import detect_platform
+            from pathlib import Path
+            
+            # Try to infer config_dir
+            config_dir = Path.cwd() / "config"
+            if not config_dir.exists():
+                # Try parent directory
+                config_dir = Path.cwd().parent / "config"
+            
+            if config_dir.exists():
+                policy = load_naming_policy(config_dir)
+                if policy and "run_names" in policy:
+                    # Create minimal context for hpo_sweep
+                    minimal_context = create_naming_context(
+                        process_type="hpo",
+                        model=backbone.split("-")[0] if "-" in backbone else backbone,
+                        environment=detect_platform(),
+                        study_name=study_name,
+                    )
+                    mlflow_run_name = format_run_name("hpo_sweep", minimal_context, policy, config_dir)
+                    logger.debug(f"Built run name using policy fallback: {mlflow_run_name}")
+                    return hpo_parent_context, mlflow_run_name
+        except Exception as policy_error:
+            logger.debug(f"Policy fallback also failed: {policy_error}, using legacy create_mlflow_run_name")
+        
+        # Last resort: use legacy function
         mlflow_run_name = create_mlflow_run_name(
             backbone,
             run_id,
@@ -128,6 +159,7 @@ def setup_hpo_mlflow_run(
             should_resume,
             checkpoint_enabled,
         )
+        logger.warning(f"Using legacy create_mlflow_run_name (non-policy fallback): {mlflow_run_name}")
         return hpo_parent_context, mlflow_run_name
 
 

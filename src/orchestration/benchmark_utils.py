@@ -32,6 +32,7 @@ def run_benchmarking(
     hpo_trial_run_id: Optional[str] = None,
     hpo_refit_run_id: Optional[str] = None,
     hpo_sweep_run_id: Optional[str] = None,
+    benchmark_config_hash: Optional[str] = None,
 ) -> bool:
     """
     Run benchmarking on a model checkpoint.
@@ -56,6 +57,7 @@ def run_benchmarking(
         hpo_trial_run_id: Optional HPO trial run ID (CV trial run, lineage parent).
         hpo_refit_run_id: Optional HPO refit run ID (refit run, artifact parent).
         hpo_sweep_run_id: Optional HPO sweep run ID (HPO parent, optional).
+        benchmark_config_hash: Optional benchmark configuration hash for run naming.
 
     Returns:
         True if successful, False otherwise.
@@ -168,6 +170,7 @@ def run_benchmarking(
                 trial_id=extracted_trial_id,  # Use extracted trial_id if available
                 study_key_hash=study_key_hash,  # Pass study_key_hash for grouping
                 trial_key_hash=trial_key_hash,  # Pass trial_key_hash for grouping
+                benchmark_config_hash=benchmark_config_hash,  # Pass benchmark_config_hash for run naming
             )
 
             logger.info(

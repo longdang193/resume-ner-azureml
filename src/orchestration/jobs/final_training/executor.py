@@ -313,6 +313,10 @@ def execute_final_training(
     if mlflow_tracking_uri:
         training_env["MLFLOW_TRACKING_URI"] = mlflow_tracking_uri
         mlflow.set_tracking_uri(mlflow_tracking_uri)
+        
+        # Set Azure ML artifact upload timeout if using Azure ML
+        if "azureml" in mlflow_tracking_uri.lower():
+            training_env["AZUREML_ARTIFACTS_DEFAULT_TIMEOUT"] = "600"
     training_env["MLFLOW_EXPERIMENT_NAME"] = training_experiment_name
 
     # Create MLflow run in parent process (no active context)
@@ -350,30 +354,44 @@ def execute_final_training(
         group_id=None,
         config_dir=config_dir,
     )
-    tags["mlflow.runType"] = "training"
+    # Get tag keys from registry
+    from orchestration.jobs.tracking.naming.tags import get_tag_key
+    
+    mlflow_run_type_tag = get_tag_key("mlflow", "run_type", config_dir, "mlflow.runType")
+    trained_on_full_data_tag = get_tag_key("training", "trained_on_full_data", config_dir, "code.trained_on_full_data")
+    study_key_hash_tag = get_tag_key("grouping", "study_key_hash", config_dir, "code.study_key_hash")
+    trial_key_hash_tag = get_tag_key("grouping", "trial_key_hash", config_dir, "code.trial_key_hash")
+    lineage_source_tag = get_tag_key("lineage", "source", config_dir, "code.lineage.source")
+    lineage_hpo_study_key_hash_tag = get_tag_key("lineage", "hpo_study_key_hash", config_dir, "code.lineage.hpo_study_key_hash")
+    lineage_hpo_trial_key_hash_tag = get_tag_key("lineage", "hpo_trial_key_hash", config_dir, "code.lineage.hpo_trial_key_hash")
+    lineage_hpo_trial_run_id_tag = get_tag_key("lineage", "hpo_trial_run_id", config_dir, "code.lineage.hpo_trial_run_id")
+    lineage_hpo_refit_run_id_tag = get_tag_key("lineage", "hpo_refit_run_id", config_dir, "code.lineage.hpo_refit_run_id")
+    lineage_hpo_sweep_run_id_tag = get_tag_key("lineage", "hpo_sweep_run_id", config_dir, "code.lineage.hpo_sweep_run_id")
+    
+    tags[mlflow_run_type_tag] = "training"
     tags["training_type"] = "final"
-    tags["code.trained_on_full_data"] = "true"
+    tags[trained_on_full_data_tag] = "true"
     tags["mlflow.runName"] = run_name  # Ensure run name is set
 
     # Add lineage tags (keep code.study_key_hash and code.trial_key_hash as primary,
     # also add code.lineage.* for explicit lineage tracking)
     if lineage.get("hpo_study_key_hash"):
         # Primary grouping tags (for consistency with rest of system)
-        tags["code.study_key_hash"] = lineage["hpo_study_key_hash"]
+        tags[study_key_hash_tag] = lineage["hpo_study_key_hash"]
         # Lineage tags (additional, for explicit lineage tracking)
-        tags["code.lineage.hpo_study_key_hash"] = lineage["hpo_study_key_hash"]
-        tags["code.lineage.source"] = "hpo_best_selected"
+        tags[lineage_hpo_study_key_hash_tag] = lineage["hpo_study_key_hash"]
+        tags[lineage_source_tag] = "hpo_best_selected"
 
     if lineage.get("hpo_trial_key_hash"):
-        tags["code.trial_key_hash"] = lineage["hpo_trial_key_hash"]
-        tags["code.lineage.hpo_trial_key_hash"] = lineage["hpo_trial_key_hash"]
+        tags[trial_key_hash_tag] = lineage["hpo_trial_key_hash"]
+        tags[lineage_hpo_trial_key_hash_tag] = lineage["hpo_trial_key_hash"]
 
     if lineage.get("hpo_trial_run_id"):
-        tags["code.lineage.hpo_trial_run_id"] = lineage["hpo_trial_run_id"]
+        tags[lineage_hpo_trial_run_id_tag] = lineage["hpo_trial_run_id"]
     if lineage.get("hpo_refit_run_id"):
-        tags["code.lineage.hpo_refit_run_id"] = lineage["hpo_refit_run_id"]
+        tags[lineage_hpo_refit_run_id_tag] = lineage["hpo_refit_run_id"]
     if lineage.get("hpo_sweep_run_id"):
-        tags["code.lineage.hpo_sweep_run_id"] = lineage["hpo_sweep_run_id"]
+        tags[lineage_hpo_sweep_run_id_tag] = lineage["hpo_sweep_run_id"]
 
     # Create run WITHOUT starting it (no active context)
     try:

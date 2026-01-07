@@ -354,10 +354,18 @@ def train_model(
             logger.debug(
                 f"Could not build systematic run name: {e}, using fallback")
 
-    # Fallback to manual construction if systematic naming didn't work
+    # Fallback to policy-like format if systematic naming didn't work
     if not run_name:
+        from shared.platform_detection import detect_platform
+        environment = detect_platform()
         run_id = config.get("training", {}).get("run_id", "unknown")
-        run_name = f"{backbone}_{run_id}"
+        # Shorten run_id if it's long (take first 8 chars)
+        run_id_short = run_id[:8] if len(run_id) > 8 else run_id
+        # Sanitize: replace problematic characters
+        backbone_safe = backbone.replace("/", "_").replace("\\", "_").replace(":", "_")
+        run_id_safe = run_id_short.replace("/", "_").replace("\\", "_").replace(":", "_")
+        # Use policy-like format: {env}_{backbone}_training_{run_id}
+        run_name = f"{environment}_{backbone_safe}_training_{run_id_safe}"
 
     # We'll use the tracker context manager later, after training completes
 

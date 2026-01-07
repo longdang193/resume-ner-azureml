@@ -385,6 +385,11 @@ def _create_trial_run(
                 "code.project": project_name,
             }
 
+        # Ensure run_name is never None (MLflow will auto-generate random names if None)
+        if not run_name:
+            logger.warning(f"[TRIAL_RUN_CV] run_name is None, using fallback for trial {trial_number}")
+            run_name = f"trial_{trial_number}"
+        
         # Create trial run as child of HPO parent
         trial_run = client.create_run(
             experiment_id=experiment_id,

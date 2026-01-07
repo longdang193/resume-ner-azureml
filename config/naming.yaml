@@ -1,0 +1,155 @@
+# Run Name Patterns Configuration
+# Policy-only: defines patterns and validation rules
+# Implementation (parsing, collision handling) stays in code
+
+schema_version: 1
+
+# Separator policy (use consistently across all names)
+separators:
+  field: "_"      # Between major fields (env, model, process_type)
+  component: "-"  # Within components (study-{hash}, spec-{hash})
+  version: "_"    # Before version number
+
+# Run name patterns by process type
+# Patterns include prefixes directly (no duplication)
+run_names:
+  # HPO Trial Run
+  hpo_trial:
+    pattern: "{env}_{model}_hpo_trial_study-{study_hash}_t{trial_number}{version}"
+    components:
+      study_hash:
+        length: 8
+        source: "study_key_hash"
+        default: "unknown"
+      trial_number:
+        format: "t{number}"
+        zero_pad: 2  # t00, t01, t10 for proper sorting
+        source: "trial_number"
+        default: "unknown"
+
+  # HPO Trial Fold Run (CV fold child runs)
+  hpo_trial_fold:
+    pattern: "{env}_{model}_hpo_trial_study-{study_hash}_t{trial_number}_fold{fold_idx}{version}"
+    components:
+      study_hash:
+        length: 8
+        source: "study_key_hash"
+        default: "unknown"
+      trial_number:
+        format: "t{number}"
+        zero_pad: 2
+        source: "trial_number"
+        default: "unknown"
+      fold_idx:
+        format: "{number}"
+        source: "fold_idx"
+        default: "0"
+
+  # HPO Refit Run
+  hpo_refit:
+    pattern: "{env}_{model}_hpo_refit_study-{study_hash}_trial-{trial_hash}_t{trial_number}{version}"
+    components:
+      study_hash:
+        length: 8
+        source: "study_key_hash"
+        default: "unknown"
+      trial_hash:
+        length: 8
+        source: "trial_key_hash"
+        default: "unknown"
+      trial_number:
+        format: "t{number}"
+        zero_pad: 2
+        source: "trial_number"
+        default: "unknown"
+
+  # HPO Sweep/Study Parent Run
+  hpo_sweep:
+    pattern: "{env}_{model}_hpo_study-{study_hash}{semantic_suffix}{version}"
+    components:
+      study_hash:
+        length: 8
+        source: "study_key_hash"
+        default: "unknown"
+      semantic_suffix:
+        enabled: true
+        max_length: 30
+        source: "study_name"  # Code will sanitize: remove spaces, replace / with -
+        default: ""
+
+  # Final Training Run
+  final_training:
+    pattern: "{env}_{model}_final_training_spec-{spec_hash}_exec-{exec_hash}_v{variant}{version}"
+    components:
+      spec_hash:
+        length: 8
+        source: "spec_fp"
+        default: "unknown"
+      exec_hash:
+        length: 8
+        source: "exec_fp"
+        default: "unknown"
+      variant:
+        format: "{number}"
+        source: "variant"
+        default: "1"
+
+  # Benchmark Run
+  benchmarking:
+    pattern: "{env}_{model}_benchmark_study-{study_hash}_trial-{trial_hash}_bench-{bench_hash}{version}"
+    components:
+      study_hash:
+        length: 8
+        source: "study_key_hash"
+        default: "unknown"
+      trial_hash:
+        length: 8
+        source: "trial_key_hash"
+        default: "unknown"
+      bench_hash:
+        length: 8
+        source: "benchmark_config_hash"
+        default: "unknown"
+
+  # Conversion Run
+  conversion:
+    pattern: "{env}_{model}_conversion_spec-{spec_hash}_exec-{exec_hash}_v{variant}_conv-{conv_hash}{version}"
+    components:
+      # These are extracted from parent_training_id by code (not YAML)
+      spec_hash:
+        length: 8
+        source: "parent_training_id"  # Code parses this
+        default: "unknown"
+      exec_hash:
+        length: 8
+        source: "parent_training_id"  # Code parses this
+        default: "unknown"
+      variant:
+        format: "{number}"  # Pattern already includes "_v" prefix, so just the number
+        source: "parent_training_id"  # Code parses this
+        default: "1"
+      conv_hash:
+        length: 8
+        source: "conv_fp"
+        default: "unknown"
+
+# Version suffix formatting (format only, not when to add it)
+version:
+  format: "{separator}{number}"
+  separator: "_"
+
+# Normalization rules (applied before formatting)
+normalize:
+  env:
+    replace: {"/": "_", "-": "_", " ": "_"}
+    lowercase: false
+  model:
+    replace: {"/": "_", "-": "_", " ": "_"}
+    lowercase: false
+
+# Validation rules
+validate:
+  max_length: 256  # MLflow/Azure ML limit
+  forbidden_chars: ["/", "\\", ":", "*", "?", "\"", "<", ">", "|"]
+  warn_length: 150  # Warn if name exceeds this
+
