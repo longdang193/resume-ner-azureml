@@ -66,7 +66,7 @@ def load_best_trial_from_disk(
     if hpo_output_dir.name == backbone:
         backbone_dir = hpo_output_dir
     else:
-    backbone_dir = hpo_output_dir / backbone
+        backbone_dir = hpo_output_dir / backbone
 
     if not backbone_dir.exists():
         return None

@@ -103,10 +103,11 @@ def store_metrics_in_trial_attributes(
     # Check if we're in a v2 study folder (study-{hash})
     # If so, we need to find the v2 trial folder, not use legacy naming
     study_folder_name = output_base_dir.name
-    is_v2_study_folder = study_folder_name.startswith("study-") and len(study_folder_name) > 7
-    
+    is_v2_study_folder = study_folder_name.startswith(
+        "study-") and len(study_folder_name) > 7
+
     run_suffix = f"_{run_id}" if run_id else ""
-    
+
     if is_v2_study_folder:
         # In v2 study folder, we need to find the actual v2 trial folder
         # Look for trial-{hash} folders and match by trial_number from trial_meta.json
@@ -131,8 +132,9 @@ def store_metrics_in_trial_attributes(
                                 trial_output_dir = item
                                 break
         except Exception as e:
-            logger.debug(f"Could not find v2 trial folder for trial {trial_number}: {e}")
-        
+            logger.debug(
+                f"Could not find v2 trial folder for trial {trial_number}: {e}")
+
         # If trial folder not found, try to find metrics file directly in study folder
         # This handles cases where trial folders aren't created or trial_meta.json doesn't exist
         if trial_output_dir is None:
@@ -145,10 +147,21 @@ def store_metrics_in_trial_attributes(
                 )
                 trial_output_dir = output_base_dir
             else:
+                # Log more details for debugging
+                available_items = []
+                if output_base_dir.exists():
+                    available_items = [
+                        d.name for d in output_base_dir.iterdir() if d.is_dir()]
+                    logger.debug(
+                        f"[Metrics] Study folder {output_base_dir} exists. Contents: {available_items}")
+                else:
+                    logger.warning(
+                        f"[Metrics] Study folder does not exist: {output_base_dir}")
+
                 logger.warning(
                     f"Could not find v2 trial folder for trial {trial_number} in v2 study folder {study_folder_name}. "
                     f"Skipping metrics storage in trial attributes. "
-                    f"Available folders: {[d.name for d in output_base_dir.iterdir() if d.is_dir()] if output_base_dir.exists() else 'N/A'}"
+                    f"Available folders: {available_items if available_items else 'N/A'}"
                 )
                 return  # Return early if no metrics file found either
     else:
@@ -165,7 +178,8 @@ def store_metrics_in_trial_attributes(
                 all_metrics = json.load(f)
                 # Store key metrics in user attributes for callback
                 if "macro-f1-span" in all_metrics:
-                    trial.set_user_attr("macro_f1_span", float(all_metrics["macro-f1-span"]))
+                    trial.set_user_attr("macro_f1_span", float(
+                        all_metrics["macro-f1-span"]))
                 if "loss" in all_metrics:
                     trial.set_user_attr("loss", float(all_metrics["loss"]))
                 if "per_entity" in all_metrics and isinstance(all_metrics["per_entity"], dict):
@@ -178,7 +192,7 @@ def store_metrics_in_trial_attributes(
                         if isinstance(v, dict) and isinstance(v.get("f1"), (int, float))
                     ]
                     if entity_f1s:
-                        trial.set_user_attr("avg_entity_f1", float(sum(entity_f1s) / len(entity_f1s)))
+                        trial.set_user_attr("avg_entity_f1", float(
+                            sum(entity_f1s) / len(entity_f1s)))
         except Exception:
             pass  # Silently fail if we can't read metrics
-

@@ -109,8 +109,27 @@ def find_best_trial_in_study_folder(
             f"No trials with {objective_metric} found in {study_folder}")
         return None
 
-    # Load metrics
-    metrics_file = best_trial_dir / "metrics.json"
+    # Load metrics - use same logic as above to find metrics.json
+    # Try multiple locations for metrics.json
+    # 1. Trial root: trial_dir/metrics.json
+    # 2. CV folds: trial_dir/cv/fold0/metrics.json (for CV trials)
+    metrics_file = None
+    if (best_trial_dir / "metrics.json").exists():
+        metrics_file = best_trial_dir / "metrics.json"
+    elif (best_trial_dir / "cv").exists():
+        # Check first fold for metrics (CV trials aggregate metrics at fold level)
+        for fold_dir in (best_trial_dir / "cv").iterdir():
+            if fold_dir.is_dir() and fold_dir.name.startswith("fold"):
+                fold_metrics = fold_dir / "metrics.json"
+                if fold_metrics.exists():
+                    metrics_file = fold_metrics
+                    break
+
+    if not metrics_file or not metrics_file.exists():
+        logger.warning(
+            f"metrics.json not found in {best_trial_dir} (checked root and CV folds)")
+        return None
+
     with open(metrics_file, "r") as f:
         metrics = json.load(f)
 
@@ -142,7 +161,6 @@ def find_best_trial_in_study_folder(
 
     if trial_run_id:
         result["trial_run_id"] = trial_run_id
-
 
     # Verify the trial_dir actually exists before returning
     if not best_trial_dir.exists():
@@ -548,7 +566,8 @@ def find_best_trials_for_backbones(
                 )
 
                 # Find v2 study folder
-                study_folder = find_study_folder_in_backbone_dir(hpo_backbone_dir)
+                study_folder = find_study_folder_in_backbone_dir(
+                    hpo_backbone_dir)
 
                 if study_folder:
                     study_db_path = study_folder / "study.db"
@@ -638,7 +657,8 @@ def find_best_trials_for_backbones(
                 )
 
                 # Find v2 study folder
-                study_folder = find_study_folder_in_backbone_dir(hpo_backbone_dir)
+                study_folder = find_study_folder_in_backbone_dir(
+                    hpo_backbone_dir)
 
                 if study_folder:
                     best_trial_info = find_best_trial_in_study_folder(

@@ -303,10 +303,14 @@ def run_training_trial_with_cv(
         with open(trial_meta_path, "w") as f:
             json.dump(trial_meta, f, indent=2)
         
+        logger.info(f"[CV] Created trial folder: {trial_base_dir_abs} (trial {trial_number})")
+        logger.debug(f"[CV] Trial metadata written to: {trial_meta_path}")
+        
         # Update trial_base_dir to use absolute path for consistency
         trial_base_dir = trial_base_dir_abs
     except Exception as e:
-        logger.warning(f"Could not write trial metadata file: {e}")
+        logger.error(f"Could not write trial metadata file: {e}", exc_info=True)
+        raise
     
     for fold_idx, (train_indices, val_indices) in enumerate(fold_splits):
         # Construct fold-specific output directory using new structure

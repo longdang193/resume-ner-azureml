@@ -22,7 +22,7 @@ run_names:
         source: "study_key_hash"
         default: "unknown"
       trial_number:
-        format: "t{number}"
+        format: "{number}"
         zero_pad: 2  # t00, t01, t10 for proper sorting
         source: "trial_number"
         default: "unknown"
@@ -58,7 +58,7 @@ run_names:
         source: "trial_key_hash"
         default: "unknown"
       trial_number:
-        format: "t{number}"
+        format: "{number}"
         zero_pad: 2
         source: "trial_number"
         default: "unknown"

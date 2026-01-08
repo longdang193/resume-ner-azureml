@@ -91,43 +91,65 @@ def create_local_hpo_objective(
     """
     # Load or create fold splits if k-fold CV is enabled
     fold_splits = None
+    logger.debug(
+        f"[CV Setup] k_folds={k_folds}, fold_splits_file={fold_splits_file}")
     if k_folds is not None and k_folds > 1:
         if fold_splits_file and fold_splits_file.exists():
             # Load existing splits
+            logger.debug(
+                f"[CV Setup] Loading existing fold splits from {fold_splits_file}")
             from training.cv_utils import load_fold_splits
             fold_splits, _ = load_fold_splits(fold_splits_file)
-        elif fold_splits_file:
-            # Create new splits and save them
+            logger.debug(
+                f"[CV Setup] Loaded {len(fold_splits) if fold_splits else 0} fold splits")
+        else:
+            # Create new splits and save them (even if fold_splits_file is None, auto-generate path)
+            logger.debug(f"[CV Setup] Creating new {k_folds}-fold splits")
             from training.data import load_dataset
             from training.cv_utils import create_kfold_splits, save_fold_splits
 
-            dataset = load_dataset(dataset_path)
-            train_data = dataset.get("train", [])
+            try:
+                dataset = load_dataset(dataset_path)
+                train_data = dataset.get("train", [])
 
-            k_fold_config = hpo_config.get("k_fold", {})
-            random_seed = k_fold_config.get("random_seed", 42)
-            shuffle = k_fold_config.get("shuffle", True)
-            stratified = k_fold_config.get("stratified", False)
+                k_fold_config = hpo_config.get("k_fold", {})
+                random_seed = k_fold_config.get("random_seed", 42)
+                shuffle = k_fold_config.get("shuffle", True)
+                stratified = k_fold_config.get("stratified", False)
 
-            fold_splits = create_kfold_splits(
-                dataset=train_data,
-                k=k_folds,
-                random_seed=random_seed,
-                shuffle=shuffle,
-                stratified=stratified,
-            )
+                fold_splits = create_kfold_splits(
+                    dataset=train_data,
+                    k=k_folds,
+                    random_seed=random_seed,
+                    shuffle=shuffle,
+                    stratified=stratified,
+                )
 
-            # Save splits for reproducibility
-            save_fold_splits(
-                fold_splits,
-                fold_splits_file,
-                metadata={
-                    "k": k_folds,
-                    "random_seed": random_seed,
-                    "shuffle": shuffle,
-                    "stratified": stratified,
-                }
-            )
+                # Auto-generate fold_splits_file path if not provided
+                if fold_splits_file is None:
+                    # Use a default location in the output directory
+                    fold_splits_file = output_base_dir / "fold_splits.json"
+
+                # Save splits for reproducibility
+                save_fold_splits(
+                    fold_splits,
+                    fold_splits_file,
+                    metadata={
+                        "k": k_folds,
+                        "random_seed": random_seed,
+                        "shuffle": shuffle,
+                        "stratified": stratified,
+                    }
+                )
+                logger.info(
+                    f"[CV Setup] ✓ Created {len(fold_splits)} fold splits and saved to {fold_splits_file}")
+            except Exception as e:
+                logger.error(
+                    f"[CV Setup] Failed to create fold splits: {e}", exc_info=True)
+                raise
+    else:
+        logger.debug(
+            f"[CV Setup] CV disabled: k_folds={k_folds} (must be > 1 to enable CV)")
 
     # Capture run_id in closure to avoid UnboundLocalError
     captured_run_id = run_id
@@ -178,8 +200,12 @@ def create_local_hpo_objective(
             pass
 
         # Run training with or without CV
+        logger.info(
+            f"[Trial {trial.number}] fold_splits={'present' if fold_splits is not None else 'None'}, using {'CV' if fold_splits is not None else 'non-CV'} path")
         if fold_splits is not None:
             # Run k-fold CV with nested structure
+            logger.info(
+                f"[Trial {trial.number}] Running {len(fold_splits)}-fold CV")
             average_metric, fold_metrics = run_training_trial_with_cv(
                 trial_params=trial_params,
                 dataset_path=dataset_path,
@@ -230,14 +256,15 @@ def create_local_hpo_objective(
                         k: v for k, v in trial_params.items()
                         if k not in ("backbone", "trial_number", "run_id")
                     }
-                    trial_key = build_hpo_trial_key(study_key_hash, hyperparameters)
+                    trial_key = build_hpo_trial_key(
+                        study_key_hash, hyperparameters)
                     trial_key_hash = build_hpo_trial_key_hash(trial_key)
                     trial8 = trial_key_hash[:8]
-                    
+
                     # Create trial-{hash} folder in study folder
                     trial_output_dir = output_base_dir / f"trial-{trial8}"
                     trial_output_dir.mkdir(parents=True, exist_ok=True)
-                    
+
                     # Create trial_meta.json for easy lookup
                     import json
                     study_folder_name = output_base_dir.name
@@ -252,7 +279,7 @@ def create_local_hpo_objective(
                     trial_meta_path = trial_output_dir / "trial_meta.json"
                     with open(trial_meta_path, "w") as f:
                         json.dump(trial_meta, f, indent=2)
-                    
+
                     logger.debug(
                         f"Created v2 trial folder for non-CV trial {trial.number}: {trial_output_dir.name}"
                     )
@@ -281,9 +308,34 @@ def create_local_hpo_objective(
                 finalize_trial_run_no_cv(trial_run_id_for_no_cv, trial.number)
 
         # Store additional metrics in trial user attributes for callback display
+        # Resolve output_base_dir to actual path (Drive if checkpoints are in Drive)
+        # This ensures we look in the same location where CV orchestrator created trial folders
+        resolved_output_base_dir = output_base_dir
+        if fold_splits is not None:
+            # For CV trials, trial folders are created in Drive (if checkpoints are in Drive)
+            # Check if Drive path exists and use that instead of local path
+            try:
+                import os
+                if "COLAB_GPU" in os.environ or "COLAB_TPU" in os.environ:
+                    # Construct Drive path: /content/drive/MyDrive/resume-ner-azureml/...
+                    # output_base_dir is like: /content/resume-ner-azureml/outputs/hpo/colab/distilbert/study-584922ce
+                    # Drive path would be: /content/drive/MyDrive/resume-ner-azureml/outputs/hpo/colab/distilbert/study-584922ce
+                    drive_path = Path("/content/drive/MyDrive") / \
+                        output_base_dir.relative_to("/content")
+                    if drive_path.exists():
+                        resolved_output_base_dir = drive_path
+                        logger.debug(
+                            f"[Metrics] Using Drive path: {resolved_output_base_dir}")
+                    else:
+                        logger.debug(
+                            f"[Metrics] Drive path does not exist: {drive_path}. Using local path: {output_base_dir}")
+            except Exception as e:
+                logger.debug(
+                    f"[Metrics] Could not resolve Drive path: {e}. Using original path.")
+
         store_metrics_in_trial_attributes(
             trial=trial,
-            output_base_dir=output_base_dir,
+            output_base_dir=resolved_output_base_dir,
             trial_number=trial.number,
             run_id=captured_run_id,
             fold_splits=fold_splits,
@@ -516,6 +568,8 @@ def run_local_hpo_sweep(
     # which reads from mlflow.yaml config. No need to set it up here.
 
     # Create objective function and cleanup function
+    logger.info(
+        f"[HPO Setup] k_folds={k_folds}, fold_splits_file={fold_splits_file}, k_fold config: {hpo_config.get('k_fold', {})}")
     objective, cleanup_checkpoints = create_local_hpo_objective(
         dataset_path=dataset_path,
         config_dir=config_dir,
