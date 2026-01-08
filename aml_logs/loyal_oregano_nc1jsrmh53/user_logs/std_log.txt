@@ -1,0 +1,20 @@
+/azureml-envs/azureml_1f436580892771040fea38f34f9600b4/lib/python3.10/site-packages/azureml/core/__init__.py:11: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  import pkg_resources
+/azureml-envs/azureml_1f436580892771040fea38f34f9600b4/lib/python3.10/site-packages/transformers/convert_slow_tokenizer.py:566: UserWarning: The sentencepiece tokenizer that you are converting to a fast tokenizer uses the byte fallback option which is not implemented in the fast tokenizers. In practice this means that the fast version of the tokenizer can produce unknown tokens whereas the sentencepiece version would have converted these unknown tokens into a sequence of byte tokens matching the original piece of text.
+  warnings.warn(
+Some weights of DebertaV2ForTokenClassification were not initialized from the model checkpoint at microsoft/deberta-v3-base and are newly initialized: ['classifier.bias', 'classifier.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+/azureml-envs/azureml_1f436580892771040fea38f34f9600b4/lib/python3.10/site-packages/seqeval/metrics/sequence_labeling.py:171: UserWarning: DESIGNATION seems not to be NE tag.
+  warnings.warn('{} seems not to be NE tag.'.format(chunk))
+/azureml-envs/azureml_1f436580892771040fea38f34f9600b4/lib/python3.10/site-packages/seqeval/metrics/sequence_labeling.py:171: UserWarning: EMAIL seems not to be NE tag.
+  warnings.warn('{} seems not to be NE tag.'.format(chunk))
+/azureml-envs/azureml_1f436580892771040fea38f34f9600b4/lib/python3.10/site-packages/seqeval/metrics/sequence_labeling.py:171: UserWarning: EDUCATION seems not to be NE tag.
+  warnings.warn('{} seems not to be NE tag.'.format(chunk))
+/azureml-envs/azureml_1f436580892771040fea38f34f9600b4/lib/python3.10/site-packages/seqeval/metrics/sequence_labeling.py:171: UserWarning: LOCATION seems not to be NE tag.
+  warnings.warn('{} seems not to be NE tag.'.format(chunk))
+/azureml-envs/azureml_1f436580892771040fea38f34f9600b4/lib/python3.10/site-packages/seqeval/metrics/sequence_labeling.py:171: UserWarning: SKILL seems not to be NE tag.
+  warnings.warn('{} seems not to be NE tag.'.format(chunk))
+🏃 View run final-training at: https://japanwest.api.azureml.ms/mlflow/v2.0/subscriptions/a23fa87c-802c-4fdf-9e59-e3d7969bcf31/resourceGroups/resume_ner_2025-12-14-13-17-35/providers/Microsoft.MachineLearningServices/workspaces/resume-ner-ws/#/experiments/85ee2c57-21be-46d6-bb76-05bcf3ce3e4a/runs/loyal_oregano_nc1jsrmh53
+🧪 View experiment at: https://japanwest.api.azureml.ms/mlflow/v2.0/subscriptions/a23fa87c-802c-4fdf-9e59-e3d7969bcf31/resourceGroups/resume_ner_2025-12-14-13-17-35/providers/Microsoft.MachineLearningServices/workspaces/resume-ner-ws/#/experiments/85ee2c57-21be-46d6-bb76-05bcf3ce3e4a
+🏃 View run elated_morning_hgg5367s at: https://japanwest.api.azureml.ms/mlflow/v2.0/subscriptions/a23fa87c-802c-4fdf-9e59-e3d7969bcf31/resourceGroups/resume_ner_2025-12-14-13-17-35/providers/Microsoft.MachineLearningServices/workspaces/resume-ner-ws/#/experiments/85ee2c57-21be-46d6-bb76-05bcf3ce3e4a/runs/1d505753-c44d-4a2f-a167-8d096b2b1f45
+🧪 View experiment at: https://japanwest.api.azureml.ms/mlflow/v2.0/subscriptions/a23fa87c-802c-4fdf-9e59-e3d7969bcf31/resourceGroups/resume_ner_2025-12-14-13-17-35/providers/Microsoft.MachineLearningServices/workspaces/resume-ner-ws/#/experiments/85ee2c57-21be-46d6-bb76-05bcf3ce3e4a
