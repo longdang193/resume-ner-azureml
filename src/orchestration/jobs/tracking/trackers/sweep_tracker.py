@@ -1050,13 +1050,16 @@ class MLflowSweepTracker(BaseTracker):
         try:
             logger.info("Uploading checkpoint archive to MLflow...")
 
-            # Use MLflowClient with explicit run_id (works when no active run context)
+            # Use mlflow.log_artifact() within active run context to avoid Azure ML artifact repository issue
+            # MLflowClient().log_artifact() with explicit run_id causes issues with Azure ML backend
+            # because it tries to pass tracking_uri to azureml_artifacts_builder() which doesn't accept it
             def upload_archive():
-                client.log_artifact(
-                    run_id_to_use,
-                    str(archive_path),
-                    artifact_path="best_trial_checkpoint"
-                )
+                # Temporarily set active run to target run_id to use mlflow.log_artifact()
+                with mlflow.start_run(run_id=run_id_to_use):
+                    mlflow.log_artifact(
+                        str(archive_path),
+                        artifact_path="best_trial_checkpoint"
+                    )
 
             retry_with_backoff(
                 upload_archive,
