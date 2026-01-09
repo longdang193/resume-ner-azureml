@@ -1054,12 +1054,21 @@ class MLflowSweepTracker(BaseTracker):
             # MLflowClient().log_artifact() with explicit run_id causes issues with Azure ML backend
             # because it tries to pass tracking_uri to azureml_artifacts_builder() which doesn't accept it
             def upload_archive():
-                # Temporarily set active run to target run_id to use mlflow.log_artifact()
-                with mlflow.start_run(run_id=run_id_to_use):
+                # Check if target run is already active
+                active_run = mlflow.active_run()
+                if active_run and active_run.info.run_id == run_id_to_use:
+                    # Run is already active, just log artifact directly
                     mlflow.log_artifact(
                         str(archive_path),
                         artifact_path="best_trial_checkpoint"
                     )
+                else:
+                    # Run is not active, start it temporarily
+                    with mlflow.start_run(run_id=run_id_to_use):
+                        mlflow.log_artifact(
+                            str(archive_path),
+                            artifact_path="best_trial_checkpoint"
+                        )
 
             retry_with_backoff(
                 upload_archive,
