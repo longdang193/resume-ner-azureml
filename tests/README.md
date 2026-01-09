@@ -85,8 +85,9 @@ Tests are organized by **feature/workflow** rather than by test type, following 
   - **`integration/`**: Config integration tests
 
 - **`tests/tracking/`**: MLflow tracking tests
-  - **`unit/`**: Naming policy, tags registry, MLflow config
-  - **`integration/`**: Tracking config enabled, naming integration
+  - **`unit/`**: Naming policy, tags registry, MLflow config, Azure ML artifact upload
+  - **`integration/`**: Tracking config enabled, naming integration, Azure ML artifact upload integration
+  - **`scripts/`**: Manual test scripts and verification tools
 
 - **`tests/config/`**: Configuration loading tests
   - **`unit/`**: Config loader, experiment/data/model configs, paths/naming/mlflow YAML tests, fingerprints
@@ -200,6 +201,18 @@ pytest tests/conversion/ -v
 # Tracking tests
 pytest tests/tracking/ -v
 
+# Azure ML artifact upload tests (unit tests)
+pytest tests/tracking/unit/test_azureml_artifact_upload.py -v
+
+# Azure ML artifact upload integration tests (requires Azure ML)
+pytest tests/tracking/integration/test_azureml_artifact_upload_integration.py -v --run-azureml-tests
+
+# Verify artifact upload fixes are in place
+python tests/tracking/scripts/verify_artifact_upload_fix.py
+
+# Manual artifact upload test (requires active MLflow run in Azure ML)
+python tests/tracking/scripts/test_artifact_upload_manual.py
+
 # Config tests
 pytest tests/config/ -v
 ```
@@ -241,6 +254,35 @@ from fixtures import (
 ```
 
 See `tests/fixtures/` for available fixtures and helpers.
+
+### Azure ML Artifact Upload Tests
+
+Tests for Azure ML artifact upload fixes, including monkey-patch for compatibility issues and refit run completion:
+
+```bash
+# Run all unit tests (9 tests, all passing)
+pytest tests/tracking/unit/test_azureml_artifact_upload.py -v
+
+# Run specific test class
+pytest tests/tracking/unit/test_azureml_artifact_upload.py::TestAzureMLArtifactBuilderPatch -v
+
+# Verify fixes are in place (quick check)
+python tests/tracking/scripts/verify_artifact_upload_fix.py
+
+# Manual test in real Azure ML environment
+python tests/tracking/scripts/test_artifact_upload_manual.py
+```
+
+**What these tests verify:**
+- ✅ Monkey-patch for `azureml_artifacts_builder` to handle `tracking_uri` TypeError
+- ✅ Artifact upload to refit runs (child runs) instead of parent runs
+- ✅ Refit runs are marked as FINISHED after successful artifact upload
+- ✅ Refit runs are marked as FAILED after failed artifact upload
+- ✅ Azure ML compatibility between MLflow 3.5.0 and azureml-mlflow 1.61.0.post1
+
+**Documentation:**
+- See `tests/tracking/README_artifact_upload_tests.md` for detailed documentation
+- See `tests/tracking/TEST_SUMMARY.md` for quick reference
 
 ## Configuration
 
@@ -338,6 +380,7 @@ The test suite covers:
 - ✅ Entity extraction with offset mapping
 - ✅ Batch processing performance
 - ✅ Error handling
+- ✅ Azure ML artifact upload (monkey-patch, child run uploads, refit run completion)
 
 ## Troubleshooting
 
@@ -378,3 +421,5 @@ If you see `ModuleNotFoundError`:
 - **"HPO config not found"**: Verify `config/hpo/smoke.yaml` exists
 - **"Training script not found"**: Ensure `src/training/train.py` exists
 - **"ModuleNotFoundError: No module named 'testing'"**: Ensure `src/` is in Python path (usually handled automatically by test scripts)
+- **"Azure ML builder not registered"**: This is expected if not using Azure ML workspace. Azure ML-specific tests will be skipped.
+- **"No active MLflow run"**: For manual artifact upload tests, ensure you have an active MLflow run in Azure ML environment.
