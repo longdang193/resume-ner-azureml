@@ -1047,38 +1047,69 @@ class MLflowSweepTracker(BaseTracker):
             checkpoint_dir, best_trial_number
         )
 
+        # Detect Azure ML - it requires mlflow.log_artifact() with active run context
+        # Do this before try block so it's available in except block
+        tracking_uri = mlflow.get_tracking_uri()
+        is_azure_ml = tracking_uri and "azureml" in tracking_uri.lower()
+
         try:
             logger.info("Uploading checkpoint archive to MLflow...")
-
-            # Use the original simple approach: upload to active run if parent is active,
-            # otherwise use MlflowClient with explicit run_id
-            # This matches the original working code from gg_name branch
+            
             active_run = mlflow.active_run()
             active_run_id = active_run.info.run_id if active_run else None
             
             def upload_archive():
-                # If parent run is active and we're trying to upload to a child run,
-                # just upload to the active parent run instead (original behavior)
-                if active_run_id == parent_run_id and refit_run_id and refit_run_id == run_id_to_use:
-                    # Parent is active, trying to upload to child - use active run (parent) instead
-                    # This is the original working behavior
-                    mlflow.log_artifact(
-                        str(archive_path),
-                        artifact_path="best_trial_checkpoint"
-                    )
-                elif active_run_id == run_id_to_use:
-                    # Target run is already active, use it directly
-                    mlflow.log_artifact(
-                        str(archive_path),
-                        artifact_path="best_trial_checkpoint"
-                    )
+                # For Azure ML, we must use mlflow.log_artifact() with an active run context
+                # because client.log_artifact() triggers Azure ML artifact repository builder
+                # which doesn't accept tracking_uri parameter
+                if is_azure_ml:
+                    # Azure ML: temporarily activate target run if needed
+                    if active_run_id == run_id_to_use:
+                        # Target run is already active, use it directly
+                        mlflow.log_artifact(
+                            str(archive_path),
+                            artifact_path="best_trial_checkpoint"
+                        )
+                    else:
+                        # Need to activate target run temporarily for Azure ML
+                        # Use mlflow.start_run() with run_id to activate existing run
+                        # This creates a nested run context if parent is active (which is fine)
+                        try:
+                            with mlflow.start_run(run_id=run_id_to_use):
+                                mlflow.log_artifact(
+                                    str(archive_path),
+                                    artifact_path="best_trial_checkpoint"
+                                )
+                        except Exception as nested_run_error:
+                            # If starting nested run fails (e.g., run_id not found or not a child),
+                            # fall back to uploading to active parent run
+                            if active_run_id:
+                                logger.warning(
+                                    f"Could not activate child run {run_id_to_use} for upload. "
+                                    f"Falling back to active parent run {active_run_id}. "
+                                    f"Error: {nested_run_error}"
+                                )
+                                mlflow.log_artifact(
+                                    str(archive_path),
+                                    artifact_path="best_trial_checkpoint"
+                                )
+                            else:
+                                raise
                 else:
-                    # Use MlflowClient with explicit run_id (original approach)
-                    client.log_artifact(
-                        run_id_to_use,
-                        str(archive_path),
-                        artifact_path="best_trial_checkpoint"
-                    )
+                    # Non-Azure ML: can use either approach
+                    if active_run_id == run_id_to_use:
+                        # Target run is already active, use it directly
+                        mlflow.log_artifact(
+                            str(archive_path),
+                            artifact_path="best_trial_checkpoint"
+                        )
+                    else:
+                        # Use MlflowClient with explicit run_id (works for non-Azure ML)
+                        client.log_artifact(
+                            run_id_to_use,
+                            str(archive_path),
+                            artifact_path="best_trial_checkpoint"
+                        )
 
             retry_with_backoff(
                 upload_archive,
@@ -1117,20 +1148,19 @@ class MLflowSweepTracker(BaseTracker):
             error_str = str(e)
             error_type = type(e).__name__
             
-            # Check if it's the Azure ML artifact repository issue
-            # This is a known limitation with Azure ML backend
+            # Check if it's the Azure ML artifact repository issue (shouldn't happen with our fix)
             is_azure_ml_error = (
                 "tracking_uri" in error_str or 
                 "azureml_artifacts_builder" in error_str or 
                 (error_type == "TypeError" and "unexpected keyword argument" in error_str and "tracking_uri" in error_str)
             )
             
-            if is_azure_ml_error:
-                # Azure ML has limitations with artifact uploads
-                # This is a known issue with Azure ML backend - don't treat as fatal error
-                logger.warning(
-                    f"⚠ Azure ML limitation: Cannot upload checkpoint to MLflow due to artifact repository issue. "
-                    f"Checkpoint is available locally at: {checkpoint_dir} and can be accessed directly. "
+            if is_azure_ml_error and is_azure_ml:
+                # This shouldn't happen with our fix, but handle gracefully if it does
+                logger.error(
+                    f"⚠ Unexpected Azure ML artifact upload error despite using active run context. "
+                    f"This may indicate an MLflow version compatibility issue. "
+                    f"Checkpoint is available locally at: {checkpoint_dir}. "
                     f"Error type: {error_type}, Error: {error_str[:200]}"
                 )
                 # Don't raise - checkpoint is still available locally, process can continue
