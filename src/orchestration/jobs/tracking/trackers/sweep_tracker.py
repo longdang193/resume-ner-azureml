@@ -1114,13 +1114,23 @@ class MLflowSweepTracker(BaseTracker):
                 archive_path.unlink()
 
         except Exception as e:
-            logger.error(f"Failed to upload checkpoint via MLflow: {e}")
-
-            # Clean up on failure
-            if archive_path and archive_path.exists():
-                archive_path.unlink()
-
-            raise
+            error_str = str(e)
+            # Check if it's the Azure ML artifact repository issue
+            if "tracking_uri" in error_str or "azureml_artifacts_builder" in error_str:
+                # Azure ML has limitations with artifact uploads
+                # This is a known issue with Azure ML backend
+                logger.warning(
+                    f"⚠ Azure ML limitation: Cannot upload checkpoint to MLflow due to artifact repository issue. "
+                    f"Checkpoint is available locally at: {checkpoint_dir} and can be accessed directly. "
+                    f"Error: {error_str[:200]}"
+                )
+                # Don't raise - checkpoint is still available locally, process can continue
+            else:
+                logger.error(f"Failed to upload checkpoint via MLflow: {e}")
+                # Clean up on failure
+                if archive_path and archive_path.exists():
+                    archive_path.unlink()
+                raise
 
     def log_tracking_info(self) -> None:
         """Log MLflow tracking URI information for user visibility."""
