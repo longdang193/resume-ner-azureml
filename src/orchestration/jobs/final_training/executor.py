@@ -354,19 +354,31 @@ def execute_final_training(
         group_id=None,
         config_dir=config_dir,
     )
-    # Get tag keys from registry
-    from orchestration.jobs.tracking.naming.tags import get_tag_key
+    # Get tag keys from registry (using centralized helpers)
+    from orchestration.jobs.tracking.naming.tag_keys import (
+        get_lineage_hpo_refit_run_id,
+        get_lineage_hpo_study_key_hash,
+        get_lineage_hpo_sweep_run_id,
+        get_lineage_hpo_trial_key_hash,
+        get_lineage_hpo_trial_run_id,
+        get_lineage_parent_training_run_id,
+        get_lineage_source,
+        get_mlflow_run_type,
+        get_study_key_hash,
+        get_trained_on_full_data,
+        get_trial_key_hash,
+    )
     
-    mlflow_run_type_tag = get_tag_key("mlflow", "run_type", config_dir, "mlflow.runType")
-    trained_on_full_data_tag = get_tag_key("training", "trained_on_full_data", config_dir, "code.trained_on_full_data")
-    study_key_hash_tag = get_tag_key("grouping", "study_key_hash", config_dir, "code.study_key_hash")
-    trial_key_hash_tag = get_tag_key("grouping", "trial_key_hash", config_dir, "code.trial_key_hash")
-    lineage_source_tag = get_tag_key("lineage", "source", config_dir, "code.lineage.source")
-    lineage_hpo_study_key_hash_tag = get_tag_key("lineage", "hpo_study_key_hash", config_dir, "code.lineage.hpo_study_key_hash")
-    lineage_hpo_trial_key_hash_tag = get_tag_key("lineage", "hpo_trial_key_hash", config_dir, "code.lineage.hpo_trial_key_hash")
-    lineage_hpo_trial_run_id_tag = get_tag_key("lineage", "hpo_trial_run_id", config_dir, "code.lineage.hpo_trial_run_id")
-    lineage_hpo_refit_run_id_tag = get_tag_key("lineage", "hpo_refit_run_id", config_dir, "code.lineage.hpo_refit_run_id")
-    lineage_hpo_sweep_run_id_tag = get_tag_key("lineage", "hpo_sweep_run_id", config_dir, "code.lineage.hpo_sweep_run_id")
+    mlflow_run_type_tag = get_mlflow_run_type(config_dir)
+    trained_on_full_data_tag = get_trained_on_full_data(config_dir)
+    study_key_hash_tag = get_study_key_hash(config_dir)
+    trial_key_hash_tag = get_trial_key_hash(config_dir)
+    lineage_source_tag = get_lineage_source(config_dir)
+    lineage_hpo_study_key_hash_tag = get_lineage_hpo_study_key_hash(config_dir)
+    lineage_hpo_trial_key_hash_tag = get_lineage_hpo_trial_key_hash(config_dir)
+    lineage_hpo_trial_run_id_tag = get_lineage_hpo_trial_run_id(config_dir)
+    lineage_hpo_refit_run_id_tag = get_lineage_hpo_refit_run_id(config_dir)
+    lineage_hpo_sweep_run_id_tag = get_lineage_hpo_sweep_run_id(config_dir)
     
     tags[mlflow_run_type_tag] = "training"
     tags["training_type"] = "final"

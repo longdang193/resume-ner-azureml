@@ -71,10 +71,15 @@ def load_cached_best_model(
     """
     Load cached best model selection if available and valid.
     
+    Respects run.mode from selection_config:
+    - "force_new": Always returns None (skip cache)
+    - "reuse_if_exists": Loads cache if available and valid (default)
+    
     Validates:
-    1. Cache key matches current configs
-    2. MLflow run still exists and is FINISHED
-    3. Cache is not stale (optional: check benchmark run timestamps)
+    1. Run mode allows cache reuse
+    2. Cache key matches current configs
+    3. MLflow run still exists and is FINISHED
+    4. Cache is not stale (optional: check benchmark run timestamps)
     
     Args:
         root_dir: Project root directory.
@@ -88,6 +93,13 @@ def load_cached_best_model(
     Returns:
         Cached data dict if valid, None otherwise.
     """
+    # Check run mode - if force_new, skip cache entirely
+    run_mode = selection_config.get("run", {}).get("mode", "reuse_if_exists")
+    if run_mode == "force_new":
+        print(f"  Mode is 'force_new' - skipping cache")
+        logger.debug(f"Run mode is 'force_new', skipping cache load")
+        return None
+    
     # Compute current cache key
     current_cache_key = compute_selection_cache_key(
         experiment_name, selection_config, tags_config,

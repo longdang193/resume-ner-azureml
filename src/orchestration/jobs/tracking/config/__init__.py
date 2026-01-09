@@ -13,6 +13,7 @@ from orchestration.jobs.tracking.config.loader import (
     get_index_config,
     get_run_finder_config,
     get_auto_increment_config,
+    get_tracking_config,
 )
 
 __all__ = [
@@ -21,4 +22,5 @@ __all__ = [
     "get_index_config",
     "get_run_finder_config",
     "get_auto_increment_config",
+    "get_tracking_config",
 ]

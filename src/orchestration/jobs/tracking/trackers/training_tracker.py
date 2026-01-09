@@ -64,17 +64,27 @@ class MLflowTrainingTracker(BaseTracker):
         Yields:
             RunHandle with run information.
         """
+        # Infer config_dir from output_dir BEFORE creating run
+        config_dir = None
+        if output_dir:
+            root_dir_for_config = output_dir.parent.parent if output_dir.parent.name == "outputs" else output_dir.parent.parent.parent
+            config_dir = root_dir_for_config / "config" if root_dir_for_config else None
+
+        # Check if tracking is enabled for training stage BEFORE creating run
+        from orchestration.jobs.tracking.config.loader import get_tracking_config
+        tracking_config = get_tracking_config(config_dir=config_dir, stage="training")
+        if not tracking_config.get("enabled", True):
+            logger.info("[Training Tracker] MLflow tracking disabled for training stage (tracking.training.enabled=false)")
+            from contextlib import nullcontext
+            with nullcontext():
+                yield None
+            return
+
         try:
             with mlflow.start_run(run_name=run_name) as training_run:
                 run_id = training_run.info.run_id
                 experiment_id = training_run.info.experiment_id
                 tracking_uri = mlflow.get_tracking_uri()
-
-                # Infer config_dir from output_dir
-                config_dir = None
-                if output_dir:
-                    root_dir_for_config = output_dir.parent.parent if output_dir.parent.name == "outputs" else output_dir.parent.parent.parent
-                    config_dir = root_dir_for_config / "config" if root_dir_for_config else None
 
                 # Build and set tags atomically
                 tags = build_mlflow_tags(
@@ -259,20 +269,38 @@ class MLflowTrainingTracker(BaseTracker):
             metrics_json_path: Optional path to metrics.json file.
         """
         try:
+            # Infer config_dir to check tracking config
+            config_dir = None
+            if checkpoint_dir:
+                current = checkpoint_dir.parent
+                while current.parent != current:
+                    if current.name == "outputs":
+                        root_dir_for_config = current.parent
+                        config_dir = root_dir_for_config / "config" if root_dir_for_config else None
+                        break
+                    current = current.parent
+            
+            from orchestration.jobs.tracking.config.loader import get_tracking_config
+            tracking_config = get_tracking_config(config_dir=config_dir, stage="training")
+            
             # Use MLflow for artifact upload (works for both Azure ML and non-Azure ML backends)
-            # Log checkpoint directory
-            if checkpoint_dir.exists():
+            # Log checkpoint directory if enabled
+            if tracking_config.get("log_checkpoint", True) and checkpoint_dir.exists():
                 mlflow.log_artifacts(
                     str(checkpoint_dir),
                     artifact_path="checkpoint"
                 )
+            elif not tracking_config.get("log_checkpoint", True):
+                logger.debug("[Training Tracker] Checkpoint logging disabled (tracking.training.log_checkpoint=false)")
 
-            # Log metrics.json if provided
-            if metrics_json_path and metrics_json_path.exists():
+            # Log metrics.json if provided and enabled
+            if tracking_config.get("log_metrics_json", True) and metrics_json_path and metrics_json_path.exists():
                 mlflow.log_artifact(
                     str(metrics_json_path),
                     artifact_path="metrics.json"
                 )
+            elif not tracking_config.get("log_metrics_json", True):
+                logger.debug("[Training Tracker] Metrics JSON logging disabled (tracking.training.log_metrics_json=false)")
         except Exception as e:
             logger.warning(f"Could not log training artifacts to MLflow: {e}")
 

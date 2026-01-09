@@ -357,3 +357,51 @@ def get_auto_increment_config(
     
     return result
 
+
+def get_tracking_config(
+    config_dir: Optional[Path] = None,
+    stage: Optional[str] = None,
+    config: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    Get tracking configuration for a specific stage.
+    
+    Args:
+        config_dir: Path to config directory (defaults to current directory / "config").
+        stage: Stage name ("benchmark", "training", "conversion"). If None, returns all tracking config.
+        config: Optional pre-loaded config dict (avoids re-reading file).
+    
+    Returns:
+        Dictionary with tracking configuration for the stage, or all stages if stage is None.
+        Defaults to enabled=True and log_*=True if not specified in config.
+    """
+    if config is None:
+        config = load_mlflow_config(config_dir)
+    
+    tracking_config = config.get("tracking", {})
+    
+    if stage is None:
+        return tracking_config
+    
+    stage_config = tracking_config.get(stage, {})
+    
+    # Apply defaults
+    defaults = {
+        "enabled": True,
+    }
+    
+    # Stage-specific defaults
+    if stage == "benchmark":
+        defaults["log_artifacts"] = True
+    elif stage == "training":
+        defaults["log_checkpoint"] = True
+        defaults["log_metrics_json"] = True
+    elif stage == "conversion":
+        defaults["log_onnx_model"] = True
+        defaults["log_conversion_log"] = True
+    
+    result = defaults.copy()
+    result.update(stage_config)
+    
+    return result
+

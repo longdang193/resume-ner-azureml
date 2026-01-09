@@ -22,7 +22,7 @@ from orchestration.jobs.tracking.mlflow_naming import (
     build_mlflow_run_key,
     build_mlflow_run_key_hash,
 )
-from orchestration.jobs.tracking.naming.tags import get_tag_key
+# Tag key imports moved to local scope where needed
 from orchestration.jobs.tracking.utils.mlflow_utils import get_mlflow_run_url
 from shared.platform_detection import detect_platform
 
@@ -467,8 +467,12 @@ def _log_refit_metrics_to_mlflow(
             client.set_tag(refit_run_id, f"note.{k}", v)
 
         # Set explicit refit tags
-        refit_tag = get_tag_key("training", "refit", config_dir, "code.refit")
-        refit_has_validation_tag = get_tag_key("training", "refit_has_validation", config_dir, "code.refit_has_validation")
+        from orchestration.jobs.tracking.naming.tag_keys import (
+            get_refit,
+            get_refit_has_validation,
+        )
+        refit_tag = get_refit(config_dir)
+        refit_has_validation_tag = get_refit_has_validation(config_dir)
         client.set_tag(refit_run_id, refit_tag, "true")
         client.set_tag(refit_run_id, refit_has_validation_tag, "false")
 
@@ -499,7 +503,7 @@ from orchestration.jobs.tracking.mlflow_naming import (
     build_mlflow_run_key,
     build_mlflow_run_key_hash,
 )
-from orchestration.jobs.tracking.naming.tags import get_tag_key
+# Tag key imports moved to local scope where needed
 from orchestration.jobs.tracking.utils.mlflow_utils import get_mlflow_run_url
 from shared.platform_detection import detect_platform
 
@@ -944,8 +948,12 @@ def _log_refit_metrics_to_mlflow(
             client.set_tag(refit_run_id, f"note.{k}", v)
 
         # Set explicit refit tags
-        refit_tag = get_tag_key("training", "refit", config_dir, "code.refit")
-        refit_has_validation_tag = get_tag_key("training", "refit_has_validation", config_dir, "code.refit_has_validation")
+        from orchestration.jobs.tracking.naming.tag_keys import (
+            get_refit,
+            get_refit_has_validation,
+        )
+        refit_tag = get_refit(config_dir)
+        refit_has_validation_tag = get_refit_has_validation(config_dir)
         client.set_tag(refit_run_id, refit_tag, "true")
         client.set_tag(refit_run_id, refit_has_validation_tag, "false")
 

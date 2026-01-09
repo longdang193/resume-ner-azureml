@@ -26,6 +26,3 @@ output:
   # Filename for benchmark results
   filename: "benchmark.json"
   
-  # Whether to save human-readable summary
-  save_summary: true
-

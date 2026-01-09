@@ -103,6 +103,16 @@ class MLflowBenchmarkTracker(BaseTracker):
                 
                 config_dir = root_dir_for_config / "config" if root_dir_for_config else None
 
+            # Check if tracking is enabled for benchmark stage
+            from orchestration.jobs.tracking.config.loader import get_tracking_config
+            tracking_config = get_tracking_config(config_dir=config_dir, stage="benchmark")
+            if not tracking_config.get("enabled", True):
+                logger.info("[Benchmark Tracker] MLflow tracking disabled for benchmark stage (tracking.benchmark.enabled=false)")
+                from contextlib import nullcontext
+                with nullcontext():
+                    yield None
+                return
+
             # Validate run IDs are UUIDs (not timestamps) BEFORE creating run
             import re
             uuid_pattern = re.compile(
@@ -170,13 +180,18 @@ class MLflowBenchmarkTracker(BaseTracker):
 
                 # Use pre-computed lineage_parent_run_id and parent_kind from before run creation
 
-                # Get tag keys from registry (config_dir was already inferred from output_dir above)
-                from orchestration.jobs.tracking.naming.tags import get_tag_key
+                # Get tag keys from registry (using centralized helpers)
+                from orchestration.jobs.tracking.naming.tag_keys import (
+                    get_lineage_hpo_refit_run_id,
+                    get_lineage_hpo_sweep_run_id,
+                    get_lineage_hpo_trial_run_id,
+                    get_lineage_parent_training_run_id,
+                )
                 # Note: config_dir was already inferred from output_dir at line 104, don't overwrite it
-                lineage_hpo_trial_run_id_tag = get_tag_key("lineage", "hpo_trial_run_id", config_dir, "code.lineage.hpo_trial_run_id")
-                lineage_hpo_refit_run_id_tag = get_tag_key("lineage", "hpo_refit_run_id", config_dir, "code.lineage.hpo_refit_run_id")
-                lineage_hpo_sweep_run_id_tag = get_tag_key("lineage", "hpo_sweep_run_id", config_dir, "code.lineage.hpo_sweep_run_id")
-                lineage_parent_training_run_id_tag = get_tag_key("lineage", "parent_training_run_id", config_dir, "code.lineage.parent_training_run_id")
+                lineage_hpo_trial_run_id_tag = get_lineage_hpo_trial_run_id(config_dir)
+                lineage_hpo_refit_run_id_tag = get_lineage_hpo_refit_run_id(config_dir)
+                lineage_hpo_sweep_run_id_tag = get_lineage_hpo_sweep_run_id(config_dir)
+                lineage_parent_training_run_id_tag = get_lineage_parent_training_run_id(config_dir)
                 
                 # Set explicit lineage tags using code.lineage.* namespace (only valid UUIDs)
                 if valid_trial_run_id:
@@ -414,10 +429,26 @@ class MLflowBenchmarkTracker(BaseTracker):
                             "throughput_samples_per_sec", batch_results["throughput_docs_per_sec"])
 
             # Log artifact using MLflow (works for both Azure ML and non-Azure ML backends)
-            if benchmark_json_path.exists():
+            # Check if artifact logging is enabled
+            config_dir = None
+            if benchmark_json_path:
+                # Try to infer config_dir from benchmark_json_path
+                current = benchmark_json_path.parent
+                while current.parent != current:
+                    if current.name == "outputs":
+                        root_dir_for_config = current.parent
+                        config_dir = root_dir_for_config / "config" if root_dir_for_config else None
+                        break
+                    current = current.parent
+            
+            from orchestration.jobs.tracking.config.loader import get_tracking_config
+            tracking_config = get_tracking_config(config_dir=config_dir, stage="benchmark")
+            if tracking_config.get("log_artifacts", True) and benchmark_json_path.exists():
                 mlflow.log_artifact(
                     str(benchmark_json_path),
                     artifact_path="benchmark.json"
                 )
+            elif not tracking_config.get("log_artifacts", True):
+                logger.debug("[Benchmark Tracker] Artifact logging disabled (tracking.benchmark.log_artifacts=false)")
         except Exception as e:
             logger.warning(f"Could not log benchmark results to MLflow: {e}")

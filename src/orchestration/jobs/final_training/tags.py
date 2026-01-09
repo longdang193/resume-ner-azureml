@@ -84,14 +84,23 @@ def apply_lineage_tags(
                 print(f"⚠ Could not query MLflow for recent run: {e}")
         
         if run_id:
-            # Get tag keys from registry
-            trained_on_full_data_tag = get_tag_key("training", "trained_on_full_data", config_dir, "code.trained_on_full_data")
-            lineage_source_tag = get_tag_key("lineage", "source", config_dir, "code.lineage.source")
-            lineage_hpo_study_key_hash_tag = get_tag_key("lineage", "hpo_study_key_hash", config_dir, "code.lineage.hpo_study_key_hash")
-            lineage_hpo_trial_key_hash_tag = get_tag_key("lineage", "hpo_trial_key_hash", config_dir, "code.lineage.hpo_trial_key_hash")
-            lineage_hpo_trial_run_id_tag = get_tag_key("lineage", "hpo_trial_run_id", config_dir, "code.lineage.hpo_trial_run_id")
-            lineage_hpo_refit_run_id_tag = get_tag_key("lineage", "hpo_refit_run_id", config_dir, "code.lineage.hpo_refit_run_id")
-            lineage_hpo_sweep_run_id_tag = get_tag_key("lineage", "hpo_sweep_run_id", config_dir, "code.lineage.hpo_sweep_run_id")
+            # Get tag keys from registry (using centralized helpers)
+            from orchestration.jobs.tracking.naming.tag_keys import (
+                get_lineage_hpo_refit_run_id,
+                get_lineage_hpo_study_key_hash,
+                get_lineage_hpo_sweep_run_id,
+                get_lineage_hpo_trial_key_hash,
+                get_lineage_hpo_trial_run_id,
+                get_lineage_source,
+                get_trained_on_full_data,
+            )
+            trained_on_full_data_tag = get_trained_on_full_data(config_dir)
+            lineage_source_tag = get_lineage_source(config_dir)
+            lineage_hpo_study_key_hash_tag = get_lineage_hpo_study_key_hash(config_dir)
+            lineage_hpo_trial_key_hash_tag = get_lineage_hpo_trial_key_hash(config_dir)
+            lineage_hpo_trial_run_id_tag = get_lineage_hpo_trial_run_id(config_dir)
+            lineage_hpo_refit_run_id_tag = get_lineage_hpo_refit_run_id(config_dir)
+            lineage_hpo_sweep_run_id_tag = get_lineage_hpo_sweep_run_id(config_dir)
             
             with mlflow.start_run(run_id=run_id):
                 # Set training-specific tags

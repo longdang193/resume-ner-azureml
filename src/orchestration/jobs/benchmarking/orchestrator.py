@@ -19,7 +19,9 @@ logger = get_logger(__name__)
 
 # Constants
 CHECKPOINT_DIRNAME = "checkpoint"
-BENCHMARK_FILENAME = "benchmark.json"
+# BENCHMARK_FILENAME is now loaded from benchmark_config["output"]["filename"]
+# Default fallback value
+DEFAULT_BENCHMARK_FILENAME = "benchmark.json"
 
 
 def find_checkpoint_in_trial_dir(trial_dir: Path) -> Optional[Path]:
@@ -343,7 +345,12 @@ def benchmark_best_trials(
         )
         benchmarking_path.mkdir(parents=True, exist_ok=True)
 
-        benchmark_output = benchmarking_path / BENCHMARK_FILENAME
+        # Get output filename from config, with fallback to default
+        output_filename = DEFAULT_BENCHMARK_FILENAME
+        if benchmark_config and "output" in benchmark_config:
+            output_filename = benchmark_config["output"].get("filename", DEFAULT_BENCHMARK_FILENAME)
+        
+        benchmark_output = benchmarking_path / output_filename
 
         if not checkpoint_dir.exists():
             logger.warning(

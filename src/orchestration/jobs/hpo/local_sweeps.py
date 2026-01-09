@@ -943,7 +943,9 @@ def run_local_hpo_sweep(
 
                     # Upload checkpoint after refit (prefer refit checkpoint, fallback to CV checkpoint)
                     # Upload to refit run (not parent) since refit checkpoint belongs to refit run
-                    if refit_run_id or parent_run_id:
+                    # Only log if mlflow.log_best_checkpoint is enabled
+                    log_best_checkpoint = hpo_config.get("mlflow", {}).get("log_best_checkpoint", False)
+                    if log_best_checkpoint and (refit_run_id or parent_run_id):
                         upload_succeeded = False
                         upload_error = None
                         try:
@@ -965,6 +967,12 @@ def run_local_hpo_sweep(
                                 f"[HPO] Error in log_best_checkpoint: {e}")
                             import traceback
                             logger.error(traceback.format_exc())
+                    else:
+                        if not log_best_checkpoint:
+                            logger.info(
+                                "[HPO] Skipping checkpoint logging (mlflow.log_best_checkpoint=false or not set)")
+                        upload_succeeded = True  # Skipped intentionally, not a failure
+                        upload_error = None
 
                         # Mark refit run as FINISHED (success) or FAILED (error) after upload attempt
                         # Only terminate if it's still RUNNING (safety check)

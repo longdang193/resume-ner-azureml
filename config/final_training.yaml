@@ -7,7 +7,7 @@ run:
   # - reuse_if_exists: Skip if complete (default), reuse variant if exists
   # - force_new: Always create new variant, ignore existing
   # - resume_if_incomplete: Resume same run if incomplete, otherwise new variant
-  # - continue_from_previous: Continue from previous final_training (requires source.type=final_training)
+  # Note: continue_from_previous is not currently implemented
   mode: force_new
 
 # Source configuration (explicit checkpoint source intent)

@@ -51,20 +51,30 @@ class MLflowConversionTracker(BaseTracker):
         """
         Start a MLflow run for model conversion.
         """
+        # Infer config_dir from output_dir BEFORE creating run
+        config_dir = None
+        if output_dir:
+            if output_dir.parent.name == "outputs":
+                root_dir_for_config = output_dir.parent.parent
+            else:
+                root_dir_for_config = output_dir.parent.parent.parent
+            config_dir = root_dir_for_config / "config"
+
+        # Check if tracking is enabled for conversion stage BEFORE creating run
+        from orchestration.jobs.tracking.config.loader import get_tracking_config
+        tracking_config = get_tracking_config(config_dir=config_dir, stage="conversion")
+        if not tracking_config.get("enabled", True):
+            logger.info("[Conversion Tracker] MLflow tracking disabled for conversion stage (tracking.conversion.enabled=false)")
+            from contextlib import nullcontext
+            with nullcontext():
+                yield None
+            return
+
         try:
             with mlflow.start_run(run_name=run_name) as conversion_run:
                 run_id = conversion_run.info.run_id
                 experiment_id = conversion_run.info.experiment_id
                 tracking_uri = mlflow.get_tracking_uri()
-
-                # Infer config_dir from output_dir
-                config_dir = None
-                if output_dir:
-                    if output_dir.parent.name == "outputs":
-                        root_dir_for_config = output_dir.parent.parent
-                    else:
-                        root_dir_for_config = output_dir.parent.parent.parent
-                    config_dir = root_dir_for_config / "config"
 
                 tags = build_mlflow_tags(
                     context=context,
@@ -169,8 +179,32 @@ class MLflowConversionTracker(BaseTracker):
                     1 if smoke_test_passed else 0,
                 )
 
+            # Infer config_dir to check tracking config
+            # Try onnx_model_path first, then conversion_log_path, then fallback to current working directory
+            config_dir = None
+            for path_to_check in [onnx_model_path, conversion_log_path]:
+                if path_to_check:
+                    current = path_to_check.parent
+                    while current.parent != current:
+                        if current.name == "outputs":
+                            root_dir_for_config = current.parent
+                            config_dir = root_dir_for_config / "config" if root_dir_for_config else None
+                            break
+                        current = current.parent
+                    if config_dir:
+                        break
+            
+            # Fallback to current working directory if still None
+            if config_dir is None:
+                from pathlib import Path
+                config_dir = Path.cwd() / "config"
+            
+            from orchestration.jobs.tracking.config.loader import get_tracking_config
+            tracking_config = get_tracking_config(config_dir=config_dir, stage="conversion")
+
             # Use MLflow for artifact upload (works for both Azure ML and non-Azure ML backends)
-            if onnx_model_path and onnx_model_path.exists():
+            # Log ONNX model if enabled
+            if tracking_config.get("log_onnx_model", True) and onnx_model_path and onnx_model_path.exists():
                 artifact_name = onnx_model_path.name
                 max_retries = 3
                 retry_delay = 2
@@ -192,8 +226,11 @@ class MLflowConversionTracker(BaseTracker):
                                 f"Failed to upload {artifact_name} after "
                                 f"{max_retries} attempts: {upload_err}"
                             )
+            elif not tracking_config.get("log_onnx_model", True):
+                logger.debug("[Conversion Tracker] ONNX model logging disabled (tracking.conversion.log_onnx_model=false)")
 
-            if conversion_log_path and conversion_log_path.exists():
+            # Log conversion log if enabled
+            if tracking_config.get("log_conversion_log", True) and conversion_log_path and conversion_log_path.exists():
                 max_retries = 3
                 retry_delay = 2
 
@@ -214,6 +251,8 @@ class MLflowConversionTracker(BaseTracker):
                                 "Failed to upload conversion_log.txt after "
                                 f"{max_retries} attempts: {upload_err}"
                             )
+            elif not tracking_config.get("log_conversion_log", True):
+                logger.debug("[Conversion Tracker] Conversion log logging disabled (tracking.conversion.log_conversion_log=false)")
         except Exception as e:
             logger.warning(
                 f"Could not log conversion results to MLflow: {e}"

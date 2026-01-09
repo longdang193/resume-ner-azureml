@@ -21,7 +21,7 @@ from orchestration.jobs.tracking.mlflow_index import update_mlflow_index
 from orchestration.jobs.tracking.utils.mlflow_utils import get_mlflow_run_url, retry_with_backoff
 from orchestration.jobs.tracking.artifacts.manager import create_checkpoint_archive
 from orchestration.jobs.tracking.trackers.base_tracker import BaseTracker
-from orchestration.jobs.tracking.naming.tags import get_tag_key
+# Tag key imports moved to local scope where needed
 
 logger = get_logger(__name__)
 
@@ -217,9 +217,14 @@ class MLflowSweepTracker(BaseTracker):
             config_dir = Path.cwd() / "config"
 
         # Mark parent run as sweep job for Azure ML UI
-        azureml_run_type = get_tag_key("azureml", "run_type", config_dir, "azureml.runType")
-        mlflow_run_type = get_tag_key("mlflow", "run_type", config_dir, "mlflow.runType")
-        azureml_sweep = get_tag_key("azureml", "sweep", config_dir, "azureml.sweep")
+        from orchestration.jobs.tracking.naming.tag_keys import (
+            get_azureml_run_type,
+            get_azureml_sweep,
+            get_mlflow_run_type,
+        )
+        azureml_run_type = get_azureml_run_type(config_dir)
+        mlflow_run_type = get_mlflow_run_type(config_dir)
+        azureml_sweep = get_azureml_sweep(config_dir)
         mlflow.set_tag(azureml_run_type, "sweep")
         mlflow.set_tag(mlflow_run_type, "sweep")
         mlflow.set_tag(azureml_sweep, "true")
@@ -402,7 +407,8 @@ class MLflowSweepTracker(BaseTracker):
 
                 # Set refit_planned tag if refit is enabled
                 if hpo_config and hpo_config.get("refit", {}).get("enabled", False):
-                    refit_planned_tag = get_tag_key("hpo", "refit_planned", config_dir, "code.refit_planned")
+                    from orchestration.jobs.tracking.naming.tag_keys import get_hpo_refit_planned
+                    refit_planned_tag = get_hpo_refit_planned(config_dir)
                     mlflow.set_tag(refit_planned_tag, "true")
             else:
                 logger.info(
@@ -460,8 +466,12 @@ class MLflowSweepTracker(BaseTracker):
         # Strategy 2: Check alternative tag keys
         # Try registry keys first, then fallback to legacy
         config_dir = None  # Could be inferred from context if available
-        hpo_trial_number_tag = get_tag_key("hpo", "trial_number", config_dir, "code.hpo.trial_number")
-        legacy_trial_number_tag = get_tag_key("legacy", "trial_number", config_dir, "trial_number")
+        from orchestration.jobs.tracking.naming.tag_keys import (
+            get_hpo_trial_number,
+            get_legacy_trial_number,
+        )
+        hpo_trial_number_tag = get_hpo_trial_number(config_dir)
+        legacy_trial_number_tag = get_legacy_trial_number(config_dir)
         for tag_key in [hpo_trial_number_tag, legacy_trial_number_tag, "code.trial"]:
             tag_value = run.data.tags.get(tag_key)
             if tag_value:
@@ -611,8 +621,12 @@ class MLflowSweepTracker(BaseTracker):
                     root_dir_for_config = output_dir.parent.parent if output_dir.parent.name == "outputs" else output_dir.parent.parent.parent
                     config_dir = root_dir_for_config / "config" if root_dir_for_config else None
                 
-                best_trial_run_id_tag = get_tag_key("hpo", "best_trial_run_id", config_dir, "best_trial_run_id")
-                best_trial_number_tag = get_tag_key("hpo", "best_trial_number", config_dir, "best_trial_number")
+                from orchestration.jobs.tracking.naming.tag_keys import (
+                    get_hpo_best_trial_number,
+                    get_hpo_best_trial_run_id,
+                )
+                best_trial_run_id_tag = get_hpo_best_trial_run_id(config_dir)
+                best_trial_number_tag = get_hpo_best_trial_number(config_dir)
                 mlflow.log_param("best_trial_run_id", best_run_id)
                 mlflow.set_tag(best_trial_run_id_tag, best_run_id)
                 mlflow.set_tag(best_trial_number_tag, str(best_trial_number))

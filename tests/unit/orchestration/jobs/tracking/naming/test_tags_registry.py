@@ -66,8 +66,9 @@ def test_tags_registry_missing_key(sample_tags_yaml: Dict[str, Any]):
 
 
 def test_tags_registry_validation_required_keys():
-    """Test TagsRegistry validates required keys exist."""
-    # Missing required key should raise ValueError
+    """Test TagsRegistry validates keys lazily on access (not on initialization)."""
+    # TagsRegistry uses lazy validation - it only validates when keys are accessed
+    # This allows creating registries with incomplete configs for testing
     incomplete_config = {
         "schema_version": 1,
         "grouping": {
@@ -76,8 +77,15 @@ def test_tags_registry_validation_required_keys():
         },
     }
     
-    with pytest.raises(ValueError, match="Missing required tag key"):
-        TagsRegistry(raw=incomplete_config, schema_version=1)
+    # Registry can be created with incomplete config (no validation on init)
+    registry = TagsRegistry(raw=incomplete_config, schema_version=1)
+    
+    # Validation happens lazily when accessing missing keys
+    with pytest.raises(TagKeyError, match="Missing tag key: grouping.study_key_hash"):
+        registry.key("grouping", "study_key_hash")
+    
+    # But existing keys work fine
+    assert registry.key("grouping", "trial_key_hash") == "code.trial_key_hash"
 
 
 def test_load_tags_registry_from_file(temp_config_dir: Path, sample_tags_yaml: Dict[str, Any]):

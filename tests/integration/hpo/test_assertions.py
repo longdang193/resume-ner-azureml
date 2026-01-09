@@ -219,3 +219,4 @@ def assert_study_resumed(study: optuna.Study, expected_min_trials: int) -> None:
     assert len(study.trials) >= expected_min_trials, \
         f"Resumed study should have at least {expected_min_trials} trials, found {len(study.trials)}"
 
+
