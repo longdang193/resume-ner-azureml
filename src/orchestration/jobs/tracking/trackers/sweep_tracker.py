@@ -1068,28 +1068,53 @@ class MLflowSweepTracker(BaseTracker):
                         artifact_path="best_trial_checkpoint"
                     )
                 elif is_child_run and is_parent_active:
-                    # Target is a child run and parent is active - use MlflowClient directly
-                    # This is the original approach that worked - try it first
+                    # Target is a child run and parent is active
+                    # First check if child run is still RUNNING - if so, we can make it active temporarily
                     try:
-                        client.log_artifact(
-                            run_id_to_use,
-                            str(archive_path),
-                            artifact_path="best_trial_checkpoint"
-                        )
+                        child_run = client.get_run(run_id_to_use)
+                        if child_run.info.status == "RUNNING":
+                            # Child run is still active - temporarily end parent, activate child, upload, restore parent
+                            logger.debug(f"Child run {run_id_to_use[:12]}... is still RUNNING, temporarily activating it for upload")
+                            mlflow.end_run()  # End parent run temporarily
+                            try:
+                                with mlflow.start_run(run_id=run_id_to_use):
+                                    mlflow.log_artifact(
+                                        str(archive_path),
+                                        artifact_path="best_trial_checkpoint"
+                                    )
+                            finally:
+                                # Restore parent run
+                                with mlflow.start_run(run_id=parent_run_id):
+                                    pass  # Just reactivate parent
+                        else:
+                            # Child run is finished - use MlflowClient directly (original approach)
+                            client.log_artifact(
+                                run_id_to_use,
+                                str(archive_path),
+                                artifact_path="best_trial_checkpoint"
+                            )
                     except (TypeError, Exception) as e:
                         error_str = str(e)
                         # Check if it's the Azure ML artifact repository issue
                         if "tracking_uri" in error_str or "azureml_artifacts_builder" in error_str:
                             # Azure ML has limitations with child run artifact uploads when parent is active
-                            # The artifact repository builder doesn't accept tracking_uri parameter
-                            # Checkpoint is still available locally, which is the most important thing
+                            # Fallback: upload to parent run instead
                             logger.warning(
                                 f"⚠ Azure ML limitation: Cannot upload checkpoint to child run {run_id_to_use[:12]}... "
-                                f"when parent run is active. This is a known Azure ML artifact repository limitation. "
-                                f"Checkpoint is available locally at: {checkpoint_dir} and can be accessed directly."
+                                f"when parent run is active. Uploading to parent run {parent_run_id[:12] if parent_run_id else 'N/A'}... instead."
                             )
-                            # Don't raise - checkpoint is still available locally, process can continue
-                            return
+                            try:
+                                # Upload to parent run as fallback
+                                mlflow.log_artifact(
+                                    str(archive_path),
+                                    artifact_path="best_trial_checkpoint"
+                                )
+                            except Exception as parent_error:
+                                logger.warning(
+                                    f"Could not upload checkpoint to parent run either. "
+                                    f"Checkpoint is available locally at: {checkpoint_dir}. Error: {parent_error}"
+                                )
+                                return
                         else:
                             # Other errors - log and continue
                             logger.warning(
