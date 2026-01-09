@@ -143,18 +143,10 @@ def _build_checkpoint_dir(
         root_dir, config_dir, "best_model_selection") / environment / backbone
 
     if study_key_hash and trial_key_hash:
-        # Use token expansion for consistency
-        from naming.context_tokens import build_token_values
-        from naming.context import NamingContext
-        temp_context = NamingContext(
-            process_type="best_configurations",
-            model=backbone,
-            environment=environment,
-            study_key_hash=study_key_hash,
-            trial_key_hash=trial_key_hash
-        )
-        tokens = build_token_values(temp_context)
-        return base_dir / f"sel_{tokens['study8']}_{tokens['trial8']}"
+        # Extract 8-char hashes for path construction (consistent with token expansion)
+        study8 = study_key_hash[:8] if len(study_key_hash) >= 8 else study_key_hash
+        trial8 = trial_key_hash[:8] if len(trial_key_hash) >= 8 else trial_key_hash
+        return base_dir / f"sel_{study8}_{trial8}"
 
     return base_dir / f"run_{artifact_run_id[:8]}"
 
