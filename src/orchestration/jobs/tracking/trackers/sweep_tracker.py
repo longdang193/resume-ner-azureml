@@ -1068,31 +1068,30 @@ class MLflowSweepTracker(BaseTracker):
                         artifact_path="best_trial_checkpoint"
                     )
                 elif is_child_run and is_parent_active:
-                    # Target is a child run and parent is active - can't start child run normally
-                    # Check if this is Azure ML backend (has known artifact repository limitations)
-                    tracking_uri = mlflow.get_tracking_uri()
-                    is_azure_ml = tracking_uri and "azureml" in tracking_uri.lower()
-                    
-                    if is_azure_ml:
-                        # Azure ML has limitations with child run artifact uploads when parent is active
-                        # The artifact repository builder doesn't accept tracking_uri parameter
-                        # Checkpoint is still available locally, which is the most important thing
-                        logger.warning(
-                            f"⚠ Azure ML limitation: Cannot upload checkpoint to child run {run_id_to_use[:12]}... "
-                            f"when parent run is active. This is a known Azure ML artifact repository limitation. "
-                            f"Checkpoint is available locally at: {checkpoint_dir} and can be accessed directly."
+                    # Target is a child run and parent is active - use MlflowClient directly
+                    # This is the original approach that worked - try it first
+                    try:
+                        client.log_artifact(
+                            run_id_to_use,
+                            str(archive_path),
+                            artifact_path="best_trial_checkpoint"
                         )
-                        # Don't raise - checkpoint is still available locally, process can continue
-                        return
-                    else:
-                        # For non-Azure ML backends, try MlflowClient directly
-                        try:
-                            client.log_artifact(
-                                run_id_to_use,
-                                str(archive_path),
-                                artifact_path="best_trial_checkpoint"
+                    except (TypeError, Exception) as e:
+                        error_str = str(e)
+                        # Check if it's the Azure ML artifact repository issue
+                        if "tracking_uri" in error_str or "azureml_artifacts_builder" in error_str:
+                            # Azure ML has limitations with child run artifact uploads when parent is active
+                            # The artifact repository builder doesn't accept tracking_uri parameter
+                            # Checkpoint is still available locally, which is the most important thing
+                            logger.warning(
+                                f"⚠ Azure ML limitation: Cannot upload checkpoint to child run {run_id_to_use[:12]}... "
+                                f"when parent run is active. This is a known Azure ML artifact repository limitation. "
+                                f"Checkpoint is available locally at: {checkpoint_dir} and can be accessed directly."
                             )
-                        except Exception as e:
+                            # Don't raise - checkpoint is still available locally, process can continue
+                            return
+                        else:
+                            # Other errors - log and continue
                             logger.warning(
                                 f"Could not upload checkpoint to child run {run_id_to_use[:12]}... "
                                 f"Checkpoint is available locally at: {checkpoint_dir}. Error: {e}"
