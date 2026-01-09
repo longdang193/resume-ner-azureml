@@ -1062,9 +1062,22 @@ class MLflowSweepTracker(BaseTracker):
                 # Azure ML has a known limitation: cannot upload artifacts to child runs when
                 # parent run is active due to artifact repository builder incompatibility.
                 # The builder doesn't accept 'tracking_uri' parameter that MLflow tries to pass.
+                # Workaround: Upload to parent run instead (checkpoint is still preserved)
                 if is_azure_ml:
                     if active_run_id == run_id_to_use:
                         # Target run is already active, use it directly
+                        mlflow.log_artifact(
+                            str(archive_path),
+                            artifact_path="best_trial_checkpoint"
+                        )
+                    elif active_run_id and active_run_id == parent_run_id and refit_run_id and run_id_to_use == refit_run_id:
+                        # Azure ML workaround: Parent is active, trying to upload to child run
+                        # Upload to parent run instead - checkpoint is still preserved and associated with HPO study
+                        logger.info(
+                            f"Azure ML workaround: Uploading checkpoint to parent run {parent_run_id} "
+                            f"instead of child run {refit_run_id} due to Azure ML limitation. "
+                            f"Checkpoint is still preserved and associated with the HPO study."
+                        )
                         mlflow.log_artifact(
                             str(archive_path),
                             artifact_path="best_trial_checkpoint"
