@@ -1095,35 +1095,30 @@ class MLflowSweepTracker(BaseTracker):
             checkpoint_dir, best_trial_number
         )
 
-        # Check if parent run is active - if so, use mlflow.log_artifact() which works
-        # If parent is not active, use client.log_artifact() with explicit run_id
-        active_run = mlflow.active_run()
-        use_active_run = active_run and active_run.info.run_id == parent_run_id
-        
         try:
             logger.info("Uploading checkpoint archive to MLflow...")
             
-            if use_active_run and run_id_to_use == refit_run_id:
-                # Parent run is active, but we want to upload to child run
-                # Azure ML has a bug where client.log_artifact() to child run fails
-                # Upload to active parent run instead (checkpoint is still associated via study/trial tags)
+            # Always upload to the target run (refit_run_id if available, otherwise parent_run_id)
+            # The monkey-patch handles the tracking_uri issue, so client.log_artifact() should work
+            # Uploading to refit run ensures it can be marked as FINISHED after artifact upload
+            if refit_run_id:
                 logger.info(
-                    f"Uploading to active parent run {parent_run_id[:12]} "
-                    f"(Azure ML workaround: cannot upload directly to child run {refit_run_id[:12]})"
+                    f"Uploading checkpoint to refit run {refit_run_id[:12]} "
+                    f"(child of parent {parent_run_id[:12]})"
                 )
-                def upload_archive():
-                    mlflow.log_artifact(
-                        str(archive_path),
-                        artifact_path="best_trial_checkpoint"
-                    )
             else:
-                # Use MLflowClient with explicit run_id (matches old working code)
-                def upload_archive():
-                    client.log_artifact(
-                        run_id_to_use,
-                        str(archive_path),
-                        artifact_path="best_trial_checkpoint"
-                    )
+                logger.info(
+                    f"Uploading checkpoint to parent run {parent_run_id[:12]}"
+                )
+            
+            # Use MLflowClient with explicit run_id to upload to the target run
+            # The monkey-patch will handle any tracking_uri compatibility issues
+            def upload_archive():
+                client.log_artifact(
+                    run_id_to_use,
+                    str(archive_path),
+                    artifact_path="best_trial_checkpoint"
+                )
 
             retry_with_backoff(
                 upload_archive,

@@ -994,48 +994,70 @@ def run_local_hpo_sweep(
                         upload_succeeded = True  # Skipped intentionally, not a failure
                         upload_error = None
 
-                        # Mark refit run as FINISHED (success) or FAILED (error) after upload attempt
-                        # Only terminate if it's still RUNNING (safety check)
-                        if refit_run_id:
+                    # Mark refit run as FINISHED (success) or FAILED (error) after upload attempt
+                    # Only terminate if it's still RUNNING (safety check)
+                    # This must run regardless of whether log_best_checkpoint was enabled
+                    if refit_run_id:
+                        try:
+                            client = mlflow.tracking.MlflowClient()
+                            # Check current status before terminating
+                            run = client.get_run(refit_run_id)
+                            current_status = run.info.status
+                            logger.info(
+                                f"[REFIT] Refit run {refit_run_id[:12]}... current status: {current_status}, upload_succeeded: {upload_succeeded}")
+                            if current_status == "RUNNING":
+                                if upload_succeeded:
+                                    # Success: mark as FINISHED with tag
+                                    client.set_tag(
+                                        refit_run_id, "code.refit_artifacts_uploaded", "true")
+                                    client.set_terminated(
+                                        refit_run_id, status="FINISHED")
+                                    logger.info(
+                                        f"[REFIT] ✓ Artifacts uploaded and run marked as FINISHED: {refit_run_id[:12]}...")
+                                else:
+                                    # Failure: mark as FAILED with error tag
+                                    client.set_tag(
+                                        refit_run_id, "code.refit_artifacts_uploaded", "false")
+                                    error_msg = str(upload_error)[
+                                        :200] if upload_error else "Unknown error"
+                                    client.set_tag(
+                                        refit_run_id, "code.refit_error", error_msg)
+                                    client.set_terminated(
+                                        refit_run_id, status="FAILED")
+                                    logger.warning(
+                                        f"[REFIT] Artifact upload failed, run marked as FAILED: {refit_run_id[:12]}... (error: {error_msg})")
+                            else:
+                                # Run already terminated (shouldn't happen, but handle gracefully)
+                                logger.info(
+                                    f"[REFIT] Refit run {refit_run_id[:12]}... already has status {current_status}, skipping termination. Expected RUNNING.")
+                        except Exception as term_error:
+                            logger.error(
+                                f"[REFIT] Could not mark refit run status: {term_error}", exc_info=True)
+                            # Try one more time with a simpler approach
                             try:
                                 client = mlflow.tracking.MlflowClient()
-                                # Check current status before terminating
-                                run = client.get_run(refit_run_id)
-                                logger.debug(
-                                    f"[REFIT] Refit run {refit_run_id[:12]}... current status: {run.info.status}, upload_succeeded: {upload_succeeded}")
-                                if run.info.status == "RUNNING":
-                                    if upload_succeeded:
-                                        # Success: mark as FINISHED with tag
-                                        client.set_tag(
-                                            refit_run_id, "code.refit_artifacts_uploaded", "true")
-                                        client.set_terminated(
-                                            refit_run_id, status="FINISHED")
-                                        logger.info(
-                                            f"[REFIT] ✓ Artifacts uploaded and run marked as FINISHED: {refit_run_id[:12]}...")
-                                    else:
-                                        # Failure: mark as FAILED with error tag
-                                        client.set_tag(
-                                            refit_run_id, "code.refit_artifacts_uploaded", "false")
-                                        error_msg = str(upload_error)[
-                                            :200] if upload_error else "Unknown error"
-                                        client.set_tag(
-                                            refit_run_id, "code.refit_error", error_msg)
-                                        client.set_terminated(
-                                            refit_run_id, status="FAILED")
-                                        logger.warning(
-                                            f"[REFIT] Artifact upload failed, run marked as FAILED: {refit_run_id[:12]}... (error: {error_msg})")
-                                else:
-                                    # Run already terminated (shouldn't happen, but handle gracefully)
-                                    logger.warning(
-                                        f"[REFIT] Refit run {refit_run_id[:12]}... already has status {run.info.status}, skipping termination. Expected RUNNING.")
-                            except Exception as term_error:
-                                logger.warning(
-                                    f"[REFIT] Could not mark refit run status: {term_error}", exc_info=True)
+                                client.set_terminated(refit_run_id, status="FINISHED")
+                                logger.info(f"[REFIT] Fallback: Marked refit run {refit_run_id[:12]}... as FINISHED")
+                            except Exception as fallback_error:
+                                logger.error(
+                                    f"[REFIT] Fallback termination also failed: {fallback_error}")
+                    else:
+                        logger.warning("[REFIT] No refit_run_id available to mark as FINISHED")
                 except Exception as e:
                     logger.warning(
                         f"[REFIT] Refit training failed: {e}. Continuing without refit checkpoint.",
                         exc_info=True
                     )
+                    # Ensure refit run is marked as FINISHED even if there was an error
+                    if refit_run_id:
+                        try:
+                            client = mlflow.tracking.MlflowClient()
+                            run = client.get_run(refit_run_id)
+                            if run.info.status == "RUNNING":
+                                client.set_terminated(refit_run_id, status="FINISHED")
+                                logger.info(f"[REFIT] Marked refit run {refit_run_id[:12]}... as FINISHED after error")
+                        except Exception as term_error2:
+                            logger.error(f"[REFIT] Could not mark refit run as FINISHED after error: {term_error2}")
             elif not refit_enabled:
                 logger.info("[REFIT] Refit training is disabled in config")
             elif study.best_trial is None:
