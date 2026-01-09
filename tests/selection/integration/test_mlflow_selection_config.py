@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 from typing import Dict, Any
 
-from orchestration.jobs.selection.mlflow_selection import find_best_model_from_mlflow
+from selection.mlflow_selection import find_best_model_from_mlflow
 
 
 class TestMLflowSelectionConfigUsage:

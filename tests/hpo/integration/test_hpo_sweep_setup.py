@@ -5,7 +5,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from orchestration.config_loader import load_experiment_config, load_all_configs
+from config.loader import load_experiment_config, load_all_configs
 from hpo.tracking.setup import setup_hpo_mlflow_run
 from hpo.utils.helpers import create_study_name
 

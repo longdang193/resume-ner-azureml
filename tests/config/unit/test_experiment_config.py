@@ -7,7 +7,7 @@ import pytest
 from pathlib import Path
 from typing import Dict, Any
 
-from orchestration.config_loader import (
+from config.loader import (
     load_experiment_config,
     ExperimentConfig,
     load_all_configs,

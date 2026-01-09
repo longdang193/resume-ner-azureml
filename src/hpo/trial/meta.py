@@ -260,7 +260,7 @@ def generate_missing_trial_meta_for_all_studies(
     total_created = 0
     total_updated = 0
 
-    from orchestration.path_resolution import resolve_hpo_output_dir
+    from hpo.utils.paths import resolve_hpo_output_dir
     from hpo.checkpoint.storage import resolve_storage_path
 
     # Process all backbones from backbone_values, not just those in hpo_studies

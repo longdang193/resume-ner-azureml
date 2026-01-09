@@ -85,11 +85,37 @@ def run_training(args: argparse.Namespace, prebuilt_config: dict | None = None) 
 
     # CRITICAL: Set up MLflow BEFORE using context manager
     # This ensures tracking URI and experiment are set, and child runs are created correctly
-    import mlflow
     import sys
-
-    # Set tracking URI from environment variable (CRITICAL for subprocesses)
+    
+    # Import azureml.mlflow early to register the 'azureml' URI scheme before MLflow initializes
+    # This must happen before mlflow is imported to ensure the scheme is registered
     tracking_uri = os.environ.get("MLFLOW_TRACKING_URI")
+    if tracking_uri and "azureml" in tracking_uri.lower():
+        try:
+            import azureml.mlflow  # noqa: F401
+        except ImportError:
+            # If azureml.mlflow is not available, fallback to local tracking
+            print(
+                "  [Training] WARNING: azureml.mlflow not available, but Azure ML URI detected. "
+                "Falling back to local tracking. Install azureml-mlflow to use Azure ML tracking.",
+                file=sys.stderr, flush=True)
+            # Override with local tracking URI
+            from shared.mlflow_setup import _get_local_tracking_uri
+            tracking_uri = _get_local_tracking_uri()
+            os.environ["MLFLOW_TRACKING_URI"] = tracking_uri
+            # Clear Azure ML run IDs - they won't exist in local SQLite database
+            # This forces creation of a new run in local tracking
+            if "MLFLOW_RUN_ID" in os.environ:
+                old_run_id = os.environ.pop("MLFLOW_RUN_ID")
+                print(
+                    f"  [Training] Cleared Azure ML run ID {old_run_id[:12]}... (will create new run in local tracking)",
+                    file=sys.stderr, flush=True)
+            if "MLFLOW_USE_RUN_ID" in os.environ:
+                os.environ.pop("MLFLOW_USE_RUN_ID")
+    
+    import mlflow
+    
+    # Set tracking URI from environment variable (CRITICAL for subprocesses)
     if tracking_uri:
         mlflow.set_tracking_uri(tracking_uri)
         print(
@@ -179,7 +205,7 @@ def run_training(args: argparse.Namespace, prebuilt_config: dict | None = None) 
 
         # Try to build systematic name using naming policy
         try:
-            from orchestration.naming_centralized import create_naming_context
+            from naming import create_naming_context
             from orchestration.jobs.tracking.mlflow_naming import build_mlflow_run_name
             from shared.platform_detection import detect_platform
 

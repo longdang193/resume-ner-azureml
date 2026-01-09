@@ -347,6 +347,43 @@ def cleanup_interrupted_runs(
             f"{len(interrupted_parents)} total eligible for tagging"
         )
 
+        # Find orphaned child runs: RUNNING child runs whose parent is FINISHED/FAILED/KILLED
+        orphaned_children = []
+        # Build a map of run_id -> run for quick lookup
+        run_id_map = {run.info.run_id: run for run in all_runs}
+        
+        for run in all_runs:
+            parent_id = run.data.tags.get("mlflow.parentRunId")
+            if not parent_id:
+                continue  # Not a child run
+            
+            # Only consider RUNNING child runs
+            if run.info.status != "RUNNING":
+                continue
+            
+            # Skip if already tagged
+            if run.data.tags.get("code.interrupted") == "true":
+                continue
+            
+            # Check if parent exists and is in terminal state
+            parent_run = run_id_map.get(parent_id)
+            if parent_run:
+                parent_status = parent_run.info.status
+                # If parent is in terminal state, child is orphaned
+                if parent_status in ["FINISHED", "FAILED", "KILLED"]:
+                    # Verify it's a project run (has code.project tag)
+                    if run.data.tags.get("code.project"):
+                        orphaned_children.append(run)
+                        logger.info(
+                            f"[CLEANUP] Found orphaned child run: {run.info.run_name} "
+                            f"(run_id: {run.info.run_id[:12]}..., parent_status: {parent_status})"
+                        )
+        
+        logger.info(
+            f"[CLEANUP] Found {len(orphaned_children)} orphaned child runs "
+            f"(RUNNING children with terminal parents)"
+        )
+
         # Tag interrupted parent runs and their children (using pre-built map)
         total_tagged_parents = 0
         total_tagged_children = 0
@@ -451,6 +488,46 @@ def cleanup_interrupted_runs(
             )
         else:
             logger.info("[CLEANUP] No interrupted parent runs found to tag")
+        
+        # Tag orphaned child runs (RUNNING children with terminal parents)
+        total_tagged_orphaned = 0
+        if orphaned_children:
+            for child_run in orphaned_children:
+                child_run_id = child_run.info.run_id
+                child_name = child_run.info.run_name
+                parent_id = child_run.data.tags.get("mlflow.parentRunId")
+                
+                should_tag, reason = should_tag_as_interrupted(
+                    child_run, parent_run_id)
+                if not should_tag:
+                    logger.debug(
+                        f"[CLEANUP] Skipping orphaned child run {child_run_id[:12]}... (reason: {reason})"
+                    )
+                    continue
+                
+                logger.info(
+                    f"[CLEANUP] Tagging orphaned child run {child_run_id[:12]}... "
+                    f"(name: {child_name}, parent_id: {parent_id[:12] if parent_id else 'None'}...)"
+                )
+                try:
+                    from orchestration.jobs.tracking.naming.tag_keys import get_interrupted
+                    interrupted_tag = get_interrupted(None)
+                    client.set_tag(child_run_id, interrupted_tag, "true")
+                    total_tagged_orphaned += 1
+                    logger.info(
+                        f"[CLEANUP] Successfully tagged orphaned child run {child_run_id[:12]}... as interrupted"
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"[CLEANUP] Could not tag orphaned child run {child_run_id[:12]}... as interrupted: {e}"
+                    )
+            
+            logger.info(
+                f"[CLEANUP] Tagged {total_tagged_orphaned} orphaned child runs "
+                f"(RUNNING children with terminal parents)"
+            )
+        else:
+            logger.info("[CLEANUP] No orphaned child runs found to tag")
 
         # Return parent_to_children map for reuse in log_final_metrics
         return parent_to_children

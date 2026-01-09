@@ -13,7 +13,7 @@ from shared.logging_utils import get_logger
 
 from ..hpo.study_extractor import extract_best_config_from_study
 from .disk_loader import load_best_trial_from_disk
-from orchestration.path_resolution import resolve_hpo_output_dir
+from hpo.utils.paths import resolve_hpo_output_dir
 
 logger = get_logger(__name__)
 

@@ -40,6 +40,9 @@ from tracking.mlflow.urls import get_mlflow_run_url
 # Re-export retry_with_backoff for convenience
 from tracking.mlflow.utils import retry_with_backoff
 
+# Export setup utilities
+from tracking.mlflow.setup import setup_mlflow_for_stage
+
 __all__ = [
     # Compatibility
     "apply_azureml_artifact_patch",
@@ -60,5 +63,7 @@ __all__ = [
     "get_mlflow_run_url",
     # Utilities
     "retry_with_backoff",
+    # Setup
+    "setup_mlflow_for_stage",
 ]
 

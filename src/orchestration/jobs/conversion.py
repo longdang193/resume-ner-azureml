@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 from azure.ai.ml import Input, MLClient, Output, command
 from azure.ai.ml.entities import Environment, Job
 
-from orchestration.constants import CONVERSION_JOB_NAME
+from constants import CONVERSION_JOB_NAME
 
 
 def get_checkpoint_output_from_training_job(

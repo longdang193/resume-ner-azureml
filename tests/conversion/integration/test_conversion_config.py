@@ -4,9 +4,9 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from orchestration.jobs.conversion.executor import execute_conversion
-from orchestration.conversion_config import load_conversion_config
-from orchestration.config_loader import ExperimentConfig
+from conversion.executor import execute_conversion
+from config.conversion import load_conversion_config
+from config.loader import ExperimentConfig
 
 
 class TestConversionConfig:

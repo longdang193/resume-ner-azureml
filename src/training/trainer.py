@@ -314,7 +314,7 @@ def train_model(
     # If not set, try to build systematic name from config
     if not run_name:
         try:
-            from orchestration.naming_centralized import create_naming_context
+            from naming import create_naming_context
             from orchestration.jobs.tracking.mlflow_naming import build_mlflow_run_name
             from shared.platform_detection import detect_platform
 

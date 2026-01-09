@@ -7,8 +7,8 @@ from unittest.mock import Mock, patch, MagicMock
 import optuna
 
 from hpo import run_local_hpo_sweep, extract_best_config_from_study
-from orchestration.jobs.selection.selection_logic import SelectionLogic
-from orchestration.constants import METRICS_FILENAME
+from selection.selection_logic import SelectionLogic
+from constants import METRICS_FILENAME
 
 
 class TestFullHPOWorkflow:

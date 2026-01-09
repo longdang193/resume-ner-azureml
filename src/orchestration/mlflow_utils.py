@@ -1,28 +1,21 @@
-"""MLflow utility functions for experiment tracking."""
+"""MLflow utility functions for experiment tracking.
 
-from __future__ import annotations
+DEPRECATED: This module is maintained for backward compatibility only.
+Please use tracking.mlflow.setup.setup_mlflow_for_stage instead.
+"""
 
+import warnings
 from typing import Optional
 
-import mlflow
+# Re-export from new location with deprecation warning
+from tracking.mlflow.setup import setup_mlflow_for_stage
 
+warnings.warn(
+    "The 'orchestration.mlflow_utils' module is deprecated. "
+    "Please use 'tracking.mlflow.setup' module instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
-def setup_mlflow_for_stage(
-    experiment_name: str,
-    tracking_uri: Optional[str] = None
-) -> None:
-    """Setup MLflow tracking for a specific stage.
-
-    Args:
-        experiment_name: MLflow experiment name.
-        tracking_uri: Optional tracking URI (uses default if None).
-    
-    Note:
-        For cross-platform tracking with Azure ML workspace support,
-        consider using `shared.mlflow_setup.setup_mlflow_cross_platform()`
-        instead, which provides platform-aware setup with Azure ML fallback.
-    """
-    if tracking_uri:
-        mlflow.set_tracking_uri(tracking_uri)
-    mlflow.set_experiment(experiment_name)
+__all__ = ["setup_mlflow_for_stage"]
 

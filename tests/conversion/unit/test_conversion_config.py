@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import patch, mock_open
 
 from shared.yaml_utils import load_yaml
-from orchestration.conversion_config import load_conversion_config
+from config.conversion import load_conversion_config
 
 
 class TestConversionConfigLoading:

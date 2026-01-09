@@ -9,7 +9,7 @@ from typing import Dict, Any
 
 from shared.yaml_utils import load_yaml
 from training.config import load_config_file
-from orchestration.config_loader import load_experiment_config, load_all_configs
+from config.loader import load_experiment_config, load_all_configs
 
 
 @pytest.fixture

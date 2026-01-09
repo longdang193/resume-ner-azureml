@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional
 from shared.yaml_utils import load_yaml
 from shared.platform_detection import detect_platform
 from training.checkpoint_loader import validate_checkpoint
-from orchestration.config_loader import load_all_configs, ExperimentConfig
+from config.loader import load_all_configs, ExperimentConfig
 from naming import create_naming_context
 from paths import build_output_path
 
@@ -224,7 +224,7 @@ def _compute_fingerprints(
         Tuple of (spec_fp, exec_fp).
     """
     try:
-        from orchestration.fingerprints import compute_spec_fp, compute_exec_fp
+        from fingerprints import compute_spec_fp, compute_exec_fp
 
         # Compute spec_fp (always includes: dataset, train, model, seed)
         spec_fp = compute_spec_fp(
@@ -507,7 +507,7 @@ def _resolve_checkpoint_from_fingerprints(
 
     # Priority 1: Index lookup
     try:
-        from orchestration.index_manager import find_by_spec_and_env, get_latest_entry
+        from metadata import find_by_spec_and_env, get_latest_entry
 
         entries = find_by_spec_and_env(
             root_dir, spec_fp, environment, "final_training")
@@ -648,7 +648,7 @@ def _find_existing_variant(
     backbone_name = backbone.split("-")[0] if "-" in backbone else backbone
 
     try:
-        from orchestration.index_manager import find_by_spec_and_env
+        from metadata import find_by_spec_and_env
 
         entries = find_by_spec_and_env(
             root_dir, spec_fp, environment, "final_training")

@@ -2,7 +2,7 @@
 
 import pytest
 
-from orchestration.jobs.selection.selection_logic import SelectionLogic
+from selection.selection_logic import SelectionLogic
 from orchestration.jobs.errors import SelectionError
 
 

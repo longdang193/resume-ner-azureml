@@ -1,4 +1,26 @@
-from .constants import (
+"""Legacy orchestration module facade.
+
+This module provides backward compatibility by re-exporting functions from
+the new modular structure. All imports from this module are deprecated.
+
+New modules:
+- config: Configuration management
+- fingerprints: Fingerprint computation
+- metadata: Metadata and index management
+- constants: Shared constants
+- azureml: Azure ML utilities
+- storage: Storage and backup utilities
+- selection: Configuration selection
+- benchmarking: Benchmarking orchestration
+- conversion: Conversion execution
+- training_exec: Final training execution
+"""
+
+import warnings
+from typing import Any
+
+# Constants - moved to constants module
+from constants import (
     STAGE_SMOKE,
     STAGE_HPO,
     STAGE_TRAINING,
@@ -14,6 +36,8 @@ from .constants import (
     DEFAULT_RANDOM_SEED,
     DEFAULT_K_FOLDS,
 )
+
+# Paths - these remain in orchestration/paths.py (facade to paths module)
 from .paths import (
     load_paths_config,
     resolve_output_path,
@@ -26,7 +50,9 @@ from .paths import (
     get_drive_backup_base,
     get_drive_backup_path,
 )
-from .drive_backup import (
+
+# Storage - moved to storage module
+from storage import (
     DriveBackupStore,
     BackupResult,
     BackupAction,
@@ -34,21 +60,29 @@ from .drive_backup import (
     mount_colab_drive,
     create_colab_store,
 )
+
+# Naming - these remain in orchestration/naming.py (facade to naming module)
 from .naming import get_stage_config, build_aml_experiment_name, build_mlflow_experiment_name
-from .fingerprints import (
+
+# Fingerprints - moved to fingerprints module
+from fingerprints import (
     compute_spec_fp,
     compute_exec_fp,
     compute_conv_fp,
     compute_bench_fp,
     compute_hardware_fp,
 )
+
+# Naming centralized - these remain in orchestration/naming_centralized.py (facade to naming module)
 from .naming_centralized import (
     NamingContext,
     create_naming_context,
     build_output_path,
     build_parent_training_id,
 )
-from .index_manager import (
+
+# Metadata - moved to metadata module
+from metadata import (
     update_index,
     find_by_spec_fp,
     find_by_env,
@@ -56,15 +90,48 @@ from .index_manager import (
     find_by_spec_and_env,
     get_latest_entry,
 )
-from .mlflow_utils import setup_mlflow_for_stage
-from .benchmark_utils import run_benchmarking
 
-# Lazy import for final_training_config to avoid PyTorch dependency when only constants are needed
+# MLflow utils - moved to tracking/mlflow/setup.py (check if exists, otherwise keep here)
 try:
-    from .final_training_config import load_final_training_config
+    from tracking.mlflow.setup import setup_mlflow_for_stage
+except ImportError:
+    # Fallback to local implementation if not in tracking module
+    from .mlflow_utils import setup_mlflow_for_stage
+
+# Benchmarking - moved to benchmarking module
+from benchmarking.utils import run_benchmarking
+
+# Config - moved to config module
+try:
+    from config.training import load_final_training_config
 except (ImportError, ModuleNotFoundError):
     # PyTorch or training module not available - skip this import
     load_final_training_config = None
+
+
+def _deprecation_warning(name: str, new_module: str) -> None:
+    """Issue deprecation warning for moved functions."""
+    warnings.warn(
+        f"Importing '{name}' from 'orchestration' is deprecated. "
+        f"Please import from '{new_module}' instead.",
+        DeprecationWarning,
+        stacklevel=3
+    )
+
+
+# Issue deprecation warnings for moved modules
+_deprecation_warning("constants", "constants")
+_deprecation_warning("fingerprints", "fingerprints")
+_deprecation_warning("metadata/index_manager", "metadata")
+_deprecation_warning("metadata/metadata_manager", "metadata")
+_deprecation_warning("drive_backup", "storage")
+_deprecation_warning("benchmark_utils", "benchmarking.utils")
+_deprecation_warning("config_loader", "config.loader")
+_deprecation_warning("conversion_config", "config.conversion")
+_deprecation_warning("final_training_config", "config.training")
+_deprecation_warning("environment", "config.environment")
+_deprecation_warning("config_compat", "config.validation")
+_deprecation_warning("data_assets", "azureml.data_assets")
 
 __all__ = [
     "STAGE_SMOKE",

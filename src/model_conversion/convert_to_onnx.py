@@ -8,8 +8,35 @@ This script is executed inside an Azure ML command job and is expected to:
 """
 
 import os
+import sys
 from pathlib import Path
 from typing import Any, Optional
+
+# Import azureml.mlflow early to register the 'azureml' URI scheme before MLflow initializes
+# This must happen before mlflow is imported to ensure the scheme is registered
+tracking_uri = os.environ.get("MLFLOW_TRACKING_URI")
+if tracking_uri and "azureml" in tracking_uri.lower():
+    try:
+        import azureml.mlflow  # noqa: F401
+    except ImportError:
+        # If azureml.mlflow is not available, fallback to local tracking
+        print(
+            "  [Conversion] WARNING: azureml.mlflow not available, but Azure ML URI detected. "
+            "Falling back to local tracking. Install azureml-mlflow to use Azure ML tracking.",
+            file=sys.stderr, flush=True)
+        # Override with local tracking URI
+        from shared.mlflow_setup import _get_local_tracking_uri
+        tracking_uri = _get_local_tracking_uri()
+        os.environ["MLFLOW_TRACKING_URI"] = tracking_uri
+        # CRITICAL: Clear MLFLOW_RUN_ID and MLFLOW_USE_RUN_ID if falling back to local
+        # This prevents trying to use an Azure ML run ID with a local SQLite store
+        if "MLFLOW_RUN_ID" in os.environ:
+            del os.environ["MLFLOW_RUN_ID"]
+            print("  [Conversion] Cleared MLFLOW_RUN_ID for local fallback.", file=sys.stderr, flush=True)
+        if "MLFLOW_USE_RUN_ID" in os.environ:
+            del os.environ["MLFLOW_USE_RUN_ID"]
+            print("  [Conversion] Cleared MLFLOW_USE_RUN_ID for local fallback.", file=sys.stderr, flush=True)
+        print("  [Conversion] A new local run will be created.", file=sys.stderr, flush=True)
 
 import mlflow
 # Import tracking.mlflow to ensure Azure ML compatibility patch is applied

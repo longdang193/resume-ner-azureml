@@ -4,8 +4,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from orchestration.jobs.selection.cache import compute_selection_cache_key
-from orchestration.jobs.selection.mlflow_selection import find_best_model_from_mlflow
+from selection.cache import compute_selection_cache_key
+from selection.mlflow_selection import find_best_model_from_mlflow
 
 
 class TestSelectionConfigEdgeCases:

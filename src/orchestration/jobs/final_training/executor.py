@@ -11,10 +11,10 @@ from typing import Any, Dict
 import mlflow
 from mlflow.tracking import MlflowClient
 
-from orchestration.config_loader import ExperimentConfig, load_all_configs
-from orchestration.data_assets import resolve_dataset_path
+from config.loader import ExperimentConfig, load_all_configs
+from azureml.data_assets import resolve_dataset_path
 from orchestration.final_training_config import load_final_training_config
-from orchestration.fingerprints import compute_exec_fp, compute_spec_fp
+from fingerprints import compute_exec_fp, compute_spec_fp
 from orchestration.jobs.tracking.mlflow_naming import (
     build_mlflow_run_name,
     build_mlflow_tags,
@@ -514,7 +514,7 @@ def execute_final_training(
 
     # Save metadata.json with completion status
     try:
-        from orchestration.metadata_manager import save_metadata_with_fingerprints
+        from metadata import save_metadata_with_fingerprints
 
         # Prepare MLflow info (use variables from outer scope)
         mlflow_info_dict = None

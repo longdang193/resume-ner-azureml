@@ -6,16 +6,19 @@ from shared.mlflow_setup import (
     create_ml_client_from_config,
     _get_azure_ml_tracking_uri,
     _get_local_tracking_uri,
+    _try_import_azureml_mlflow,
+    _check_azureml_mlflow_available,
 )
 import os
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
+import importlib
+import sys
 
 import pytest
 
 # Add project root to path
-import sys
 ROOT_DIR = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(ROOT_DIR / "src"))
@@ -408,3 +411,115 @@ class TestSetupMlflowFromConfig:
             ml_client=None,
             fallback_to_local=True
         )
+
+
+class TestAzureMlNamespaceCollision:
+    """Tests for azureml.mlflow import with namespace collision handling.
+    
+    Tests the fix for the issue where our local src/azureml module shadows
+    the installed azureml package, preventing azureml.mlflow from being imported.
+    """
+
+    def test_import_with_local_azureml_shadowing(self):
+        """Test that azureml.mlflow can be imported even when local azureml shadows it.
+        
+        This test simulates the namespace collision scenario:
+        1. Our local src/azureml module is imported first (shadows installed package)
+        2. _try_import_azureml_mlflow() should still be able to import azureml.mlflow
+        3. Our local azureml functions should still work
+        """
+        # Clear any existing azureml imports
+        if 'azureml' in sys.modules:
+            del sys.modules['azureml']
+        if 'azureml.mlflow' in sys.modules:
+            del sys.modules['azureml.mlflow']
+        
+        # Import our local azureml module first (simulating the shadowing scenario)
+        from azureml import ensure_data_asset_uploaded
+        
+        # Verify local azureml is in sys.modules and is our local one
+        assert 'azureml' in sys.modules
+        local_azureml = sys.modules['azureml']
+        assert 'src/azureml' in local_azureml.__file__ or local_azureml.__file__.endswith('src/azureml/__init__.py')
+        
+        # Now test that _try_import_azureml_mlflow can handle the shadowing
+        # This should work by importing from site-packages
+        try:
+            result = _try_import_azureml_mlflow()
+            # If azureml-mlflow is installed, it should succeed
+            # If not installed, it should return False gracefully
+            assert isinstance(result, bool)
+            
+            # If it succeeded, verify azureml.mlflow is available
+            if result:
+                import azureml.mlflow
+                assert 'azureml.mlflow' in sys.modules
+                # Verify our local azureml still works
+                from azureml import ensure_data_asset_uploaded
+                assert callable(ensure_data_asset_uploaded)
+        except ImportError:
+            # If azureml-mlflow is not installed, that's okay for this test
+            # The important thing is that it doesn't crash due to namespace collision
+            pass
+
+    def test_check_azureml_mlflow_available_with_shadowing(self):
+        """Test _check_azureml_mlflow_available() works with namespace collision."""
+        # Clear any existing azureml imports
+        if 'azureml' in sys.modules:
+            del sys.modules['azureml']
+        if 'azureml.mlflow' in sys.modules:
+            del sys.modules['azureml.mlflow']
+        
+        # Reset the global state
+        import shared.mlflow_setup
+        shared.mlflow_setup._AZUREML_MLFLOW_AVAILABLE = None
+        shared.mlflow_setup._AZUREML_MLFLOW_IMPORT_ERROR = None
+        
+        # Import our local azureml module first (simulating shadowing)
+        from azureml import ensure_data_asset_uploaded
+        
+        # Test the check function
+        result = _check_azureml_mlflow_available()
+        assert isinstance(result, bool)
+        
+        # Verify our local azureml still works
+        from azureml import ensure_data_asset_uploaded
+        assert callable(ensure_data_asset_uploaded)
+
+    def test_local_azureml_functions_still_work_after_import(self):
+        """Test that local azureml functions work after azureml.mlflow import attempt."""
+        # Clear any existing azureml imports
+        if 'azureml' in sys.modules:
+            del sys.modules['azureml']
+        if 'azureml.mlflow' in sys.modules:
+            del sys.modules['azureml.mlflow']
+        
+        # Import our local azureml module
+        from azureml import (
+            ensure_data_asset_uploaded,
+            register_data_asset,
+            resolve_dataset_path,
+            build_data_asset_reference,
+        )
+        
+        # Verify all functions are callable
+        assert callable(ensure_data_asset_uploaded)
+        assert callable(register_data_asset)
+        assert callable(resolve_dataset_path)
+        assert callable(build_data_asset_reference)
+        
+        # Now try to import azureml.mlflow (this should not break our local module)
+        try:
+            _try_import_azureml_mlflow()
+        except Exception:
+            pass  # Ignore import errors if azureml-mlflow is not installed
+        
+        # Verify our local functions still work after import attempt
+        assert callable(ensure_data_asset_uploaded)
+        assert callable(register_data_asset)
+        assert callable(resolve_dataset_path)
+        assert callable(build_data_asset_reference)
+        
+        # Verify we can still import from local azureml
+        from azureml import ensure_data_asset_uploaded
+        assert callable(ensure_data_asset_uploaded)

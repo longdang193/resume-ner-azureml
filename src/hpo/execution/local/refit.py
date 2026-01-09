@@ -14,7 +14,7 @@ from typing import Any, Dict, Optional, Tuple
 
 import mlflow
 from shared.logging_utils import get_logger
-from orchestration.constants import METRICS_FILENAME
+from constants import METRICS_FILENAME
 from naming import create_naming_context
 from orchestration.jobs.tracking.mlflow_naming import (
     build_mlflow_run_name,
@@ -501,7 +501,7 @@ from typing import Any, Dict, Optional, Tuple
 
 import mlflow
 from shared.logging_utils import get_logger
-from orchestration.constants import METRICS_FILENAME
+from constants import METRICS_FILENAME
 from naming import create_naming_context
 from orchestration.jobs.tracking.mlflow_naming import (
     build_mlflow_run_name,

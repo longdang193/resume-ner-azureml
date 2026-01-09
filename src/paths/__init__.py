@@ -15,6 +15,7 @@ from paths.config import (
 from paths.drive import (
     get_drive_backup_base,
     get_drive_backup_path,
+    resolve_output_path_for_colab,
 )
 from paths.parse import (
     find_study_by_hash,
@@ -54,6 +55,7 @@ __all__ = [
     # Drive
     "get_drive_backup_base",
     "get_drive_backup_path",
+    "resolve_output_path_for_colab",
     # Parse
     "parse_hpo_path_v2",
     "is_v2_path",

@@ -29,8 +29,8 @@ import mlflow
 import pytest
 
 from orchestration import EXPERIMENT_NAME
-from orchestration.config_loader import load_experiment_config
-from orchestration.jobs.final_training import extract_lineage_from_best_model
+from config.loader import load_experiment_config
+from training_exec import extract_lineage_from_best_model
 from orchestration.jobs.tracking.naming.tags_registry import load_tags_registry
 from shared.platform_detection import detect_platform
 from shared.yaml_utils import load_yaml
@@ -208,7 +208,7 @@ def test_best_config_selection_e2e(tmp_path, monkeypatch):
     }
 
     # Import inside test so monkeypatch on module attribute is effective
-    from orchestration.jobs.selection import mlflow_selection
+    from selection import mlflow_selection
 
     best_model = mlflow_selection.find_best_model_from_mlflow(
         benchmark_experiment=benchmark_experiment,
@@ -220,7 +220,7 @@ def test_best_config_selection_e2e(tmp_path, monkeypatch):
     assert best_model is fake_best_model
 
     # Artifact acquisition
-    from orchestration.jobs.selection.artifact_acquisition import acquire_best_model_checkpoint
+    from selection.artifact_acquisition import acquire_best_model_checkpoint
 
     best_checkpoint_dir = acquire_best_model_checkpoint(
         best_run_info=best_model,
@@ -242,7 +242,7 @@ def test_best_config_selection_e2e(tmp_path, monkeypatch):
     assert lineage["hpo_trial_key_hash"] == fake_best_model["trial_key_hash"]
 
     # Final training
-    from orchestration.jobs.final_training import execute_final_training
+    from training_exec import execute_final_training
 
     training_experiment_name = f"{EXPERIMENT_NAME}-training"
     final_checkpoint_dir = execute_final_training(
@@ -291,7 +291,7 @@ def test_best_config_selection_e2e(tmp_path, monkeypatch):
             pass
 
     # Conversion
-    from orchestration.jobs.conversion import execute_conversion
+    from conversion import execute_conversion
 
     conversion_output_dir = execute_conversion(
         root_dir=ROOT_DIR,

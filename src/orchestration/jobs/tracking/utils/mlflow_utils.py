@@ -10,8 +10,8 @@ from __future__ import annotations
 # The function has been moved to tracking.mlflow.urls as part of the MLflow utilities consolidation.
 # Use try/except to handle cases where path isn't set up during pytest collection
 try:
-from tracking.mlflow.urls import get_mlflow_run_url  # noqa: F401
-from tracking.mlflow.utils import retry_with_backoff  # noqa: F401
+    from tracking.mlflow.urls import get_mlflow_run_url  # noqa: F401
+    from tracking.mlflow.utils import retry_with_backoff  # noqa: F401
 except ImportError:
     # During pytest collection, path might not be set up yet
     # These will be imported when actually needed

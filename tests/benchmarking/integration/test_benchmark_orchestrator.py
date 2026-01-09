@@ -5,7 +5,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock, call
 
-from orchestration.jobs.benchmarking.orchestrator import benchmark_best_trials
+from benchmarking.orchestrator import benchmark_best_trials
 
 
 class TestBenchmarkOrchestratorConfigUsage:

@@ -397,3 +397,4 @@ class StudyManager:
                     study.tell(
                         trial.number, state=self.optuna.trial.TrialState.FAIL)
 
+

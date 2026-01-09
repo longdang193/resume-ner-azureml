@@ -7,7 +7,7 @@ import json
 import pytest
 import optuna
 
-from orchestration.constants import METRICS_FILENAME
+from constants import METRICS_FILENAME
 
 
 def assert_checkpoint_exists(study_folder: Path, study_name: Optional[str] = None) -> None:

@@ -2,7 +2,7 @@
 
 import pytest
 from pathlib import Path
-from orchestration.naming_centralized import (
+from naming import (
     NamingContext,
     create_naming_context,
     build_output_path,

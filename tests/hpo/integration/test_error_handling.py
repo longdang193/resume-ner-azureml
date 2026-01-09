@@ -15,8 +15,8 @@ from hpo.execution.local.cv import run_training_trial_with_cv
 from hpo.execution.local.refit import run_refit_training
 from hpo.trial.metrics import read_trial_metrics
 from hpo.core.study import StudyManager
-from orchestration.jobs.selection.selection_logic import SelectionLogic
-from orchestration.constants import METRICS_FILENAME
+from selection.selection_logic import SelectionLogic
+from constants import METRICS_FILENAME
 import optuna
 
 
@@ -503,7 +503,7 @@ class TestPathResolutionErrors:
 
     def test_missing_config_dir_handled_gracefully(self, tmp_path):
         """Test that missing config_dir is handled gracefully."""
-        from orchestration.paths import resolve_output_path
+        from paths import resolve_output_path
         
         config_dir = tmp_path / "nonexistent_config"
         # Don't create the directory

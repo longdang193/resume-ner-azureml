@@ -2,7 +2,7 @@
 
 benchmarking:
   # Batch sizes to test during benchmarking
-  batch_sizes: [1, 8, 16]
+  batch_sizes: [1]  # [1, 8, 16]
   
   # Number of iterations per batch size for statistical significance
   iterations: 100

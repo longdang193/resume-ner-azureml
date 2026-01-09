@@ -7,7 +7,7 @@ from unittest.mock import Mock
 import optuna
 
 from hpo import extract_best_config_from_study
-from orchestration.jobs.selection.selection_logic import SelectionLogic
+from selection.selection_logic import SelectionLogic
 
 
 class TestBestTrialSelection:

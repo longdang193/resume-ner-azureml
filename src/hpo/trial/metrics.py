@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 
 from shared.logging_utils import get_logger
 from shared.metrics_utils import read_all_metrics_from_file, read_metric_from_mlflow
-from orchestration.constants import METRICS_FILENAME
+from constants import METRICS_FILENAME
 
 logger = get_logger(__name__)
 

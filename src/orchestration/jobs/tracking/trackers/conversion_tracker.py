@@ -21,7 +21,7 @@ from orchestration.jobs.tracking.mlflow_index import update_mlflow_index
 from orchestration.jobs.tracking.utils.mlflow_utils import retry_with_backoff
 # Lazy import to avoid pytest collection issues
 try:
-from tracking.mlflow import get_mlflow_run_url
+    from tracking.mlflow import get_mlflow_run_url
 except ImportError:
     # During pytest collection, path might not be set up yet
     get_mlflow_run_url = None

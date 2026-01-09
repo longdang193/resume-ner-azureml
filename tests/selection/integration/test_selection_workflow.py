@@ -5,8 +5,8 @@ from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 from shared.yaml_utils import load_yaml
 
-from orchestration.jobs.selection.mlflow_selection import find_best_model_from_mlflow
-from orchestration.jobs.selection.cache import (
+from selection.mlflow_selection import find_best_model_from_mlflow
+from selection.cache import (
     load_cached_best_model,
     compute_selection_cache_key,
 )

@@ -648,6 +648,32 @@ def run_local_hpo_sweep(
     parent_run_id = None
     parent_run_handle = None
 
+    # Set up signal handler to finalize parent run on interruption
+    import signal
+    parent_run_id_for_cleanup = None
+    
+    def signal_handler(signum, frame):
+        """Handle interruption signals to finalize parent run."""
+        if parent_run_id_for_cleanup:
+            try:
+                from tracking.mlflow import terminate_run_safe
+                logger.info(
+                    f"[HPO] Interruption detected (signal {signum}). "
+                    f"Finalizing parent run {parent_run_id_for_cleanup[:12]}... as FAILED")
+                terminate_run_safe(
+                    parent_run_id_for_cleanup,
+                    status="FAILED",
+                    tags={"interrupted": "true"},
+                    check_status=True
+                )
+            except Exception as e:
+                logger.warning(f"Could not finalize parent run on interruption: {e}")
+        raise KeyboardInterrupt
+    
+    # Register signal handlers for graceful shutdown
+    original_sigint = signal.signal(signal.SIGINT, signal_handler)
+    original_sigterm = signal.signal(signal.SIGTERM, signal_handler)
+    
     try:
         with tracker.start_sweep_run(
             run_name=mlflow_run_name,
@@ -662,6 +688,19 @@ def run_local_hpo_sweep(
             data_config=data_config,
             benchmark_config=benchmark_config,
         ) as parent_run:
+            # Store parent run ID for signal handler
+            if parent_run:
+                parent_run_id_for_cleanup = parent_run.run_id
+                # Ensure parent run is immediately visible by logging initial metadata
+                # The run is already created and visible, but we log something to ensure it's committed
+                try:
+                    import mlflow
+                    mlflow.log_param("hpo_status", "running")
+                    mlflow.log_param("n_trials_planned", max_trials)
+                    logger.info(
+                        f"[HPO] Parent run {parent_run.run_id[:12]}... is now visible in MLflow (status: RUNNING)")
+                except Exception as e:
+                    logger.debug(f"Could not log initial HPO status: {e}")
 
             parent_run_handle = parent_run
             parent_run_id = parent_run.run_id if parent_run else None
@@ -1076,6 +1115,29 @@ def run_local_hpo_sweep(
                     f"Error during final checkpoint cleanup: {e}"
                 )
 
+    except KeyboardInterrupt:
+        # Handle interruption - parent run will be finalized by signal handler or context manager
+        logger.info("[HPO] HPO process interrupted by user")
+        raise
+    except Exception as e:
+        logger.warning(f"MLflow tracking failed: {e}")
+        logger.warning("Continuing HPO without MLflow tracking...")
+    except KeyboardInterrupt:
+        # Handle interruption - parent run will be finalized by signal handler or context manager
+        logger.info("[HPO] HPO process interrupted by user")
+        # Finalize parent run if not already done
+        if parent_run_id_for_cleanup:
+            try:
+                from tracking.mlflow import terminate_run_safe
+                terminate_run_safe(
+                    parent_run_id_for_cleanup,
+                    status="FAILED",
+                    tags={"interrupted": "true"},
+                    check_status=True
+                )
+            except Exception as e:
+                logger.warning(f"Could not finalize parent run on interruption: {e}")
+        raise
     except Exception as e:
         logger.warning(f"MLflow tracking failed: {e}")
         logger.warning("Continuing HPO without MLflow tracking...")
@@ -1096,5 +1158,11 @@ def run_local_hpo_sweep(
             logger.warning(
                 f"Error during final checkpoint cleanup: {e}"
             )
+    finally:
+        # Restore original signal handlers
+        if 'original_sigint' in locals():
+            signal.signal(signal.SIGINT, original_sigint)
+        if 'original_sigterm' in locals():
+            signal.signal(signal.SIGTERM, original_sigterm)
 
     return study

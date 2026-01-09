@@ -4,7 +4,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import patch, mock_open
 
-from orchestration.config_loader import (
+from config.loader import (
     load_experiment_config,
     load_all_configs,
     ExperimentConfig,

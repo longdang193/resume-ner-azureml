@@ -5,9 +5,9 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from orchestration.config_loader import load_all_configs, ExperimentConfig
-from orchestration.jobs.benchmarking.orchestrator import benchmark_best_trials
-from orchestration.benchmark_utils import run_benchmarking
+from config.loader import load_all_configs, ExperimentConfig
+from benchmarking.orchestrator import benchmark_best_trials
+from benchmarking.utils import run_benchmarking
 
 
 class TestBenchmarkConfigEdgeCases:

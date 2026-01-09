@@ -11,8 +11,8 @@ from typing import Any, Dict, Optional
 import mlflow
 from mlflow.tracking import MlflowClient
 
-from orchestration.config_loader import ExperimentConfig
-from orchestration.conversion_config import load_conversion_config
+from config.loader import ExperimentConfig
+from config.conversion import load_conversion_config
 from naming import create_naming_context
 from paths import build_output_path
 from orchestration.jobs.tracking.mlflow_naming import (

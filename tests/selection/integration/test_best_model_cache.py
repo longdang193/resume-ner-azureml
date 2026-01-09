@@ -6,12 +6,12 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from orchestration.jobs.selection.cache import (
+from selection.cache import (
     load_cached_best_model,
     save_best_model_cache,
     compute_selection_cache_key,
 )
-from orchestration.paths import get_cache_file_path
+from paths import get_cache_file_path
 
 
 @pytest.fixture

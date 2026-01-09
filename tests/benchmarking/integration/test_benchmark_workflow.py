@@ -5,9 +5,9 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from orchestration.config_loader import load_experiment_config, load_all_configs
-from orchestration.jobs.benchmarking.orchestrator import benchmark_best_trials
-from orchestration.benchmark_utils import run_benchmarking
+from config.loader import load_experiment_config, load_all_configs
+from benchmarking.orchestrator import benchmark_best_trials
+from benchmarking.utils import run_benchmarking
 
 
 class TestBenchmarkWorkflow:

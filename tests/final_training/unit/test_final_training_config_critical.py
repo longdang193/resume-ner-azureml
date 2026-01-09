@@ -14,13 +14,14 @@ from unittest.mock import Mock, patch, MagicMock
 from types import SimpleNamespace
 import json
 
-from orchestration.final_training_config import (
+from config.training import (
     _resolve_checkpoint,
     _resolve_variant,
     _resolve_seed,
     load_final_training_config,
 )
-from orchestration.naming_centralized import create_naming_context, build_output_path
+from naming import create_naming_context
+from paths import build_output_path
 from shared.platform_detection import detect_platform
 
 

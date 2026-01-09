@@ -21,7 +21,7 @@ from orchestration.jobs.tracking.mlflow_index import update_mlflow_index
 from orchestration.jobs.tracking.utils.mlflow_utils import retry_with_backoff
 # Lazy import to avoid pytest collection issues
 try:
-from tracking.mlflow import get_mlflow_run_url
+    from tracking.mlflow import get_mlflow_run_url
 except ImportError:
     # During pytest collection, path might not be set up yet
     get_mlflow_run_url = None
@@ -138,7 +138,7 @@ class MLflowTrainingTracker(BaseTracker):
                 # Save MLflow run info to metadata.json if context and output_dir are available
                 if context and output_dir and config_dir:
                     try:
-                        from orchestration.metadata_manager import save_metadata_with_fingerprints
+                        from metadata import save_metadata_with_fingerprints
 
                         # Build root_dir from output_dir
                         root_dir = output_dir.parent.parent if output_dir.parent.name == "outputs" else output_dir.parent.parent.parent

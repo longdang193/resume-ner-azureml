@@ -3,8 +3,132 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from typing import Optional, Any
+
+# Import azureml.mlflow early to register the 'azureml' URI scheme before MLflow initializes
+# This must happen before mlflow is imported to ensure the scheme is registered
+# We do this at module load time, but the package might be installed later, so we'll re-check at runtime
+# Use importlib to ensure the import works even if there are path issues
+_AZUREML_MLFLOW_AVAILABLE = False
+_AZUREML_MLFLOW_IMPORT_ERROR = None
+
+def _try_import_azureml_mlflow():
+    """
+    Try to import azureml.mlflow using multiple methods.
+    
+    Note: There's a namespace collision with our local src/azureml module.
+    We always import from site-packages to avoid the collision.
+    """
+    global _AZUREML_MLFLOW_AVAILABLE, _AZUREML_MLFLOW_IMPORT_ERROR
+    
+    # Always try to import from site-packages first to avoid namespace collision
+    # with our local src/azureml module
+    try:
+        import importlib.util
+        import site
+        
+        # Check if our local azureml is shadowing
+        local_azureml_backup = None
+        if 'azureml' in sys.modules:
+            azureml_module = sys.modules['azureml']
+            if hasattr(azureml_module, '__file__') and azureml_module.__file__:
+                if 'src/azureml' in azureml_module.__file__ or azureml_module.__file__.endswith('src/azureml/__init__.py'):
+                    # Backup our local azureml
+                    local_azureml_backup = azureml_module
+                    # Remove it temporarily so we can import the installed one
+                    del sys.modules['azureml']
+        
+        # Find the installed azureml package in site-packages
+        installed_azureml_path = None
+        for site_dir in site.getsitepackages():
+            potential_path = os.path.join(site_dir, 'azureml', '__init__.py')
+            if os.path.exists(potential_path):
+                installed_azureml_path = potential_path
+                break
+        
+        if installed_azureml_path:
+            # Import the installed azureml package first
+            spec = importlib.util.spec_from_file_location('azureml', installed_azureml_path)
+            if spec and spec.loader:
+                installed_azureml = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(installed_azureml)
+                sys.modules['azureml'] = installed_azureml
+                
+                # Now import mlflow from the installed azureml
+                import azureml.mlflow  # noqa: F401
+                
+                # Restore our local azureml if we backed it up, but keep mlflow accessible
+                if local_azureml_backup:
+                    # Store the mlflow module before restoring
+                    mlflow_module = sys.modules['azureml.mlflow']
+                    # Restore our local azureml
+                    sys.modules['azureml'] = local_azureml_backup
+                    # Add mlflow as an attribute to our local azureml so it's accessible
+                    setattr(local_azureml_backup, 'mlflow', mlflow_module)
+                    # Also ensure azureml.mlflow is still in sys.modules
+                    sys.modules['azureml.mlflow'] = mlflow_module
+                
+                _AZUREML_MLFLOW_AVAILABLE = True
+                _AZUREML_MLFLOW_IMPORT_ERROR = None
+                return True
+    except Exception as e:
+        # Restore local azureml if we removed it
+        if local_azureml_backup and 'azureml' not in sys.modules:
+            sys.modules['azureml'] = local_azureml_backup
+        pass  # Fall through to try other methods
+    
+    # Fallback: try normal import (works if local azureml isn't shadowing)
+    try:
+        import azureml.mlflow  # noqa: F401
+        _AZUREML_MLFLOW_AVAILABLE = True
+        _AZUREML_MLFLOW_IMPORT_ERROR = None
+        return True
+    except ImportError as e1:
+        # Try using importlib.import_module
+        try:
+            import importlib
+            importlib.import_module('azureml.mlflow')
+            _AZUREML_MLFLOW_AVAILABLE = True
+            _AZUREML_MLFLOW_IMPORT_ERROR = None
+            return True
+        except ImportError as e2:
+            _AZUREML_MLFLOW_AVAILABLE = False
+            _AZUREML_MLFLOW_IMPORT_ERROR = e1  # Use the first error
+            return False
+
+# Try importing at module load time
+_try_import_azureml_mlflow()
+
+def _check_azureml_mlflow_available():
+    """
+    Check if azureml.mlflow is available (re-check at runtime in case it was installed after module load).
+    
+    This function always re-checks, even if the initial import failed, to handle cases where
+    the package was installed after the module was loaded (e.g., in a notebook kernel).
+    """
+    global _AZUREML_MLFLOW_AVAILABLE, _AZUREML_MLFLOW_IMPORT_ERROR
+    # Always re-check to handle cases where package was installed after module load
+    # This is important for notebook kernels where packages can be installed mid-session
+    try:
+        # Force a fresh import by clearing any cached import if needed
+        import importlib
+        if 'azureml.mlflow' in sys.modules:
+            # If it was previously imported and failed, remove it to force re-import
+            del sys.modules['azureml.mlflow']
+        if 'azureml' in sys.modules and hasattr(sys.modules['azureml'], 'mlflow'):
+            # Also clear the mlflow attribute if it exists
+            delattr(sys.modules['azureml'], 'mlflow')
+        
+        import azureml.mlflow  # noqa: F401
+        _AZUREML_MLFLOW_AVAILABLE = True
+        _AZUREML_MLFLOW_IMPORT_ERROR = None
+        return True
+    except ImportError as e:
+        _AZUREML_MLFLOW_AVAILABLE = False
+        _AZUREML_MLFLOW_IMPORT_ERROR = e
+        return False
 
 try:
     import mlflow
@@ -168,14 +292,48 @@ def _get_azure_ml_tracking_uri(ml_client: Any) -> str:
         ImportError: If azureml.mlflow is not available
         RuntimeError: If workspace access fails
     """
-    # Import azureml.mlflow to register the 'azureml' URI scheme
-    try:
-        import azureml.mlflow  # noqa: F401
-    except ImportError:
-        raise ImportError(
-            "azureml.mlflow is required for Azure ML tracking. "
-            "Install it with: pip install azureml-mlflow"
+    # Check if azureml.mlflow is available (lazy check at runtime)
+    # This re-checks even if the initial module-level import failed,
+    # to handle cases where the package was installed after the module was loaded
+    if not _check_azureml_mlflow_available():
+        import sys
+        import subprocess
+        # Check if package is actually installed
+        package_installed = False
+        try:
+            result = subprocess.run(
+                [sys.executable, '-m', 'pip', 'show', 'azureml-mlflow'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            package_installed = result.returncode == 0
+        except Exception:
+            pass
+        
+        error_msg = (
+            f"azureml.mlflow is required for Azure ML tracking.\n"
+            f"Install it with: pip install azureml-mlflow\n\n"
+            f"Diagnostics:\n"
+            f"  Python executable: {sys.executable}\n"
+            f"  Python version: {sys.version}\n"
+            f"  Package installed (pip show): {package_installed}\n"
         )
+        if _AZUREML_MLFLOW_IMPORT_ERROR:
+            error_msg += f"  Import error: {_AZUREML_MLFLOW_IMPORT_ERROR}\n"
+        error_msg += (
+            f"\nTroubleshooting:\n"
+            f"  1. If package is NOT installed: {sys.executable} -m pip install azureml-mlflow\n"
+            f"  2. If package IS installed: RESTART THE KERNEL/NOTEBOOK to reload modules\n"
+            f"  3. Check that you're using the correct Python environment\n"
+            f"  4. Try: import azureml.mlflow (to test if import works directly)"
+        )
+        raise ImportError(error_msg)
+    
+    # Import azureml.mlflow to register the 'azureml' URI scheme
+    # This must happen before MLflow tries to use the Azure ML URI
+    # The lazy check above should have already imported it, but import again to be sure
+    import azureml.mlflow  # noqa: F401
 
     # Get workspace tracking URI
     try:

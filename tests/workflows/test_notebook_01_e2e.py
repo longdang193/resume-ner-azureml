@@ -62,7 +62,7 @@ from orchestration import (
     METRICS_FILENAME,
     CHECKPOINT_DIRNAME,
 )
-from orchestration.config_loader import (
+from config.loader import (
     ExperimentConfig,
     load_experiment_config,
     load_all_configs,
@@ -70,8 +70,8 @@ from orchestration.config_loader import (
     create_config_metadata,
 )
 from hpo import run_local_hpo_sweep
-from orchestration.jobs.benchmarking import benchmark_best_trials
-from orchestration.jobs.selection.trial_finder import find_best_trials_for_backbones
+from benchmarking import benchmark_best_trials
+from selection.trial_finder import find_best_trials_for_backbones
 from shared.platform_detection import detect_platform
 
 
@@ -401,7 +401,7 @@ class TestNotebookE2E_Core:
         configs = load_all_configs(experiment_config)
         
         # Get stage-specific HPO config
-        from orchestration.naming import get_stage_config
+        from naming import get_stage_config
         from shared.yaml_utils import load_yaml
         
         hpo_stage_config = get_stage_config(experiment_config, STAGE_HPO)

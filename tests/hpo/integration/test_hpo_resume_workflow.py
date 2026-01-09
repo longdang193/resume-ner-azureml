@@ -8,7 +8,7 @@ import optuna
 
 from hpo import run_local_hpo_sweep
 from hpo.core.study import StudyManager
-from orchestration.constants import METRICS_FILENAME
+from constants import METRICS_FILENAME
 
 
 class TestHPOResumeWorkflow:
