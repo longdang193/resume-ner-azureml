@@ -13,6 +13,38 @@ from typing import Any, Optional
 
 import mlflow
 
+# Import azureml.mlflow to ensure Azure ML artifact repository is properly registered
+# This is required for Azure ML artifact uploads to work correctly
+try:
+    import azureml.mlflow  # noqa: F401
+    
+    # Monkey-patch azureml_artifacts_builder to handle tracking_uri parameter gracefully
+    # This fixes a compatibility issue between MLflow 3.5.0 and azureml-mlflow 1.61.0
+    # The builder function signature accepts tracking_uri, but the implementation rejects it in some cases
+    import mlflow.store.artifact.artifact_repository_registry as arr
+    original_builder = arr._artifact_repository_registry._registry.get('azureml')
+    if original_builder:
+        import functools
+        import inspect
+        @functools.wraps(original_builder)
+        def patched_azureml_builder(*args, **kwargs):
+            """Patched builder that handles tracking_uri parameter gracefully."""
+            try:
+                # Try calling with all parameters as received
+                return original_builder(*args, **kwargs)
+            except TypeError as e:
+                if 'tracking_uri' in str(e) and 'unexpected keyword argument' in str(e):
+                    # Fallback: if tracking_uri is the issue, try calling without it
+                    if 'tracking_uri' in kwargs:
+                        del kwargs['tracking_uri']
+                    return original_builder(*args, **kwargs)
+                raise
+        
+        # Register the patched builder
+        arr._artifact_repository_registry.register('azureml', patched_azureml_builder)
+except ImportError:
+    pass  # Not using Azure ML, or azureml-mlflow not installed
+
 from .cli import parse_conversion_arguments
 from .onnx_exporter import export_to_onnx
 from .smoke_test import run_smoke_test
@@ -153,8 +185,16 @@ def main(tracker: Optional[Any] = None, source_training_run: Optional[str] = Non
 
             # Log ONNX model as artifact
             if onnx_path and onnx_path.exists():
-                mlflow.log_artifact(str(onnx_path), artifact_path="onnx_model")
-                _log.info(f"Logged ONNX model to MLflow: {onnx_path}")
+                try:
+                    mlflow.log_artifact(str(onnx_path), artifact_path="onnx_model")
+                    _log.info(f"Logged ONNX model to MLflow: {onnx_path}")
+                except Exception as e:
+                    _log.warning(
+                        f"Failed to log ONNX model artifact to MLflow: {e}. "
+                        f"Model is still available at: {onnx_path}"
+                    )
+                    # Don't fail the entire conversion if artifact logging fails
+                    # The model file is still created successfully
 
         elif tracker:
             try:
