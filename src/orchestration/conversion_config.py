@@ -5,7 +5,7 @@ All imports from this module are deprecated.
 """
 
 import warnings
-from config.conversion import load_conversion_config
+from infrastructure.config.conversion import load_conversion_config
 
 __all__ = [
     "load_conversion_config",

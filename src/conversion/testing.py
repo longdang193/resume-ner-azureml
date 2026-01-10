@@ -35,8 +35,8 @@ from pathlib import Path
 import onnxruntime as ort
 from transformers import AutoTokenizer
 
-from shared.logging_utils import get_script_logger
-from shared.tokenization_utils import prepare_onnx_inputs
+from common.shared.logging_utils import get_script_logger
+from common.shared.tokenization_utils import prepare_onnx_inputs
 
 _log = get_script_logger("conversion.testing")
 

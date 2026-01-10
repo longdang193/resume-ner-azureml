@@ -1,6 +1,6 @@
 """Unit tests for MLflow setup utility."""
 
-from shared.mlflow_setup import (
+from common.shared.mlflow_setup import (
     setup_mlflow_cross_platform,
     setup_mlflow_from_config,
     create_ml_client_from_config,

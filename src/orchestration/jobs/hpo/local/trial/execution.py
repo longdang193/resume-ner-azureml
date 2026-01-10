@@ -40,7 +40,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import mlflow
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 
 # Lazy import to avoid circular dependency
 def _get_read_trial_metrics():

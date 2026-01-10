@@ -29,11 +29,11 @@ import mlflow
 import pytest
 
 from orchestration import EXPERIMENT_NAME
-from config.loader import load_experiment_config
+from infrastructure.config.loader import load_experiment_config
 from training_exec import extract_lineage_from_best_model
-from naming.mlflow.tags_registry import load_tags_registry
-from shared.platform_detection import detect_platform
-from shared.yaml_utils import load_yaml
+from infrastructure.naming.mlflow.tags_registry import load_tags_registry
+from common.shared.platform_detection import detect_platform
+from common.shared.yaml_utils import load_yaml
 
 # Import shared validators
 import sys

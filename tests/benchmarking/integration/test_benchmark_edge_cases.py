@@ -5,7 +5,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from config.loader import load_all_configs, ExperimentConfig
+from infrastructure.config.loader import load_all_configs, ExperimentConfig
 from benchmarking.orchestrator import benchmark_best_trials
 from benchmarking.utils import run_benchmarking
 

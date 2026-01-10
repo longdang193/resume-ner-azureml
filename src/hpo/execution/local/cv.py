@@ -35,7 +35,7 @@ from datetime import datetime
 
 import mlflow
 import numpy as np
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 
 from hpo.execution.local.trial import run_training_trial
 
@@ -113,7 +113,7 @@ def run_training_trial_with_cv(
     # Try to compute study_key_hash if not provided
     if not computed_study_key_hash and data_config and hpo_config:
         try:
-            from tracking.mlflow.naming import (
+            from infrastructure.tracking.mlflow.naming import (
                 build_hpo_study_key,
                 build_hpo_study_key_hash,
             )
@@ -136,7 +136,7 @@ def run_training_trial_with_cv(
     # Compute trial_key_hash if we have study_key_hash
     if computed_study_key_hash:
         try:
-            from tracking.mlflow.naming import (
+            from infrastructure.tracking.mlflow.naming import (
                 build_hpo_trial_key,
                 build_hpo_trial_key_hash,
             )
@@ -167,9 +167,9 @@ def run_training_trial_with_cv(
     
     if computed_study_key_hash and computed_trial_key_hash:
         try:
-            from naming import create_naming_context
-            from paths import build_output_path, resolve_output_path
-            from shared.platform_detection import detect_platform
+            from infrastructure.naming import create_naming_context
+            from infrastructure.paths import build_output_path, resolve_output_path
+            from common.shared.platform_detection import detect_platform
             
             # Derive root_dir and config_dir from output_dir
             # output_dir is the study folder: outputs/hpo/{env}/{model}/{study_name} or outputs/hpo/{env}/{model}/study-{study8}
@@ -195,8 +195,8 @@ def run_training_trial_with_cv(
             
             # Create NamingContext for trial
             # For v2 paths, set trial_id to trial-{hash8} format so build_output_path can use it
-            from naming.context_tokens import build_token_values
-            from naming.context import NamingContext
+            from infrastructure.naming.context_tokens import build_token_values
+            from infrastructure.naming.context import NamingContext
             if computed_trial_key_hash:
                 temp_context = NamingContext(
                     process_type="hpo",
@@ -244,8 +244,8 @@ def run_training_trial_with_cv(
         if is_v2_study_folder:
             if computed_trial_key_hash:
                 # We have the hash, construct v2 trial name manually
-                from naming.context_tokens import build_token_values
-                from naming.context import NamingContext
+                from infrastructure.naming.context_tokens import build_token_values
+                from infrastructure.naming.context import NamingContext
                 temp_context = NamingContext(
                     process_type="hpo",
                     model=backbone.split("-")[0] if "-" in backbone else backbone,
@@ -266,7 +266,7 @@ def run_training_trial_with_cv(
                     f"Attempting to compute trial_key_hash from trial_params..."
                 )
                 try:
-                    from tracking.mlflow.naming import (
+                    from infrastructure.tracking.mlflow.naming import (
                         build_hpo_trial_key,
                         build_hpo_trial_key_hash,
                     )
@@ -277,8 +277,8 @@ def run_training_trial_with_cv(
                         }
                         trial_key = build_hpo_trial_key(computed_study_key_hash, hyperparameters)
                         computed_trial_key_hash = build_hpo_trial_key_hash(trial_key)
-                        from naming.context_tokens import build_token_values
-                        from naming.context import NamingContext
+                        from infrastructure.naming.context_tokens import build_token_values
+                        from infrastructure.naming.context import NamingContext
                         temp_context = NamingContext(
                             process_type="hpo",
                             model=backbone.split("-")[0] if "-" in backbone else backbone,
@@ -438,9 +438,9 @@ def _create_trial_run(
         # Build systematic run name using NamingContext
         run_name = None
         try:
-            from naming import create_naming_context
-            from tracking.mlflow.naming import build_mlflow_run_name
-            from shared.platform_detection import detect_platform
+            from infrastructure.naming import create_naming_context
+            from infrastructure.tracking.mlflow.naming import build_mlflow_run_name
+            from common.shared.platform_detection import detect_platform
 
             # Extract backbone short name
             backbone_full = trial_params.get("backbone", "unknown")
@@ -469,7 +469,7 @@ def _create_trial_run(
             # If grouping hashes not provided, try to compute from configs
             if (not computed_study_key_hash or not computed_study_family_hash) and data_config and hpo_config:
                 try:
-                    from tracking.mlflow.naming import (
+                    from infrastructure.tracking.mlflow.naming import (
                         build_hpo_study_key,
                         build_hpo_study_family_key,
                         build_hpo_study_key_hash,
@@ -526,7 +526,7 @@ def _create_trial_run(
             # Compute trial_key_hash if we have study_key_hash and hyperparameters
             if computed_study_key_hash and hyperparameters:
                 try:
-                    from tracking.mlflow.naming import (
+                    from infrastructure.tracking.mlflow.naming import (
                         build_hpo_trial_key,
                         build_hpo_trial_key_hash,
                     )
@@ -550,7 +550,7 @@ def _create_trial_run(
                         f"Could not compute trial_key_hash: {e}", exc_info=True)
 
             # Build tags including project identity tags and grouping tags
-            from tracking.mlflow.naming import (
+            from infrastructure.tracking.mlflow.naming import (
                 build_mlflow_tags,
                 build_mlflow_run_key,
                 build_mlflow_run_key_hash,
@@ -579,7 +579,7 @@ def _create_trial_run(
                 f"Could not build systematic run name and tags: {e}, using fallback")
             run_name = f"trial_{trial_number}"
             try:
-                from tracking.mlflow.config_loader import get_naming_config
+                from infrastructure.tracking.mlflow.config_loader import get_naming_config
                 naming_config = get_naming_config(config_dir)
                 project_name = naming_config.get("project_name", "resume-ner")
             except Exception:
@@ -638,7 +638,7 @@ def _log_cv_metrics_to_trial_run(
 
         # End the trial run to mark it as completed
         trial_number = trial_params.get('trial_number', 'unknown')
-        from tracking.mlflow import terminate_run_safe
+        from infrastructure.tracking.mlflow import terminate_run_safe
         terminate_run_safe(trial_run_id, status="FINISHED", check_status=True)
     except Exception as e:
         logger.warning(f"Could not log metrics to trial run: {e}")

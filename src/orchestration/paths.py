@@ -11,8 +11,8 @@ import warnings
 from pathlib import Path
 from typing import Optional
 
-# Re-export all public functions from paths module
-from paths import (
+# Re-export all public functions from infrastructure.paths module
+from infrastructure.paths import (
     # Config
     apply_env_overrides,
     load_paths_config,
@@ -41,7 +41,7 @@ from paths import (
 )
 
 # Import NamingContext for resolve_output_path_v2 wrapper
-from naming.context import NamingContext
+from infrastructure.naming.context import NamingContext
 
 
 def resolve_output_path_v2(

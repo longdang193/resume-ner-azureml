@@ -4,23 +4,34 @@ This module provides backward compatibility by re-exporting functions from
 the new modular structure. All imports from this module are deprecated.
 
 New modules:
-- config: Configuration management
-- fingerprints: Fingerprint computation
-- metadata: Metadata and index management
-- constants: Shared constants
-- azureml: Azure ML utilities
-- storage: Storage and backup utilities
+- infrastructure.config: Configuration management
+- infrastructure.fingerprints: Fingerprint computation
+- infrastructure.metadata: Metadata and index management
+- common.constants: Shared constants
+- infrastructure.platform.azureml: Azure ML utilities
+- infrastructure.storage: Storage and backup utilities
 - selection: Configuration selection
 - benchmarking: Benchmarking orchestration
 - conversion: Conversion execution
 - training_exec: Final training execution
+
+This module will be removed in 2 releases.
 """
 
 import warnings
 from typing import Any
 
-# Constants - moved to constants module
-from constants import (
+# Emit deprecation warning
+warnings.warn(
+    "orchestration module is deprecated. "
+    "Use 'infrastructure', 'common', or 'data' modules instead. "
+    "This will be removed in 2 releases.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
+# Constants - moved to common.constants module
+from common.constants import (
     STAGE_SMOKE,
     STAGE_HPO,
     STAGE_TRAINING,
@@ -51,8 +62,8 @@ from .paths import (
     get_drive_backup_path,
 )
 
-# Storage - moved to storage module
-from storage import (
+# Storage - moved to infrastructure.storage module
+from infrastructure.storage import (
     DriveBackupStore,
     BackupResult,
     BackupAction,
@@ -64,8 +75,8 @@ from storage import (
 # Naming - these remain in orchestration/naming.py (facade to naming module)
 from .naming import get_stage_config, build_aml_experiment_name, build_mlflow_experiment_name
 
-# Fingerprints - moved to fingerprints module
-from fingerprints import (
+# Fingerprints - moved to infrastructure.fingerprints module
+from infrastructure.fingerprints import (
     compute_spec_fp,
     compute_exec_fp,
     compute_conv_fp,
@@ -81,8 +92,8 @@ from .naming_centralized import (
     build_parent_training_id,
 )
 
-# Metadata - moved to metadata module
-from metadata import (
+# Metadata - moved to infrastructure.metadata module
+from infrastructure.metadata import (
     update_index,
     find_by_spec_fp,
     find_by_env,
@@ -93,7 +104,7 @@ from metadata import (
 
 # MLflow utils - moved to tracking/mlflow/setup.py (check if exists, otherwise keep here)
 try:
-    from tracking.mlflow.setup import setup_mlflow_for_stage
+    from infrastructure.tracking.mlflow.setup import setup_mlflow_for_stage
 except ImportError:
     # Fallback to local implementation if not in tracking module
     from .mlflow_utils import setup_mlflow_for_stage

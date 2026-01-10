@@ -33,7 +33,7 @@ import argparse
 from pathlib import Path
 
 from training.config import build_training_config, resolve_distributed_config
-from training.data import load_dataset
+from data.loaders import load_dataset
 from training.trainer import train_model
 from training.logging import log_metrics
 from training.utils import set_seed
@@ -41,8 +41,8 @@ from training.distributed import (
     create_run_context,
     init_process_group_if_needed,
 )
-from platform_adapters import get_platform_adapter
-from shared.argument_parsing import validate_config_dir
+from infrastructure.platform.adapters import get_platform_adapter
+from common.shared.argument_parsing import validate_config_dir
 
 
 def log_training_parameters(config: dict, logging_adapter) -> None:
@@ -128,7 +128,7 @@ def run_training(args: argparse.Namespace, prebuilt_config: dict | None = None) 
                 "Falling back to local tracking. (This is normal if azureml-mlflow is not installed)",
                 file=sys.stderr, flush=True)
             # Override with local tracking URI
-            from shared.mlflow_setup import _get_local_tracking_uri
+            from common.shared.mlflow_setup import _get_local_tracking_uri
             tracking_uri = _get_local_tracking_uri()
             os.environ["MLFLOW_TRACKING_URI"] = tracking_uri
             # Clear Azure ML run IDs - they won't exist in local SQLite database
@@ -233,9 +233,9 @@ def run_training(args: argparse.Namespace, prebuilt_config: dict | None = None) 
 
         # Try to build systematic name using naming policy
         try:
-            from naming import create_naming_context
-            from tracking.mlflow.naming import build_mlflow_run_name
-            from shared.platform_detection import detect_platform
+            from infrastructure.naming import create_naming_context
+            from infrastructure.tracking.mlflow.naming import build_mlflow_run_name
+            from common.shared.platform_detection import detect_platform
 
             # Try to get study_key_hash and model from parent run
             try:
@@ -277,7 +277,7 @@ def run_training(args: argparse.Namespace, prebuilt_config: dict | None = None) 
 
         # Fallback to policy-like deterministic format if systematic naming didn't work
         if not run_name:
-            from shared.platform_detection import detect_platform
+            from common.shared.platform_detection import detect_platform
             env = detect_platform()
             model_name = model or "unknown"
 

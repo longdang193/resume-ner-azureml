@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
-from shared.yaml_utils import load_yaml
+from common.shared.yaml_utils import load_yaml
 
 from selection.mlflow_selection import find_best_model_from_mlflow
 from selection.cache import (

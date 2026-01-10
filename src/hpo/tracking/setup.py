@@ -10,7 +10,7 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 from hpo.utils.helpers import create_mlflow_run_name
 
 logger = get_logger(__name__)
@@ -32,16 +32,16 @@ def setup_hpo_mlflow_run(
     Set up MLflow run name and context for HPO parent run.
     """
     try:
-        from naming import create_naming_context
-        from tracking.mlflow.naming import (
+        from infrastructure.naming import create_naming_context
+        from infrastructure.tracking.mlflow.naming import (
             build_mlflow_run_name,
             build_mlflow_tags,
         )
-        from naming.mlflow.hpo_keys import (
+        from infrastructure.naming.mlflow.hpo_keys import (
             build_hpo_study_key,
             build_hpo_study_key_hash,
         )
-        from shared.platform_detection import detect_platform
+        from common.shared.platform_detection import detect_platform
 
 
         # Compute study_key_hash if missing
@@ -131,12 +131,12 @@ def setup_hpo_mlflow_run(
         hpo_parent_context = None
 
         try:
-            from naming.mlflow.policy import (
+            from infrastructure.naming.mlflow.policy import (
                 load_naming_policy,
                 format_run_name,
             )
-            from naming import create_naming_context
-            from shared.platform_detection import detect_platform
+            from infrastructure.naming import create_naming_context
+            from common.shared.platform_detection import detect_platform
 
             config_dir = Path.cwd() / "config"
             if not config_dir.exists():
@@ -188,16 +188,16 @@ def commit_run_name_version(
 
     try:
         import re
-        from tracking.mlflow.naming import (
+        from infrastructure.tracking.mlflow.naming import (
             build_mlflow_run_key,
             build_mlflow_run_key_hash,
             build_counter_key,
         )
-        from tracking.mlflow.config_loader import (
+        from infrastructure.tracking.mlflow.config_loader import (
             get_naming_config,
             get_auto_increment_config,
         )
-        from tracking.mlflow.index import (
+        from infrastructure.tracking.mlflow.index import (
             commit_run_name_version as commit_version_internal,
         )
 

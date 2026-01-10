@@ -10,10 +10,10 @@ from typing import Any, Dict, Optional, Tuple
 
 from mlflow.tracking import MlflowClient
 
-from paths import get_cache_file_path, save_cache_with_dual_strategy
-from shared.json_cache import load_json
+from infrastructure.paths import get_cache_file_path, save_cache_with_dual_strategy
+from common.shared.json_cache import load_json
 
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 
 logger = get_logger(__name__)
 

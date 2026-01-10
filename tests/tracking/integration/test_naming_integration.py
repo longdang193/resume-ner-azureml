@@ -2,14 +2,14 @@
 
 import pytest
 from pathlib import Path
-from fingerprints import compute_spec_fp, compute_exec_fp, compute_conv_fp
+from infrastructure.fingerprints import compute_spec_fp, compute_exec_fp, compute_conv_fp
 from orchestration.naming_centralized import (
     create_naming_context,
     build_output_path,
     build_parent_training_id,
 )
-from metadata.training import save_metadata_with_fingerprints
-from metadata.index import update_index, find_by_spec_fp
+from infrastructure.metadata.training import save_metadata_with_fingerprints
+from infrastructure.metadata.index import update_index, find_by_spec_fp
 
 
 def test_end_to_end_final_training(tmp_path):

@@ -5,7 +5,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from config.loader import load_experiment_config, load_all_configs
+from infrastructure.config.loader import load_experiment_config, load_all_configs
 from hpo.tracking.setup import setup_hpo_mlflow_run
 from hpo.utils.helpers import create_study_name
 
@@ -116,7 +116,7 @@ run_names:
         benchmark_config = {"benchmarking": {"enabled": True}}
         
         # Compute study_key_hash
-        from naming.mlflow.hpo_keys import (
+        from infrastructure.naming.mlflow.hpo_keys import (
             build_hpo_study_key,
             build_hpo_study_key_hash,
         )
@@ -237,7 +237,7 @@ run_names:
         data_config = {"name": "test", "version": "1.0"}
         hpo_config = {"search_space": {}, "objective": {"metric": "macro-f1"}}
         
-        from naming.mlflow.hpo_keys import (
+        from infrastructure.naming.mlflow.hpo_keys import (
             build_hpo_study_key,
             build_hpo_study_key_hash,
         )
@@ -300,7 +300,7 @@ run_names:
 
     def test_study_key_hash_and_family_hash_computed(self, tmp_path):
         """Test that study_key_hash and study_family_hash are computed and can be tagged."""
-        from naming.mlflow.hpo_keys import (
+        from infrastructure.naming.mlflow.hpo_keys import (
             build_hpo_study_key,
             build_hpo_study_key_hash,
             build_hpo_study_family_key,

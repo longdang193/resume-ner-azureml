@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 import mlflow
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 from hpo.core.optuna_integration import import_optuna as _import_optuna
 
 logger = get_logger(__name__)

@@ -16,7 +16,7 @@ import mlflow
 # Import tracking.mlflow to ensure Azure ML compatibility patch is applied
 # Use try/except to handle cases where path isn't set up during pytest collection
 try:
-    from tracking.mlflow import (  # noqa: F401
+    from infrastructure.tracking.mlflow import (  # noqa: F401
         get_mlflow_run_url,
         upload_checkpoint_archive,
         log_artifact_safe,
@@ -26,7 +26,7 @@ except ImportError:
     # These will be imported lazily when actually needed
     pass
 
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 
 from orchestration.jobs.tracking.mlflow_types import RunHandle
 from orchestration.jobs.tracking.mlflow_naming import build_mlflow_tags, build_mlflow_run_key, build_mlflow_run_key_hash

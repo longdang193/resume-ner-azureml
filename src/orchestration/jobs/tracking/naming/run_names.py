@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from naming.context import NamingContext
+from infrastructure.naming.context import NamingContext
 from orchestration.jobs.tracking.config.loader import (
     get_naming_config,
     get_auto_increment_config,

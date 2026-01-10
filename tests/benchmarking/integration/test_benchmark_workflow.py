@@ -5,7 +5,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from config.loader import load_experiment_config, load_all_configs
+from infrastructure.config.loader import load_experiment_config, load_all_configs
 from benchmarking.orchestrator import benchmark_best_trials
 from benchmarking.utils import run_benchmarking
 
@@ -156,7 +156,7 @@ output:
 """)
         
         # Load config
-        from shared.yaml_utils import load_yaml
+        from common.shared.yaml_utils import load_yaml
         benchmark_config = load_yaml(benchmark_yaml)
         
         # Extract options

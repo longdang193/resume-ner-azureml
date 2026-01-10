@@ -49,19 +49,19 @@ from typing import Any, Dict, Optional
 import mlflow
 from mlflow.tracking import MlflowClient
 
-from config.loader import ExperimentConfig
-from config.conversion import load_conversion_config
-from naming import create_naming_context
-from paths import build_output_path
-from tracking.mlflow.naming import (
+from infrastructure.config.loader import ExperimentConfig
+from infrastructure.config.conversion import load_conversion_config
+from infrastructure.naming import create_naming_context
+from infrastructure.paths import build_output_path
+from infrastructure.tracking.mlflow.naming import (
     build_mlflow_run_name,
     build_mlflow_tags,
     build_mlflow_run_key,
     build_mlflow_run_key_hash,
 )
-from tracking.mlflow.index import update_mlflow_index
-from shared.platform_detection import detect_platform
-from shared.logging_utils import get_script_logger
+from infrastructure.tracking.mlflow.index import update_mlflow_index
+from common.shared.platform_detection import detect_platform
+from common.shared.logging_utils import get_script_logger
 
 _log = get_script_logger("conversion.orchestration")
 
@@ -325,7 +325,7 @@ def execute_conversion(
     # Handle subprocess failure - ensure run is marked as FAILED
     if returncode != 0:
         if run_id:
-            from tracking.mlflow import terminate_run_safe
+            from infrastructure.tracking.mlflow import terminate_run_safe
             terminate_run_safe(run_id, status="FAILED", check_status=True)
         
         # Build detailed error message
@@ -346,7 +346,7 @@ def execute_conversion(
         # Subprocess should have ended the run, but verify it's terminated
         if run_id:
             try:
-                from tracking.mlflow import ensure_run_terminated
+                from infrastructure.tracking.mlflow import ensure_run_terminated
                 ensure_run_terminated(run_id, expected_status="FINISHED")
             except Exception as e:
                 _log.debug(f"Could not verify run status: {e}")

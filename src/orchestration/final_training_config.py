@@ -5,7 +5,7 @@ All imports from this module are deprecated.
 """
 
 import warnings
-from config.training import load_final_training_config
+from infrastructure.config.training import load_final_training_config
 
 __all__ = [
     "load_final_training_config",

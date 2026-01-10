@@ -51,15 +51,15 @@ if tracking_uri and "azureml" in tracking_uri.lower():
         pass
 
 import mlflow
-from tracking.mlflow import log_artifact_safe  # noqa: F401
+from infrastructure.tracking.mlflow import log_artifact_safe  # noqa: F401
 
 from .cli import parse_conversion_arguments
 from .export import export_to_onnx
 from .testing import run_smoke_test
-from platform_adapters import get_platform_adapter
-from shared.argument_parsing import validate_config_dir
-from shared.logging_utils import get_script_logger
-from shared.mlflow_setup import _get_local_tracking_uri
+from infrastructure.platform.adapters import get_platform_adapter
+from common.shared.argument_parsing import validate_config_dir
+from common.shared.logging_utils import get_script_logger
+from common.shared.mlflow_setup import _get_local_tracking_uri
 
 _log = get_script_logger("conversion.execution")
 

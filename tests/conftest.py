@@ -19,7 +19,7 @@ if str(ROOT_DIR) not in sys.path:
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from orchestration.paths import resolve_output_path
+from infrastructure.paths import resolve_output_path
 
 # Global variable to store the log file path and TeeOutput instance
 _pytest_log_file = None

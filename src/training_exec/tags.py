@@ -8,8 +8,8 @@ from typing import Any, Dict, Optional
 import mlflow
 from mlflow.tracking import MlflowClient
 
-from tracking.mlflow.finder import find_mlflow_run
-from naming.mlflow.tags import get_tag_key
+from infrastructure.tracking.mlflow.finder import find_mlflow_run
+from infrastructure.naming.mlflow.tags import get_tag_key
 
 
 def apply_lineage_tags(
@@ -85,7 +85,7 @@ def apply_lineage_tags(
         
         if run_id:
             # Get tag keys from registry (using centralized helpers)
-            from naming.mlflow.tag_keys import (
+            from infrastructure.naming.mlflow.tag_keys import (
                 get_lineage_hpo_refit_run_id,
                 get_lineage_hpo_study_key_hash,
                 get_lineage_hpo_sweep_run_id,

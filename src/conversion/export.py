@@ -36,7 +36,7 @@ from typing import Dict, Iterable
 import torch
 from transformers import AutoModelForTokenClassification, AutoTokenizer
 
-from shared.logging_utils import get_script_logger
+from common.shared.logging_utils import get_script_logger
 
 _log = get_script_logger("conversion.export")
 

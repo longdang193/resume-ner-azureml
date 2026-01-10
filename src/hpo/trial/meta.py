@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -87,7 +87,7 @@ def generate_missing_trial_meta(
     # If still not found, try to compute from configs
     if not study_key_hash and hpo_config and data_config:
         try:
-            from tracking.mlflow.naming import (
+            from infrastructure.tracking.mlflow.naming import (
                 build_hpo_study_key,
                 build_hpo_study_key_hash,
             )
@@ -148,7 +148,7 @@ def generate_missing_trial_meta(
         if study_key_hash:
             try:
                 import mlflow
-                from tracking.mlflow.naming import (
+                from infrastructure.tracking.mlflow.naming import (
                     build_hpo_trial_key,
                     build_hpo_trial_key_hash,
                 )

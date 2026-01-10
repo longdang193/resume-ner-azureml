@@ -137,7 +137,7 @@ def _build_checkpoint_dir(
     Returns:
         Path to checkpoint directory
     """
-    from paths import resolve_output_path
+    from infrastructure.paths import resolve_output_path
 
     base_dir = resolve_output_path(
         root_dir, config_dir, "best_model_selection") / environment / backbone
@@ -231,8 +231,8 @@ def _get_azure_ml_info(config_dir: Path, root_dir: Path, tracking_uri: str) -> t
     resource_group = "<resource-group>"
 
     try:
-        from shared.yaml_utils import load_yaml
-        from shared.mlflow_setup import _load_env_file
+        from common.shared.yaml_utils import load_yaml
+        from common.shared.mlflow_setup import _load_env_file
         import re
 
         config_dir_path = Path(config_dir) if isinstance(

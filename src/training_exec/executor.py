@@ -45,13 +45,13 @@ from training.execution import (
     setup_training_environment,
 )
 
-from config.loader import ExperimentConfig, load_all_configs
+from infrastructure.config.loader import ExperimentConfig, load_all_configs
 # azureml.data_assets imported lazily when needed
-from config.training import load_final_training_config
+from infrastructure.config.training import load_final_training_config
 
 # Try to import resolve_dataset_path, fallback to local implementation if Azure ML not available
 try:
-    from azureml.data_assets import resolve_dataset_path
+    from infrastructure.platform.azureml.data_assets import resolve_dataset_path
 except ImportError:
     # Fallback implementation if Azure ML is not available
     def resolve_dataset_path(data_config: Dict[str, Any]) -> Path:
@@ -67,18 +67,18 @@ except ImportError:
         if seed is not None and "dataset_tiny" in str(dataset_path):
             dataset_path = dataset_path / f"seed{seed}"
         return dataset_path
-from fingerprints.compute import compute_exec_fp, compute_spec_fp
-from tracking.mlflow.naming import (
+from infrastructure.fingerprints.compute import compute_exec_fp, compute_spec_fp
+from infrastructure.tracking.mlflow.naming import (
     build_mlflow_run_name,
     build_mlflow_tags,
     build_mlflow_run_key,
     build_mlflow_run_key_hash,
 )
-from tracking.mlflow.index import update_mlflow_index
-from naming import create_naming_context
-from paths import build_output_path
-from shared.platform_detection import detect_platform
-from shared.yaml_utils import load_yaml
+from infrastructure.tracking.mlflow.index import update_mlflow_index
+from infrastructure.naming import create_naming_context
+from infrastructure.paths import build_output_path
+from common.shared.platform_detection import detect_platform
+from common.shared.yaml_utils import load_yaml
 
 def execute_final_training(
     root_dir: Path,
@@ -198,7 +198,7 @@ def execute_final_training(
             # First check: metadata.json with completion flag
             if metadata_file.exists():
                 try:
-                    from shared.json_cache import load_json
+                    from common.shared.json_cache import load_json
                     metadata = load_json(metadata_file, default={})
                     if metadata.get("status", {}).get("training", {}).get("completed", False):
                         return True
@@ -232,7 +232,7 @@ def execute_final_training(
         # Second check: search for any complete variant with same spec_fp + exec_fp
         # This handles cases where _resolve_variant didn't find the complete variant
         try:
-            from paths import resolve_output_path
+            from infrastructure.paths import resolve_output_path
             base_output_dir = resolve_output_path(
                 root_dir, config_dir, "final_training")
             final_training_base = base_output_dir / environment / backbone_name
@@ -372,7 +372,7 @@ def execute_final_training(
         config_dir=config_dir,
     )
     # Get tag keys from registry (using centralized helpers)
-    from naming.mlflow.tag_keys import (
+    from infrastructure.naming.mlflow.tag_keys import (
         get_lineage_hpo_refit_run_id,
         get_lineage_hpo_study_key_hash,
         get_lineage_hpo_sweep_run_id,
@@ -457,12 +457,12 @@ def execute_final_training(
         )
         # Subprocess should have ended the run, but verify it's terminated
         if run_id:
-            from tracking.mlflow import ensure_run_terminated
+            from infrastructure.tracking.mlflow import ensure_run_terminated
             ensure_run_terminated(run_id, expected_status="FINISHED")
     except RuntimeError as e:
         # Handle subprocess failure - ensure run is marked as FAILED
         if run_id:
-            from tracking.mlflow import terminate_run_safe
+            from infrastructure.tracking.mlflow import terminate_run_safe
             terminate_run_safe(run_id, status="FAILED", check_status=True)
         raise
 
@@ -476,7 +476,7 @@ def execute_final_training(
 
     # Save metadata.json with completion status
     try:
-        from metadata import save_metadata_with_fingerprints
+        from infrastructure.metadata.training import save_metadata_with_fingerprints
 
         # Prepare MLflow info (use variables from outer scope)
         mlflow_info_dict = None

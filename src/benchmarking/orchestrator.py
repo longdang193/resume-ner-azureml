@@ -36,14 +36,14 @@ from HPO runs, handling path resolution, checkpoint selection, and backup.
 from pathlib import Path
 from typing import Dict, Any, Optional, Callable, List, Tuple
 
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 from benchmarking.utils import run_benchmarking
-from paths import (
+from infrastructure.paths import (
     resolve_output_path_for_colab,
     validate_path_before_mkdir,
 )
-from naming import create_naming_context
-from paths import build_output_path
+from infrastructure.naming import create_naming_context
+from infrastructure.paths import build_output_path
 
 logger = get_logger(__name__)
 
@@ -173,7 +173,7 @@ def compute_grouping_tags(
     study_family_hash = None
 
     try:
-        from naming.mlflow.hpo_keys import (
+        from infrastructure.naming.mlflow.hpo_keys import (
             build_hpo_study_key,
             build_hpo_study_key_hash,
             build_hpo_study_family_key,
@@ -317,10 +317,15 @@ def benchmark_best_trials(
 
         trial_id_raw = trial_info.get(
             "trial_id") or trial_info.get("trial_name", "unknown")
+        # Handle both old format (trial_1_20251231_161745) and new format (trial-25d03eeb)
         if trial_id_raw.startswith("trial_"):
-            trial_id = trial_id_raw[6:]
+            trial_id = trial_id_raw[6:]  # Remove "trial_" prefix
+        elif trial_id_raw.startswith("trial-"):
+            trial_id = trial_id_raw  # Keep full "trial-25d03eeb" format
         else:
             trial_id = trial_id_raw
+        
+        logger.debug(f"[BENCHMARK] Extracted trial_id: {trial_id} from trial_info (trial_id={trial_info.get('trial_id')}, trial_name={trial_info.get('trial_name')})")
 
         # Compute grouping tags BEFORE building path (needed for hash-based path)
         study_key_hash, trial_key_hash, study_family_hash = compute_grouping_tags(
@@ -532,6 +537,7 @@ def benchmark_best_trials(
             benchmark_source="hpo_trial",
             study_key_hash=study_key_hash,
             trial_key_hash=trial_key_hash,
+            trial_id=trial_id,
             hpo_trial_run_id=hpo_trial_run_id,
             hpo_refit_run_id=hpo_refit_run_id,
             hpo_sweep_run_id=hpo_sweep_run_id,

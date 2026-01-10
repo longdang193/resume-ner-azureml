@@ -4,12 +4,12 @@ import re
 from pathlib import Path
 from typing import Tuple
 
-from naming.mlflow.tags_registry import load_tags_registry
-from shared.yaml_utils import load_yaml
+from infrastructure.naming.mlflow.tags_registry import load_tags_registry
+from common.shared.yaml_utils import load_yaml
 
 
 def validate_path_structure(path: Path, pattern_type: str, config_dir: Path) -> bool:
-    """Validate that a path matches the expected v2 pattern from paths.yaml.
+    """Validate that a path matches the expected v2 pattern from infrastructure.paths.yaml.
     
     Args:
         path: Path to validate

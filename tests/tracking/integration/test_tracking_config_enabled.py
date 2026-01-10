@@ -10,9 +10,9 @@ from unittest.mock import Mock, patch, MagicMock
 from contextlib import nullcontext
 import mlflow
 
-from tracking.mlflow.trackers.benchmark_tracker import MLflowBenchmarkTracker
-from tracking.mlflow.trackers.training_tracker import MLflowTrainingTracker
-from tracking.mlflow.trackers.conversion_tracker import MLflowConversionTracker
+from infrastructure.tracking.mlflow.trackers.benchmark_tracker import MLflowBenchmarkTracker
+from infrastructure.tracking.mlflow.trackers.training_tracker import MLflowTrainingTracker
+from infrastructure.tracking.mlflow.trackers.conversion_tracker import MLflowConversionTracker
 
 
 @pytest.fixture

@@ -10,7 +10,7 @@ Deprecation: This facade will be removed in a future release.
 import warnings
 
 # Re-export all public functions from naming module
-from naming import (
+from infrastructure.naming import (
     # Context
     NamingContext,
     create_naming_context,

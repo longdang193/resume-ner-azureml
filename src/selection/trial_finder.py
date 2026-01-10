@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 
 from hpo.core.study import extract_best_config_from_study
 from .disk_loader import load_best_trial_from_disk
@@ -314,7 +314,7 @@ def find_best_trial_from_study(
         computed_trial_key_hash = None
         if hpo_config and data_config:
             try:
-                from tracking.mlflow.naming import (
+                from infrastructure.tracking.mlflow.naming import (
                     build_hpo_study_key,
                     build_hpo_study_key_hash,
                     build_hpo_trial_key,
@@ -356,7 +356,7 @@ def find_best_trial_from_study(
             study_key_hash = None
             if hpo_config and data_config:
                 try:
-                    from tracking.mlflow.naming import (
+                    from infrastructure.tracking.mlflow.naming import (
                         build_hpo_study_key,
                         build_hpo_study_key_hash,
                     )
@@ -373,8 +373,8 @@ def find_best_trial_from_study(
             # Try v2 path lookup using find_trial_by_hash
             if study_key_hash:
                 try:
-                    from paths import find_trial_by_hash
-                    from shared.platform_detection import detect_platform
+                    from infrastructure.paths.parse import find_trial_by_hash
+                    from common.shared.platform_detection import detect_platform
                     # Find project root and config_dir from hpo_backbone_dir
                     # hpo_backbone_dir is typically: outputs/hpo/{storage_env}/{model}
                     # So we need to go up to project root

@@ -5,7 +5,7 @@ All imports from this module are deprecated.
     """
 
 import warnings
-from config.validation import validate_paths_and_naming_compatible
+from infrastructure.config.validation import validate_paths_and_naming_compatible
 
 __all__ = [
     "validate_paths_and_naming_compatible",

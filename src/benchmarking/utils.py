@@ -32,7 +32,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -52,6 +52,7 @@ def run_benchmarking(
     benchmark_source: str = "final_training",
     study_key_hash: Optional[str] = None,
     trial_key_hash: Optional[str] = None,
+    trial_id: Optional[str] = None,
     hpo_trial_run_id: Optional[str] = None,
     hpo_refit_run_id: Optional[str] = None,
     hpo_sweep_run_id: Optional[str] = None,
@@ -151,9 +152,9 @@ def run_benchmarking(
                 backbone = checkpoint_dir.name
 
             # Build run name using systematic naming with auto-increment
-            from naming import create_naming_context
-            from tracking.mlflow.naming import build_mlflow_run_name
-            from shared.platform_detection import detect_platform
+            from infrastructure.naming import create_naming_context
+            from infrastructure.tracking.mlflow.naming import build_mlflow_run_name
+            from common.shared.platform_detection import detect_platform
             from pathlib import Path
 
             # Infer root_dir and config_dir from output_path
@@ -161,15 +162,54 @@ def run_benchmarking(
             config_dir = root_dir / "config" if root_dir else None
 
             # Extract trial_id from checkpoint path if benchmarking an HPO trial
-            extracted_trial_id = None
-            if benchmark_source == "hpo_trial" and checkpoint_dir:
-                # Extract trial_id from checkpoint path (e.g., outputs/hpo/local/distilbert/trial_1_20251231_161745/checkpoints)
-                checkpoint_parent = checkpoint_dir.parent
-                if checkpoint_parent.name.startswith("trial_"):
-                    extracted_trial_id = checkpoint_parent.name
+            # Prefer passed trial_id parameter, fallback to path extraction
+            extracted_trial_id = trial_id
+            logger.debug(
+                f"[Benchmark Run Name] Initial trial_id from parameter: {trial_id}, "
+                f"benchmark_source={benchmark_source}, checkpoint_dir={checkpoint_dir}"
+            )
+            if not extracted_trial_id and benchmark_source == "hpo_trial" and checkpoint_dir:
+                # Extract trial_id from checkpoint path
+                # Handle both old format (trial_1_20251231_161745) and new format (trial-25d03eeb)
+                # Also handle refit checkpoints (trial-25d03eeb/refit/checkpoint)
+                checkpoint_path = Path(checkpoint_dir)
+                current = checkpoint_path
+                
+                # Walk up the path to find trial directory
+                max_levels = 5  # Safety limit
+                levels_checked = 0
+                while current != current.parent and levels_checked < max_levels:
+                    current_name = current.name
+                    # Check for both trial_ (old format) and trial- (new format)
+                    if current_name.startswith("trial_"):
+                        extracted_trial_id = current_name
+                        logger.info(
+                            f"[Benchmark Run Name] Extracted trial_id from checkpoint path: {extracted_trial_id} (at level {levels_checked})"
+                        )
+                        break
+                    elif current_name.startswith("trial-"):
+                        extracted_trial_id = current_name
+                        logger.info(
+                            f"[Benchmark Run Name] Extracted trial_id from checkpoint path: {extracted_trial_id} (at level {levels_checked})"
+                        )
+                        break
+                    current = current.parent
+                    levels_checked += 1
+                
+                # Fallback: if we have trial_key_hash but no trial_id, construct one
+                if not extracted_trial_id and trial_key_hash:
+                    # Use first 8 chars of trial_key_hash as trial identifier
+                    extracted_trial_id = f"trial-{trial_key_hash[:8]}"
                     logger.info(
-                        f"[Benchmark Run Name] Extracted trial_id from checkpoint path: {extracted_trial_id}"
+                        f"[Benchmark Run Name] Constructed trial_id from trial_key_hash: {extracted_trial_id}"
                     )
+            
+            # Final fallback: use trial_key_hash if still no trial_id (always check, not just for hpo_trial)
+            if not extracted_trial_id and trial_key_hash:
+                extracted_trial_id = f"trial-{trial_key_hash[:8]}"
+                logger.info(
+                    f"[Benchmark Run Name] Final fallback: Constructed trial_id from trial_key_hash: {extracted_trial_id}"
+                )
 
             # Create NamingContext for benchmarking
             # For HPO trial benchmarks, trial_id should be the trial identifier

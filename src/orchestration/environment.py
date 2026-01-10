@@ -5,7 +5,7 @@ All imports from this module are deprecated.
 """
 
 import warnings
-from config.environment import (
+from infrastructure.config.environment import (
     DEFAULT_ENVIRONMENT_NAME,
     DEFAULT_CONDA_RELATIVE_PATH,
     DEFAULT_DOCKER_IMAGE,

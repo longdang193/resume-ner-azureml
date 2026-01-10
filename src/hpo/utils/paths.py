@@ -7,8 +7,8 @@ for handling Google Drive path mapping in Colab environments.
 from pathlib import Path
 from typing import Optional
 
-from shared.platform_detection import detect_platform
-from shared.logging_utils import get_logger
+from common.shared.platform_detection import detect_platform
+from common.shared.logging_utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -54,6 +54,7 @@ def resolve_hpo_output_dir(hpo_output_dir: Path) -> Path:
         return hpo_output_dir
 
     return hpo_output_dir
+
 
 
 

@@ -5,8 +5,8 @@ from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
 from conversion.orchestration import execute_conversion
-from config.conversion import load_conversion_config
-from config.loader import ExperimentConfig
+from infrastructure.config.conversion import load_conversion_config
+from infrastructure.config.loader import ExperimentConfig
 
 
 class TestConversionConfig:

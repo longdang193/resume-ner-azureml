@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 from ..config import APIConfig
 from ..exceptions import InferenceError, ModelNotLoadedError
-from ...shared.tokenization_utils import (
+from common.shared.tokenization_utils import (
     prepare_onnx_inputs,
     get_offset_mapping,
 )

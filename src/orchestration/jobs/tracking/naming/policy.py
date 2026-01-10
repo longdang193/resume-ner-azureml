@@ -7,13 +7,13 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from naming.context import NamingContext
+from infrastructure.naming.context import NamingContext
 from core.placeholders import extract_placeholders
 from core.tokens import (
     is_token_allowed,
     is_token_known,
 )
-from shared.yaml_utils import load_yaml
+from common.shared.yaml_utils import load_yaml
 
 logger = logging.getLogger(__name__)
 

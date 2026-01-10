@@ -14,14 +14,14 @@ import warnings
 from pathlib import Path
 from typing import Optional
 
-# Re-export NamingContext and create_naming_context from naming module
-from naming.context import (
+# Re-export NamingContext and create_naming_context from infrastructure.naming module
+from infrastructure.naming.context import (
     NamingContext,
     create_naming_context,
 )
 
-# Re-export build_output_path from paths module
-from paths.resolve import build_output_path
+# Re-export build_output_path from infrastructure.paths module
+from infrastructure.paths.resolve import build_output_path
 
 
 def build_parent_training_id(spec_fp: str, exec_fp: str, variant: int = 1) -> str:

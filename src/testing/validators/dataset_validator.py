@@ -7,7 +7,7 @@ It contains no orchestration, presentation, or business logic beyond validation.
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from training.data import load_dataset
+from data.loaders import load_dataset
 
 
 def check_dataset_exists(dataset_path: Path) -> bool:

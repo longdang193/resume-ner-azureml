@@ -38,7 +38,7 @@ from typing import Any, Dict, Optional
 from azure.ai.ml import Input, MLClient, Output, command
 from azure.ai.ml.entities import Environment, Job
 
-from constants import CONVERSION_JOB_NAME
+from common.constants import CONVERSION_JOB_NAME
 
 def get_checkpoint_output_from_training_job(
     training_job: Job, ml_client: Optional[MLClient] = None

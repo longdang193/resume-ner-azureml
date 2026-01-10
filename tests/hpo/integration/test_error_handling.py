@@ -17,7 +17,7 @@ from hpo.trial.metrics import read_trial_metrics
 from hpo.core.study import StudyManager
 from selection.selection_logic import SelectionLogic
 from orchestration.jobs.errors import SelectionError
-from constants import METRICS_FILENAME
+from common.constants import METRICS_FILENAME
 
 # Lazy import optuna to allow tests to be skipped if not available
 try:

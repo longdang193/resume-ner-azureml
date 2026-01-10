@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional
 from dataclasses import dataclass
 import argparse
 
-from shared.yaml_utils import load_yaml
+from common.shared.yaml_utils import load_yaml
 
 
 def load_config_file(config_dir: Path, filename: str) -> Dict[str, Any]:

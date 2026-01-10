@@ -7,8 +7,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from shared.json_cache import load_json, save_json
-from shared.logging_utils import get_logger
+from common.shared.json_cache import load_json, save_json
+from common.shared.logging_utils import get_logger
 from orchestration.jobs.tracking.index.file_locking import acquire_lock, release_lock
 
 logger = get_logger(__name__)

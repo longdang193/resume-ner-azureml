@@ -7,7 +7,7 @@ import yaml
 from pathlib import Path
 import pytest
 
-from tracking.mlflow.config_loader import (
+from infrastructure.tracking.mlflow.config_loader import (
     load_mlflow_config,
     get_naming_config,
     get_auto_increment_config,

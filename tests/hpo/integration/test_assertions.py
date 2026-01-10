@@ -13,7 +13,7 @@ except ImportError:
     optuna = None
     pytest.skip("optuna not available", allow_module_level=True)
 
-from constants import METRICS_FILENAME
+from common.constants import METRICS_FILENAME
 
 
 def assert_checkpoint_exists(study_folder: Path, study_name: Optional[str] = None) -> None:

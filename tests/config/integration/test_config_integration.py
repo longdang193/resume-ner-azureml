@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 
 from orchestration.naming_centralized import NamingContext, build_output_path
-from naming.mlflow.run_names import build_mlflow_run_name
-from naming.mlflow.tags import build_mlflow_tags
+from infrastructure.naming.mlflow.run_names import build_mlflow_run_name
+from infrastructure.naming.mlflow.tags import build_mlflow_tags
 from orchestration.paths import resolve_output_path
 
 
@@ -223,7 +223,7 @@ class TestConfigurationConsistency:
     """Test config file interactions (7.2)."""
 
     def test_paths_match_naming_patterns(self, root_dir, config_dir):
-        """Test paths from paths.yaml match patterns in naming.yaml."""
+        """Test paths from infrastructure.paths.yaml match patterns in naming.yaml."""
         context = NamingContext(
             process_type="hpo",
             model="distilbert",
@@ -234,12 +234,12 @@ class TestConfigurationConsistency:
             trial_id="trial_01"  # Set trial_id to ensure it's detected as hpo_trial
         )
         
-        # Path should use v2 pattern from paths.yaml
+        # Path should use v2 pattern from infrastructure.paths.yaml
         path = build_output_path(root_dir, context, config_dir=config_dir)
         assert "study-350a79aa" in str(path)
         assert "trial-747428f2" in str(path)
         
-        # Run name should use pattern from naming.yaml
+        # Run name should use pattern from infrastructure.naming.yaml
         run_name = build_mlflow_run_name(context, config_dir=config_dir, root_dir=root_dir)
         assert "study-350a79aa" in run_name
     
@@ -263,7 +263,7 @@ class TestConfigurationConsistency:
         assert "code.study_key_hash" in tags
     
     def test_naming_patterns_from_naming_yaml(self, root_dir, config_dir):
-        """Test naming patterns from naming.yaml used in build_mlflow_run_name()."""
+        """Test naming patterns from infrastructure.naming.yaml used in build_mlflow_run_name()."""
         context = NamingContext(
             process_type="hpo",
             model="distilbert",
@@ -275,7 +275,7 @@ class TestConfigurationConsistency:
         
         run_name = build_mlflow_run_name(context, config_dir=config_dir, root_dir=root_dir)
         
-        # Should use pattern from naming.yaml
+        # Should use pattern from infrastructure.naming.yaml
         assert "local" in run_name
         assert "distilbert" in run_name
         assert "hpo_trial" in run_name

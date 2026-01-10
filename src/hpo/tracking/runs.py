@@ -9,11 +9,11 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import mlflow
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 
 # Lazy import to avoid pytest collection issues
 try:
-    from tracking.mlflow import terminate_run_safe
+    from infrastructure.tracking.mlflow import terminate_run_safe
 except ImportError:
     # During pytest collection, path might not be set up yet
     # Will be imported when actually needed
@@ -58,12 +58,12 @@ def create_trial_run_no_cv(
         # Build systematic run name using NamingContext
         run_name = None
         try:
-            from naming import create_naming_context
-            from tracking.mlflow.naming import (
+            from infrastructure.naming import create_naming_context
+            from infrastructure.tracking.mlflow.naming import (
                 build_mlflow_run_name,
                 build_mlflow_tags,
             )
-            from shared.platform_detection import detect_platform
+            from common.shared.platform_detection import detect_platform
 
             # Extract backbone short name
             backbone_full = trial_params.get("backbone", "unknown")
@@ -132,7 +132,7 @@ def create_trial_run_no_cv(
             run_name = f"trial_{trial_number}"
             # Fallback to minimal tags - still try to get project name from config
             try:
-                from tracking.mlflow.config_loader import (
+                from infrastructure.tracking.mlflow.config_loader import (
                     get_naming_config,
                 )
 

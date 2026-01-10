@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from storage.drive import (
+from infrastructure.storage.drive import (
     BackupAction,
     BackupResult,
     DriveBackupStore,

@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 
 from hpo.utils.paths import resolve_hpo_output_dir
 from hpo.checkpoint.storage import resolve_storage_path

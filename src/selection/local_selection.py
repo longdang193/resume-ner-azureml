@@ -33,7 +33,7 @@ specialized modules for study extraction, disk loading, and selection logic.
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 
 from .disk_loader import load_best_trial_from_disk, load_benchmark_speed_score
 from orchestration.jobs.errors import SelectionError

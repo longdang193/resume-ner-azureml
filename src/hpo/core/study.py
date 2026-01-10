@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 
 from hpo.core.optuna_integration import (
     create_optuna_pruner,
@@ -396,6 +396,7 @@ class StudyManager:
                 for trial in running_trials:
                     study.tell(
                         trial.number, state=self.optuna.trial.TrialState.FAIL)
+
 
 
 

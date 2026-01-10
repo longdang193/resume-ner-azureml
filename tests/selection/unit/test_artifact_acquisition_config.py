@@ -4,12 +4,12 @@ import pytest
 from pathlib import Path
 from unittest.mock import patch, mock_open
 
-from config.loader import (
+from infrastructure.config.loader import (
     load_experiment_config,
     load_all_configs,
     ExperimentConfig,
 )
-from shared.yaml_utils import load_yaml
+from common.shared.yaml_utils import load_yaml
 
 
 class TestArtifactAcquisitionConfigLoading:

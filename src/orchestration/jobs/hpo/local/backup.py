@@ -32,7 +32,7 @@ with verification of trial_meta.json files.
 from pathlib import Path
 from typing import Optional, Callable
 
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 
 logger = get_logger(__name__)
 

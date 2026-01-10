@@ -314,9 +314,9 @@ def train_model(
     # If not set, try to build systematic name from config
     if not run_name:
         try:
-            from naming import create_naming_context
-            from tracking.mlflow.naming import build_mlflow_run_name
-            from shared.platform_detection import detect_platform
+            from infrastructure.naming import create_naming_context
+            from infrastructure.tracking.mlflow.naming import build_mlflow_run_name
+            from common.shared.platform_detection import detect_platform
 
             # Try to extract fingerprints from config if available
             spec_fp = config.get("fingerprints", {}).get("spec_fp")
@@ -356,7 +356,7 @@ def train_model(
 
     # Fallback to policy-like format if systematic naming didn't work
     if not run_name:
-        from shared.platform_detection import detect_platform
+        from common.shared.platform_detection import detect_platform
         environment = detect_platform()
         run_id = config.get("training", {}).get("run_id", "unknown")
         # Shorten run_id if it's long (take first 8 chars)
@@ -496,7 +496,7 @@ def train_model(
                     metrics_json_path=metrics_json_path if metrics_json_path.exists() else None,
                 )
         except Exception as e:
-            from shared.logging_utils import get_logger
+            from common.shared.logging_utils import get_logger
             logger = get_logger(__name__)
             logger.warning(f"Could not log training results to MLflow: {e}")
 
@@ -539,7 +539,7 @@ def train_model(
                     checkpoint_dir = output_dir / "checkpoint"
                     if checkpoint_dir.exists():
                         print(f"  [Training] Logging checkpoint artifacts from: {checkpoint_dir}", file=sys.stderr, flush=True)
-                        from tracking.mlflow import log_artifacts_safe, log_artifact_safe
+                        from infrastructure.tracking.mlflow import log_artifacts_safe, log_artifact_safe
                         log_artifacts_safe(
                             local_dir=checkpoint_dir,
                             artifact_path="checkpoint",
@@ -552,7 +552,7 @@ def train_model(
                     # Log metrics.json if it exists
                     metrics_json_path = output_dir / "metrics.json"
                     if metrics_json_path.exists():
-                        from tracking.mlflow import log_artifact_safe
+                        from infrastructure.tracking.mlflow import log_artifact_safe
                         log_artifact_safe(
                             local_path=metrics_json_path,
                             artifact_path="metrics.json",
@@ -562,7 +562,7 @@ def train_model(
                 else:
                     print(f"  [Training] ⚠ No active MLflow run - cannot log artifacts", file=sys.stderr, flush=True)
             except Exception as e:
-                from shared.logging_utils import get_logger
+                from common.shared.logging_utils import get_logger
                 logger = get_logger(__name__)
                 logger.warning(f"Could not log artifacts to MLflow: {e}")
                 import traceback

@@ -5,7 +5,7 @@ All imports from this module are deprecated.
 """
 
 import warnings
-from metadata.training import (
+from infrastructure.metadata.training import (
     get_metadata_file_path,
     load_training_metadata,
     save_training_metadata,

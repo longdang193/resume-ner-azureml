@@ -8,7 +8,7 @@ import warnings
 from typing import Optional
 
 # Re-export from new location with deprecation warning
-from tracking.mlflow.setup import setup_mlflow_for_stage
+from infrastructure.tracking.mlflow.setup import setup_mlflow_for_stage
 
 warnings.warn(
     "The 'orchestration.mlflow_utils' module is deprecated. "

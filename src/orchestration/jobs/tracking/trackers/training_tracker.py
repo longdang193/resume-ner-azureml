@@ -13,7 +13,7 @@ import os
 import re
 
 import mlflow
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 
 from orchestration.jobs.tracking.mlflow_types import RunHandle
 from orchestration.jobs.tracking.mlflow_naming import build_mlflow_tags, build_mlflow_run_key, build_mlflow_run_key_hash
@@ -21,7 +21,7 @@ from orchestration.jobs.tracking.mlflow_index import update_mlflow_index
 from orchestration.jobs.tracking.utils.mlflow_utils import retry_with_backoff
 # Lazy import to avoid pytest collection issues
 try:
-    from tracking.mlflow import get_mlflow_run_url
+    from infrastructure.tracking.mlflow import get_mlflow_run_url
 except ImportError:
     # During pytest collection, path might not be set up yet
     get_mlflow_run_url = None
@@ -138,7 +138,7 @@ class MLflowTrainingTracker(BaseTracker):
                 # Save MLflow run info to metadata.json if context and output_dir are available
                 if context and output_dir and config_dir:
                     try:
-                        from metadata import save_metadata_with_fingerprints
+                        from infrastructure.metadata.training import save_metadata_with_fingerprints
 
                         # Build root_dir from output_dir
                         root_dir = output_dir.parent.parent if output_dir.parent.name == "outputs" else output_dir.parent.parent.parent
@@ -290,7 +290,7 @@ class MLflowTrainingTracker(BaseTracker):
             tracking_config = get_tracking_config(config_dir=config_dir, stage="training")
             
             # Use MLflow for artifact upload (works for both Azure ML and non-Azure ML backends)
-            from tracking.mlflow import log_artifacts_safe, log_artifact_safe
+            from infrastructure.tracking.mlflow import log_artifacts_safe, log_artifact_safe
             # Log checkpoint directory if enabled
             if tracking_config.get("log_checkpoint", True) and checkpoint_dir.exists():
                 log_artifacts_safe(

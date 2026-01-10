@@ -11,7 +11,7 @@ from selection.cache import (
     save_best_model_cache,
     compute_selection_cache_key,
 )
-from paths import get_cache_file_path
+from infrastructure.paths import get_cache_file_path
 
 
 @pytest.fixture

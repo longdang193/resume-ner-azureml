@@ -2,7 +2,7 @@
 
 import pytest
 from pathlib import Path
-from shared.yaml_utils import load_yaml
+from common.shared.yaml_utils import load_yaml
 
 
 class TestBestModelSelectionConfigLoading:

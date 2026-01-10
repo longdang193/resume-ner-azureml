@@ -45,7 +45,7 @@ def _configure_mlflow(ml_client: "MLClient") -> None:
     """Configure MLflow to use Azure ML workspace tracking URI."""
     # Import Azure SDK locally to avoid requiring it at module load time
     from azure.ai.ml import MLClient
-    from shared.mlflow_setup import setup_mlflow_cross_platform
+    from common.shared.mlflow_setup import setup_mlflow_cross_platform
     # Use setup_mlflow_cross_platform for consistency
     # We use a placeholder experiment name since setup_mlflow_cross_platform requires it
     # The actual experiment will be set by the caller if needed

@@ -59,14 +59,14 @@ from orchestration import (
     EXPERIMENT_NAME,
     METRICS_FILENAME,
 )
-from config.loader import (
+from infrastructure.config.loader import (
     load_experiment_config,
     load_all_configs,
 )
 from training_exec import extract_lineage_from_best_model
-from naming.mlflow.tags_registry import load_tags_registry
-from shared.platform_detection import detect_platform
-from shared.yaml_utils import load_yaml
+from infrastructure.naming.mlflow.tags_registry import load_tags_registry
+from common.shared.platform_detection import detect_platform
+from common.shared.yaml_utils import load_yaml
 
 
 # ============================================================================
@@ -163,7 +163,7 @@ def test_full_workflow_e2e(
     assert (tiny_dataset / "test.json").exists()
     
     # Step 4: MLflow Setup
-    from shared.mlflow_setup import setup_mlflow_from_config
+    from common.shared.mlflow_setup import setup_mlflow_from_config
     
     training_experiment_name = f"{EXPERIMENT_NAME}-training"
     tracking_uri = setup_mlflow_from_config(

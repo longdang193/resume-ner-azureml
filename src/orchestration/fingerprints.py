@@ -1,30 +1,15 @@
-"""Legacy facade for fingerprints module.
+"""Compatibility shim for fingerprints module.
 
-This module provides backward compatibility by re-exporting from fingerprints.
-All imports from this module are deprecated.
+Use 'from infrastructure.fingerprints import ...' instead.
+This will be removed in 2 releases.
 """
 
 import warnings
-from fingerprints import (
-    compute_spec_fp,
-    compute_exec_fp,
-    compute_conv_fp,
-    compute_bench_fp,
-    compute_hardware_fp,
-)
 
-__all__ = [
-    "compute_spec_fp",
-    "compute_exec_fp",
-    "compute_conv_fp",
-    "compute_bench_fp",
-    "compute_hardware_fp",
-]
-
-# Issue deprecation warning
 warnings.warn(
-    "Importing 'fingerprints' from 'orchestration' is deprecated. "
-    "Please import from 'fingerprints' instead.",
+    "orchestration.fingerprints is deprecated, use infrastructure.fingerprints",
     DeprecationWarning,
     stacklevel=2
 )
+
+from infrastructure.fingerprints import *

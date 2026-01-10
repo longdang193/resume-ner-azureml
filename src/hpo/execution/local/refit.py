@@ -36,17 +36,17 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 import mlflow
-from shared.logging_utils import get_logger
-from constants import METRICS_FILENAME
-from naming import create_naming_context
-from tracking.mlflow.naming import (
+from common.shared.logging_utils import get_logger
+from common.constants import METRICS_FILENAME
+from infrastructure.naming import create_naming_context
+from infrastructure.tracking.mlflow.naming import (
     build_mlflow_run_name,
     build_mlflow_tags,
     build_mlflow_run_key,
     build_mlflow_run_key_hash,
 )
 # Tag key imports moved to local scope where needed
-from paths import find_project_root
+from infrastructure.paths import find_project_root
 from training.execution import (
     MLflowConfig,
     TrainingOptions,
@@ -56,7 +56,7 @@ from training.execution import (
     setup_training_environment,
     verify_training_environment,
 )
-from shared.platform_detection import detect_platform
+from common.shared.platform_detection import detect_platform
 
 logger = get_logger(__name__)
 
@@ -158,7 +158,7 @@ def run_refit_training(
     refit_output_dir = None
     if refit_context.study_key_hash and refit_context.trial_key_hash:
         try:
-            from paths import build_output_path
+            from infrastructure.paths import build_output_path
             # build_output_path() handles hpo_refit by appending /refit to trial path
             refit_output_dir = build_output_path(root_dir, refit_context, config_dir=config_dir)
             refit_output_dir.mkdir(parents=True, exist_ok=True)
@@ -173,7 +173,7 @@ def run_refit_training(
         study_folder_name = output_dir.name if output_dir.name.startswith("study-") else None
         if study_folder_name and refit_context.trial_key_hash:
             # We're in a v2 study folder, construct v2 trial path manually
-            from naming.context_tokens import build_token_values
+            from infrastructure.naming.context_tokens import build_token_values
             tokens = build_token_values(refit_context)
             trial8 = tokens["trial8"]
             trial_base_dir = output_dir / f"trial-{trial8}"
@@ -350,7 +350,7 @@ def _log_refit_metrics_to_mlflow(
             client.set_tag(refit_run_id, f"note.{k}", v)
 
         # Set explicit refit tags
-        from naming.mlflow.tag_keys import (
+        from infrastructure.naming.mlflow.tag_keys import (
             get_refit,
             get_refit_has_validation,
         )

@@ -5,7 +5,7 @@ All imports from this module are deprecated.
 """
 
 import warnings
-from config.loader import (
+from infrastructure.config.loader import (
     CONFIG_HASH_LENGTH,
     ExperimentConfig,
     load_experiment_config,

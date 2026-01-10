@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Dict, Optional
 
-from platform_adapters.logging_adapter import LoggingAdapter
+from infrastructure.platform.adapters.logging_adapter import LoggingAdapter
 
 
 def log_metrics(
@@ -27,7 +27,7 @@ def log_metrics(
 
     # Use provided adapter or create default one
     if logging_adapter is None:
-        from platform_adapters import get_platform_adapter
+        from infrastructure.platform.adapters import get_platform_adapter
         platform_adapter = get_platform_adapter()
         logging_adapter = platform_adapter.get_logging_adapter()
 

@@ -7,7 +7,7 @@ import pytest
 from pathlib import Path
 from typing import Dict, Any
 
-from config.loader import (
+from infrastructure.config.loader import (
     load_experiment_config,
     ExperimentConfig,
     load_all_configs,
@@ -647,7 +647,7 @@ class TestExperimentConfigRealFile:
         if not experiment_file.exists():
             pytest.skip("resume_ner_baseline.yaml not found")
         
-        from shared.yaml_utils import load_yaml
+        from common.shared.yaml_utils import load_yaml
         config = load_yaml(experiment_file)
         
         # Required fields

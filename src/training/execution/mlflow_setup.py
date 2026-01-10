@@ -12,7 +12,7 @@ from typing import Any, Dict, Optional
 import mlflow
 from mlflow.tracking import MlflowClient
 
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -114,11 +114,11 @@ def create_training_mlflow_run(
         # Update local index if context provided
         if root_dir and config_dir and context:
             try:
-                from tracking.mlflow.naming import (
+                from infrastructure.tracking.mlflow.naming import (
                     build_mlflow_run_key,
                     build_mlflow_run_key_hash,
                 )
-                from tracking.mlflow.index import update_mlflow_index
+                from infrastructure.tracking.mlflow.index import update_mlflow_index
 
                 run_key = build_mlflow_run_key(context)
                 run_key_hash = build_mlflow_run_key_hash(run_key)
@@ -135,7 +135,7 @@ def create_training_mlflow_run(
 
         # Log run URL if available
         try:
-            from tracking.mlflow import get_mlflow_run_url
+            from infrastructure.tracking.mlflow import get_mlflow_run_url
 
             refit_url = get_mlflow_run_url(experiment_id, run_id)
             logger.info(f"🏃 View run {run_name} at: {refit_url}")

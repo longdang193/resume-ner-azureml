@@ -9,7 +9,7 @@ import shutil
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 from hpo.core.optuna_integration import import_optuna as _import_optuna
 
 logger = get_logger(__name__)

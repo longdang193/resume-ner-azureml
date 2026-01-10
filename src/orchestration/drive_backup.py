@@ -6,7 +6,7 @@ All imports from this module are deprecated.
 
 import warnings
 from pathlib import Path
-from storage.drive import (
+from infrastructure.storage.drive import (
     BackupAction,
     BackupResult,
     EnsureLocalOptions,
@@ -15,7 +15,7 @@ from storage.drive import (
     create_colab_store,
             )
 # Also re-export get_drive_backup_base from paths for backward compatibility
-    from paths import get_drive_backup_base
+    from infrastructure.paths import get_drive_backup_base
 
 __all__ = [
     "Path",

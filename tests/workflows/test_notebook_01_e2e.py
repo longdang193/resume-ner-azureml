@@ -62,7 +62,7 @@ from orchestration import (
     METRICS_FILENAME,
     CHECKPOINT_DIRNAME,
 )
-from config.loader import (
+from infrastructure.config.loader import (
     ExperimentConfig,
     load_experiment_config,
     load_all_configs,
@@ -72,7 +72,7 @@ from config.loader import (
 from hpo import run_local_hpo_sweep
 from benchmarking import benchmark_best_trials
 from selection.trial_finder import find_best_trials_for_backbones
-from shared.platform_detection import detect_platform
+from common.shared.platform_detection import detect_platform
 
 
 # ============================================================================
@@ -348,7 +348,7 @@ class TestNotebookE2E_Core:
         if not (real_config_dir / "data" / "resume_tiny.yaml").exists():
             pytest.skip("Real data config not found")
         
-        from shared.yaml_utils import load_yaml
+        from common.shared.yaml_utils import load_yaml
         data_config = load_yaml(real_config_dir / "data" / "resume_tiny.yaml")
         
         # Verify dataset structure
@@ -363,7 +363,7 @@ class TestNotebookE2E_Core:
     
     def test_mlflow_setup(self, mock_mlflow_tracking, tmp_project_root):
         """Test Step 7: MLflow setup with Azure ML mocking."""
-        from shared.mlflow_setup import setup_mlflow_from_config
+        from common.shared.mlflow_setup import setup_mlflow_from_config
         
         real_config_dir = ROOT_DIR / "config"
         tracking_uri = setup_mlflow_from_config(
@@ -402,7 +402,7 @@ class TestNotebookE2E_Core:
         
         # Get stage-specific HPO config
         from naming import get_stage_config
-        from shared.yaml_utils import load_yaml
+        from common.shared.yaml_utils import load_yaml
         
         hpo_stage_config = get_stage_config(experiment_config, STAGE_HPO)
         hpo_config_override = hpo_stage_config.get("hpo_config")
@@ -466,7 +466,7 @@ class TestNotebookE2E_Core:
         
         # Setup output directory - use real project root structure
         # The HPO sweep expects to find config/ directory relative to outputs/
-        from shared.platform_detection import detect_platform
+        from common.shared.platform_detection import detect_platform
         environment = detect_platform()
         
         # Use real project root for proper path resolution
@@ -590,7 +590,7 @@ class TestNotebookE2E_Core:
         configs = load_all_configs(experiment_config)
         
         # Create a fake HPO trial output for benchmarking
-        from shared.platform_detection import detect_platform
+        from common.shared.platform_detection import detect_platform
         environment = detect_platform()
         hpo_output_dir = ROOT_DIR / "outputs" / "hpo" / environment / "distilbert"
         
@@ -774,7 +774,7 @@ class TestNotebookE2E_Core:
     ):
         """Test Step 10: Output validation."""
         # Create sample output structure
-        from shared.platform_detection import detect_platform
+        from common.shared.platform_detection import detect_platform
         environment = detect_platform()
         
         hpo_output_dir = tmp_project_root / "outputs" / "hpo" / environment / "distilbert"

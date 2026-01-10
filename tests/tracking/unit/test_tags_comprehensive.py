@@ -4,12 +4,12 @@ import yaml
 from pathlib import Path
 import pytest
 
-from naming.mlflow.tags_registry import (
+from infrastructure.naming.mlflow.tags_registry import (
     TagKeyError,
     TagsRegistry,
     load_tags_registry,
 )
-from naming.mlflow.tags import (
+from infrastructure.naming.mlflow.tags import (
     get_tag_key,
     sanitize_tag_value,
     build_mlflow_tags,

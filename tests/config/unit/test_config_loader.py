@@ -5,7 +5,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import patch, mock_open
 
-from config.loader import (
+from infrastructure.config.loader import (
     compute_config_hash,
     compute_config_hashes,
     CONFIG_HASH_LENGTH,

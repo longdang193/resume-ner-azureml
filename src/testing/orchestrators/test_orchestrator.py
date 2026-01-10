@@ -47,7 +47,7 @@ from testing.fixtures.config.test_config_loader import (
     DEFAULT_RANDOM_SEED,
     get_test_config,
 )
-from training.data import load_dataset
+from data.loaders import load_dataset
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional

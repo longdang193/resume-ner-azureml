@@ -113,7 +113,7 @@ except ImportError:
 
 # MLflow trackers - moved to tracking/mlflow/trackers/
 try:
-    from tracking.mlflow.trackers import (
+    from infrastructure.tracking.mlflow.trackers import (
         BaseTracker,
         MLflowSweepTracker,
         MLflowBenchmarkTracker,
@@ -129,7 +129,7 @@ except ImportError:
 
 # Run finder - moved to tracking/mlflow/finder.py
 try:
-    from tracking.mlflow.finder import (
+    from infrastructure.tracking.mlflow.finder import (
         find_mlflow_run,
         find_run_by_trial_id,
     )
@@ -225,19 +225,19 @@ if "orchestration.jobs.benchmarking" not in sys.modules:
         pass
     
     try:
-        from paths.resolve import build_output_path
+        from infrastructure.paths.resolve import build_output_path
         orchestrator_module.build_output_path = build_output_path
     except ImportError:
         pass
     
     try:
-        from paths.drive import resolve_output_path_for_colab
+        from infrastructure.paths.drive import resolve_output_path_for_colab
         orchestrator_module.resolve_output_path_for_colab = resolve_output_path_for_colab
     except ImportError:
         pass
     
     try:
-        from paths.validation import validate_path_before_mkdir
+        from infrastructure.paths.validation import validate_path_before_mkdir
         orchestrator_module.validate_path_before_mkdir = validate_path_before_mkdir
     except ImportError:
         pass

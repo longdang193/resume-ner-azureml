@@ -199,7 +199,7 @@ def data_config_minimal():
 @pytest.fixture
 def mock_training_subprocess(tmp_output_dir):
     """Mock training subprocess to return success and create metrics.json."""
-    from constants import METRICS_FILENAME
+    from common.constants import METRICS_FILENAME
     
     def subprocess_side_effect(*args, **kwargs):
         # Extract output_dir from environment variable (AZURE_ML_OUTPUT_CHECKPOINT)

@@ -8,12 +8,12 @@ from typing import Optional
 import mlflow
 from mlflow.tracking import MlflowClient
 
-from naming.context import NamingContext
+from infrastructure.naming.context import NamingContext
 from orchestration.jobs.tracking.mlflow_types import RunLookupReport
 from orchestration.jobs.tracking.mlflow_naming import build_mlflow_run_key, build_mlflow_run_key_hash
 from orchestration.jobs.tracking.mlflow_index import find_in_mlflow_index
 from orchestration.jobs.tracking.config.loader import get_run_finder_config
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 
 logger = get_logger(__name__)
 

@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import Optional, Callable
 
 # Re-export from new locations with deprecation warnings
-from paths.validation import validate_path_before_mkdir
-from paths.drive import resolve_output_path_for_colab
+from infrastructure.paths.validation import validate_path_before_mkdir
+from infrastructure.paths.drive import resolve_output_path_for_colab
 from hpo.utils.paths import resolve_hpo_output_dir
 
 

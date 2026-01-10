@@ -7,7 +7,7 @@ import yaml
 from pathlib import Path
 import pytest
 
-from naming.mlflow.policy import (
+from infrastructure.naming.mlflow.policy import (
     load_naming_policy,
     format_run_name,
     validate_run_name,

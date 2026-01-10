@@ -6,8 +6,8 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 from mlflow.tracking import MlflowClient
 
-from shared.logging_utils import get_logger
-from naming.mlflow.tags_registry import TagsRegistry
+from common.shared.logging_utils import get_logger
+from infrastructure.naming.mlflow.tags_registry import TagsRegistry
 
 logger = get_logger(__name__)
 

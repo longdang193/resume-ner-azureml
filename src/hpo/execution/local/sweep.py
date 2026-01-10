@@ -33,8 +33,8 @@ lifecycle:
 
 """Local hyperparameter optimization using Optuna."""
 import logging
-from shared.json_cache import save_json
-from shared.logging_utils import get_logger
+from common.shared.json_cache import save_json
+from common.shared.logging_utils import get_logger
 
 import os
 import sys
@@ -47,7 +47,7 @@ import numpy as np
 
 from hpo.checkpoint.storage import resolve_storage_path, get_storage_uri
 from hpo.core.search_space import translate_search_space_to_optuna
-from tracking.mlflow.trackers.sweep_tracker import MLflowSweepTracker
+from infrastructure.tracking.mlflow.trackers.sweep_tracker import MLflowSweepTracker
 from hpo.utils.helpers import (
     generate_run_id,
     setup_checkpoint_storage,
@@ -275,7 +275,7 @@ def create_local_hpo_objective(
             trial_key_hash = None
             if study_key_hash:
                 try:
-                    from tracking.mlflow.naming import (
+                    from infrastructure.tracking.mlflow.naming import (
                         build_hpo_trial_key,
                         build_hpo_trial_key_hash,
                     )
@@ -288,8 +288,8 @@ def create_local_hpo_objective(
                         study_key_hash, hyperparameters)
                     trial_key_hash = build_hpo_trial_key_hash(trial_key)
                     # Use token expansion for consistency
-                    from naming.context_tokens import build_token_values
-                    from naming.context import NamingContext
+                    from infrastructure.naming.context_tokens import build_token_values
+                    from infrastructure.naming.context import NamingContext
                     temp_context = NamingContext(
                         process_type="hpo",
                         model=backbone.split("-")[0] if "-" in backbone else backbone,
@@ -457,7 +457,7 @@ def run_local_hpo_sweep(
     study_key_hash = None
     if data_config and hpo_config:
         try:
-            from naming.mlflow.hpo_keys import (
+            from infrastructure.naming.mlflow.hpo_keys import (
                 build_hpo_study_key,
                 build_hpo_study_key_hash,
             )
@@ -485,8 +485,8 @@ def run_local_hpo_sweep(
     v2_study_folder = None
     if study_key_hash:
         try:
-            from paths import load_paths_config, apply_env_overrides, resolve_output_path
-            from shared.platform_detection import detect_platform
+            from infrastructure.paths import load_paths_config, apply_env_overrides, resolve_output_path
+            from common.shared.platform_detection import detect_platform
 
             # Derive root_dir by walking up from output_dir until we find "outputs" directory
             root_dir = None
@@ -514,8 +514,8 @@ def run_local_hpo_sweep(
             pattern = paths_config.get("patterns", {}).get("hpo_v2", "")
             if pattern:
                 # Use token expansion for consistency
-                from naming.context_tokens import build_token_values
-                from naming.context import NamingContext
+                from infrastructure.naming.context_tokens import build_token_values
+                from infrastructure.naming.context import NamingContext
                 temp_context = NamingContext(
                     process_type="hpo",
                     model=backbone.split("-")[0] if "-" in backbone else backbone,
@@ -642,7 +642,7 @@ def run_local_hpo_sweep(
 
     # Cleanup stale reservations from crashed processes
     try:
-        from tracking.mlflow.index import cleanup_stale_reservations
+        from infrastructure.tracking.mlflow.index import cleanup_stale_reservations
         root_dir = output_dir.parent.parent if output_dir else Path.cwd()
         config_dir = output_dir.parent.parent / "config" if output_dir else None
         cleaned_count = cleanup_stale_reservations(
@@ -684,7 +684,7 @@ def run_local_hpo_sweep(
         """Handle interruption signals to finalize parent run."""
         if parent_run_id_for_cleanup:
             try:
-                from tracking.mlflow import terminate_run_safe
+                from infrastructure.tracking.mlflow import terminate_run_safe
                 logger.info(
                     f"[HPO] Interruption detected (signal {signum}). "
                     f"Finalizing parent run {parent_run_id_for_cleanup[:12]}... as FAILED")
@@ -856,7 +856,7 @@ def run_local_hpo_sweep(
                     # Primary: compute grouping hashes from configs (ensures canonicalization matches)
                     if data_config and hpo_config:
                         try:
-                            from tracking.mlflow.naming import (
+                            from infrastructure.tracking.mlflow.naming import (
                                 build_hpo_study_key,
                                 build_hpo_study_family_key,
                                 build_hpo_study_key_hash,
@@ -908,7 +908,7 @@ def run_local_hpo_sweep(
                     # Compute trial_key_hash from best trial hyperparameters and study_key_hash
                     if refit_study_key_hash and study.best_trial:
                         try:
-                            from tracking.mlflow.naming import (
+                            from infrastructure.tracking.mlflow.naming import (
                                 build_hpo_trial_key,
                                 build_hpo_trial_key_hash,
                             )
@@ -930,7 +930,7 @@ def run_local_hpo_sweep(
                                 f"Could not compute trial_key_hash for refit: {e}", exc_info=True)
 
                     # Compute refit protocol fingerprint
-                    from tracking.mlflow.naming import compute_refit_protocol_fp
+                    from infrastructure.tracking.mlflow.naming import compute_refit_protocol_fp
                     refit_protocol_fp = compute_refit_protocol_fp(
                         data_config=data_config if data_config else {},
                         train_config=train_config,
@@ -1067,7 +1067,7 @@ def run_local_hpo_sweep(
                     # This must run regardless of whether log_best_checkpoint was enabled
                     if refit_run_id:
                         try:
-                            from tracking.mlflow import terminate_run_with_tags
+                            from infrastructure.tracking.mlflow import terminate_run_with_tags
                             
                             if upload_succeeded:
                                 # Success: mark as FINISHED with tag
@@ -1108,7 +1108,7 @@ def run_local_hpo_sweep(
                             )
                             # Fallback: try ensure_run_terminated
                             try:
-                                from tracking.mlflow import ensure_run_terminated
+                                from infrastructure.tracking.mlflow import ensure_run_terminated
                                 ensure_run_terminated(refit_run_id, expected_status="FINISHED" if upload_succeeded else "FAILED")
                                 logger.info(f"[REFIT] Used fallback to ensure refit run {refit_run_id[:12]}... is terminated")
                             except Exception as fallback_error:
@@ -1125,7 +1125,7 @@ def run_local_hpo_sweep(
                     )
                     # Ensure refit run is marked as FINISHED even if there was an error
                     if refit_run_id:
-                        from tracking.mlflow import ensure_run_terminated
+                        from infrastructure.tracking.mlflow import ensure_run_terminated
                         ensure_run_terminated(refit_run_id, expected_status="FINISHED")
                         logger.info(f"[REFIT] Ensured refit run {refit_run_id[:12]}... is terminated after error")
             elif not refit_enabled:
@@ -1156,7 +1156,7 @@ def run_local_hpo_sweep(
         # Finalize parent run if not already done
         if parent_run_id_for_cleanup:
             try:
-                from tracking.mlflow import terminate_run_safe
+                from infrastructure.tracking.mlflow import terminate_run_safe
                 terminate_run_safe(
                     parent_run_id_for_cleanup,
                     status="FAILED",

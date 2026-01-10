@@ -1,7 +1,7 @@
 """Unit tests for fingerprint computation."""
 
 import pytest
-from fingerprints import (
+from infrastructure.fingerprints import (
     compute_spec_fp,
     compute_exec_fp,
     compute_conv_fp,

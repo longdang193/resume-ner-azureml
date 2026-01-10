@@ -4,8 +4,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import patch, mock_open
 
-from shared.yaml_utils import load_yaml
-from config.conversion import load_conversion_config
+from common.shared.yaml_utils import load_yaml
+from infrastructure.config.conversion import load_conversion_config
 
 
 class TestConversionConfigLoading:

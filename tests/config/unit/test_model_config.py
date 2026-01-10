@@ -7,8 +7,8 @@ import pytest
 from pathlib import Path
 from typing import Dict, Any
 
-from shared.yaml_utils import load_yaml
-from config.loader import load_experiment_config, load_all_configs
+from common.shared.yaml_utils import load_yaml
+from infrastructure.config.loader import load_experiment_config, load_all_configs
 
 
 @pytest.fixture

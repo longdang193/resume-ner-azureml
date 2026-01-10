@@ -14,15 +14,15 @@ from unittest.mock import Mock, patch, MagicMock
 from types import SimpleNamespace
 import json
 
-from config.training import (
+from infrastructure.config.training import (
     _resolve_checkpoint,
     _resolve_variant,
     _resolve_seed,
     load_final_training_config,
 )
-from naming import create_naming_context
-from paths import build_output_path
-from shared.platform_detection import detect_platform
+from infrastructure.naming import create_naming_context
+from infrastructure.paths import build_output_path
+from common.shared.platform_detection import detect_platform
 
 
 @pytest.fixture
@@ -404,7 +404,7 @@ class TestEarlyStopping:
 
     def test_early_stopping_enabled_override(self, tmp_path, tmp_config_dir, monkeypatch):
         """Test that training.early_stopping.enabled override is applied."""
-        from shared.yaml_utils import load_yaml
+        from common.shared.yaml_utils import load_yaml
         
         # Create final_training.yaml with early stopping override
         final_training_yaml = tmp_config_dir / "final_training.yaml"
@@ -490,7 +490,7 @@ training:
 
     def test_early_stopping_patience_override(self, tmp_path, tmp_config_dir, monkeypatch):
         """Test that training.early_stopping.patience override is applied."""
-        from shared.yaml_utils import load_yaml
+        from common.shared.yaml_utils import load_yaml
         
         final_training_yaml = tmp_config_dir / "final_training.yaml"
         final_training_yaml.write_text("""

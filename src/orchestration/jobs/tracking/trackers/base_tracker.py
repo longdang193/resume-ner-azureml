@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import mlflow
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -33,7 +33,7 @@ class BaseTracker:
                 logger.debug(
                     f"Using existing Azure ML tracking URI: {current_tracking_uri[:50]}...")
                 # Use setup_mlflow_cross_platform for consistency (it will use existing tracking URI)
-                from shared.mlflow_setup import setup_mlflow_cross_platform
+                from common.shared.mlflow_setup import setup_mlflow_cross_platform
                 setup_mlflow_cross_platform(
                     experiment_name=self.experiment_name,
                     ml_client=None,  # Tracking URI already set, will use it
@@ -41,7 +41,7 @@ class BaseTracker:
                 )
             else:
                 # No Azure ML tracking set, use cross-platform setup
-                from shared.mlflow_setup import setup_mlflow_cross_platform
+                from common.shared.mlflow_setup import setup_mlflow_cross_platform
                 setup_mlflow_cross_platform(
                     experiment_name=self.experiment_name,
                     ml_client=None,  # Will use local tracking or env vars

@@ -5,7 +5,7 @@ All imports from this module are deprecated.
 """
 
 import warnings
-from metadata.index import (
+from infrastructure.metadata.index import (
     get_index_file_path,
     update_index,
     find_by_spec_fp,

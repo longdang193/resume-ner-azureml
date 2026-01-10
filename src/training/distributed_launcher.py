@@ -8,7 +8,7 @@ from pathlib import Path
 from training.config import build_training_config, resolve_distributed_config
 from training.distributed import detect_hardware, should_use_ddp
 from training.orchestrator import run_training
-from shared.argument_parsing import validate_config_dir
+from common.shared.argument_parsing import validate_config_dir
 
 
 def _ddp_worker(local_rank: int, world_size: int, args: argparse.Namespace) -> None:

@@ -29,7 +29,7 @@ script. It defines all command-line arguments needed for model conversion to ONN
 
 import argparse
 
-from shared.argument_parsing import (
+from common.shared.argument_parsing import (
     add_config_dir_argument,
     add_backbone_argument,
 )

@@ -13,7 +13,7 @@ import os
 import re
 
 import mlflow
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 
 from orchestration.jobs.tracking.mlflow_types import RunHandle
 from orchestration.jobs.tracking.mlflow_naming import build_mlflow_tags, build_mlflow_run_key, build_mlflow_run_key_hash
@@ -21,7 +21,7 @@ from orchestration.jobs.tracking.mlflow_index import update_mlflow_index
 from orchestration.jobs.tracking.utils.mlflow_utils import retry_with_backoff
 # Lazy import to avoid pytest collection issues
 try:
-    from tracking.mlflow import get_mlflow_run_url
+    from infrastructure.tracking.mlflow import get_mlflow_run_url
 except ImportError:
     # During pytest collection, path might not be set up yet
     get_mlflow_run_url = None
@@ -215,7 +215,7 @@ class MLflowConversionTracker(BaseTracker):
                 max_retries = 3
                 retry_delay = 2
 
-                from tracking.mlflow import log_artifact_safe
+                from infrastructure.tracking.mlflow import log_artifact_safe
                 log_artifact_safe(
                     local_path=onnx_model_path,
                             artifact_path=artifact_name,
@@ -231,7 +231,7 @@ class MLflowConversionTracker(BaseTracker):
                 max_retries = 3
                 retry_delay = 2
 
-                from tracking.mlflow import log_artifact_safe
+                from infrastructure.tracking.mlflow import log_artifact_safe
                 log_artifact_safe(
                     local_path=conversion_log_path,
                             artifact_path="conversion_log.txt",

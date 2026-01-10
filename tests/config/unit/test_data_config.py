@@ -17,10 +17,10 @@ import pytest
 from pathlib import Path
 from typing import Dict, Any, List
 
-from shared.yaml_utils import load_yaml
-from shared.yaml_utils import load_yaml
-from config.loader import load_experiment_config, load_all_configs
-from training.data import build_label_list
+from common.shared.yaml_utils import load_yaml
+from common.shared.yaml_utils import load_yaml
+from infrastructure.config.loader import load_experiment_config, load_all_configs
+from data.loaders import build_label_list
 
 
 @pytest.fixture

@@ -29,7 +29,7 @@ lifecycle:
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 
 from .disk_loader import load_benchmark_speed_score, load_best_trial_from_disk
 from orchestration.jobs.errors import SelectionError

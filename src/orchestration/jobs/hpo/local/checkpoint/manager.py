@@ -28,7 +28,7 @@ lifecycle:
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from shared.platform_detection import detect_platform, resolve_platform_checkpoint_path
+from common.shared.platform_detection import detect_platform, resolve_platform_checkpoint_path
 
 
 def resolve_storage_path(

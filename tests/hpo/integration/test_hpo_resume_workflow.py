@@ -14,7 +14,7 @@ except ImportError:
 
 from hpo import run_local_hpo_sweep
 from hpo.core.study import StudyManager
-from constants import METRICS_FILENAME
+from common.constants import METRICS_FILENAME
 
 
 class TestHPOResumeWorkflow:

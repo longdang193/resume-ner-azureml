@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import mlflow
-from shared.logging_utils import get_logger
+from common.shared.logging_utils import get_logger
 # Tag key imports moved to local scope where needed
 
 logger = get_logger(__name__)
@@ -136,12 +136,12 @@ def cleanup_interrupted_runs(
         client = MlflowClient()
 
         # Get current environment for filtering
-        from shared.platform_detection import detect_platform
+        from common.shared.platform_detection import detect_platform
 
         current_env = detect_platform()
 
         # Get run_key_hash from context for tag-based search
-        from tracking.mlflow.naming import (
+        from infrastructure.tracking.mlflow.naming import (
             build_mlflow_run_key_hash,
             build_mlflow_run_key,
         )
@@ -150,7 +150,7 @@ def cleanup_interrupted_runs(
         run_key_hash = build_mlflow_run_key_hash(run_key) if run_key else None
 
         # Load naming config for project name comparison
-        from tracking.mlflow.config_loader import get_naming_config
+        from infrastructure.tracking.mlflow.config_loader import get_naming_config
 
         config_dir = output_dir.parent.parent / "config" if output_dir else None
         naming_config = get_naming_config(config_dir)
@@ -407,7 +407,7 @@ def cleanup_interrupted_runs(
                 )
 
                 try:
-                    from naming.mlflow.tag_keys import get_interrupted
+                    from infrastructure.naming.mlflow.tag_keys import get_interrupted
                     interrupted_tag = get_interrupted(None)
                     client.set_tag(run_id_to_mark, interrupted_tag, "true")
                     total_tagged_parents += 1
@@ -457,7 +457,7 @@ def cleanup_interrupted_runs(
                             f"(name: {child_name}, status: {child_status})"
                         )
                         try:
-                            from naming.mlflow.tag_keys import get_interrupted
+                            from infrastructure.naming.mlflow.tag_keys import get_interrupted
                             interrupted_tag = get_interrupted(None)
                             client.set_tag(child_run_id, interrupted_tag, "true")
                             tagged_children += 1
@@ -510,7 +510,7 @@ def cleanup_interrupted_runs(
                     f"(name: {child_name}, parent_id: {parent_id[:12] if parent_id else 'None'}...)"
                 )
                 try:
-                    from naming.mlflow.tag_keys import get_interrupted
+                    from infrastructure.naming.mlflow.tag_keys import get_interrupted
                     interrupted_tag = get_interrupted(None)
                     client.set_tag(child_run_id, interrupted_tag, "true")
                     total_tagged_orphaned += 1

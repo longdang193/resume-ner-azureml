@@ -2,11 +2,11 @@
 
 import pytest
 from pathlib import Path
-from naming import (
+from infrastructure.naming import (
     NamingContext,
     create_naming_context,
 )
-from paths import build_output_path
+from infrastructure.paths import build_output_path
 from orchestration.naming_centralized import build_parent_training_id
 
 
@@ -194,7 +194,7 @@ class TestRunNameGeneration:
 
     def test_hpo_trial_run_name(self, tmp_path):
         """Test HPO trial run name generation."""
-        from naming.mlflow.run_names import build_mlflow_run_name
+        from infrastructure.naming.mlflow.run_names import build_mlflow_run_name
         
         # Create minimal config
         config_dir = tmp_path / "config"
@@ -239,7 +239,7 @@ run_names:
 
     def test_hpo_trial_fold_run_name(self, tmp_path):
         """Test HPO trial fold run name generation."""
-        from naming.mlflow.run_names import build_mlflow_run_name
+        from infrastructure.naming.mlflow.run_names import build_mlflow_run_name
         
         # Create minimal config
         config_dir = tmp_path / "config"
@@ -285,7 +285,7 @@ run_names:
 
     def test_hpo_refit_run_name(self, tmp_path):
         """Test HPO refit run name generation."""
-        from naming.mlflow.run_names import build_mlflow_run_name
+        from infrastructure.naming.mlflow.run_names import build_mlflow_run_name
         
         # Create minimal config
         config_dir = tmp_path / "config"
@@ -334,7 +334,7 @@ run_names:
 
     def test_hpo_sweep_run_name(self, tmp_path):
         """Test HPO sweep/study parent run name generation."""
-        from naming.mlflow.run_names import build_mlflow_run_name
+        from infrastructure.naming.mlflow.run_names import build_mlflow_run_name
         
         # Create minimal config
         config_dir = tmp_path / "config"
@@ -375,7 +375,7 @@ run_names:
 
     def test_run_name_max_length(self, tmp_path):
         """Test that run names respect max_length=256."""
-        from naming.mlflow.run_names import build_mlflow_run_name
+        from infrastructure.naming.mlflow.run_names import build_mlflow_run_name
         
         config_dir = tmp_path / "config"
         config_dir.mkdir()
@@ -405,7 +405,7 @@ run_names:
 
     def test_run_name_forbidden_chars_removed(self, tmp_path):
         """Test that forbidden chars are removed from run names."""
-        from naming.mlflow.run_names import build_mlflow_run_name
+        from infrastructure.naming.mlflow.run_names import build_mlflow_run_name
         
         config_dir = tmp_path / "config"
         config_dir.mkdir()

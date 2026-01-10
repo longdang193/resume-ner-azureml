@@ -37,8 +37,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import mlflow
-from paths import find_project_root
-from shared.logging_utils import get_logger
+from infrastructure.paths import find_project_root
+from common.shared.logging_utils import get_logger
 from training.execution import (
     FoldConfig,
     MLflowConfig,

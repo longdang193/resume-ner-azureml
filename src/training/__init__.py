@@ -2,7 +2,7 @@
 
 from .config import build_training_config
 # Import build_label_list separately since it doesn't require torch
-from .data import build_label_list
+from data.loaders import build_label_list
 
 # Lazy imports for functions that require torch
 # These will be imported on-demand to avoid requiring torch at module level
@@ -28,16 +28,16 @@ __all__ = [
 def __getattr__(name: str):
     """Lazy import for training functions that require torch."""
     if name == "load_dataset":
-        from .data import load_dataset
+        from data.loaders import load_dataset
         return load_dataset
     elif name == "ResumeNERDataset":
-        from .data import ResumeNERDataset
+        from data.loaders import ResumeNERDataset
         return ResumeNERDataset
     elif name == "split_train_test":
-        from .data import split_train_test
+        from data.loaders import split_train_test
         return split_train_test
     elif name == "save_split_files":
-        from .data import save_split_files
+        from data.loaders import save_split_files
         return save_split_files
     elif name == "create_model_and_tokenizer":
         from .model import create_model_and_tokenizer

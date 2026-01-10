@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from shared.yaml_utils import load_yaml
-from shared.logging_utils import get_logger
+from common.shared.yaml_utils import load_yaml
+from common.shared.logging_utils import get_logger
 
 logger = get_logger(__name__)
 
