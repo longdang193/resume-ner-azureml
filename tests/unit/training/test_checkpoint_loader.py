@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 import pytest
 
-from training.checkpoint_loader import resolve_checkpoint_path, validate_checkpoint
+from training.checkpoint_loader import resolve_training_checkpoint_path, validate_checkpoint
 
 
 class TestValidateCheckpoint:
@@ -69,7 +69,7 @@ class TestResolveCheckpointPath:
         monkeypatch.setenv("CHECKPOINT_PATH", str(checkpoint_dir))
         
         config = {"training": {}}
-        result = resolve_checkpoint_path(config)
+        result = resolve_training_checkpoint_path(config)
         
         assert result == checkpoint_dir.resolve()
     
@@ -89,7 +89,7 @@ class TestResolveCheckpointPath:
             "_config_dir": tmp_path,
         }
         
-        result = resolve_checkpoint_path(config)
+        result = resolve_training_checkpoint_path(config)
         
         assert result == checkpoint_dir.resolve()
     
@@ -108,7 +108,7 @@ class TestResolveCheckpointPath:
             json.dump({"output_dir": str(output_dir)}, f)
         
         config = {"training": {}}
-        result = resolve_checkpoint_path(
+        result = resolve_training_checkpoint_path(
             config,
             previous_cache_path=cache_file
         )
@@ -135,7 +135,7 @@ class TestResolveCheckpointPath:
             "_config_dir": tmp_path,
         }
         
-        result = resolve_checkpoint_path(
+        result = resolve_training_checkpoint_path(
             config,
             backbone=backbone,
             run_id=run_id
@@ -158,14 +158,14 @@ class TestResolveCheckpointPath:
             "_config_dir": tmp_path,
         }
         
-        result = resolve_checkpoint_path(config)
+        result = resolve_training_checkpoint_path(config)
         
         assert result is None
     
     def test_resolve_none_when_not_configured(self):
         """Test returns None when no checkpoint is configured."""
         config = {"training": {}}
-        result = resolve_checkpoint_path(config)
+        result = resolve_training_checkpoint_path(config)
         
         assert result is None
     
@@ -192,7 +192,7 @@ class TestResolveCheckpointPath:
             "_config_dir": tmp_path,
         }
         
-        result = resolve_checkpoint_path(config)
+        result = resolve_training_checkpoint_path(config)
         
         assert result == env_checkpoint.resolve()
 

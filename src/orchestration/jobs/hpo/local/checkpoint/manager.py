@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from shared.platform_detection import detect_platform, resolve_checkpoint_path
+from shared.platform_detection import detect_platform, resolve_platform_checkpoint_path
 
 
 def resolve_storage_path(
@@ -45,7 +45,7 @@ def resolve_storage_path(
 
     # Resolve with platform-specific optimizations
     platform = detect_platform()
-    storage_path = resolve_checkpoint_path(output_dir, storage_path_str)
+    storage_path = resolve_platform_checkpoint_path(output_dir, storage_path_str)
 
     # Ensure parent directory exists (only if create_dirs is True)
     if create_dirs:

@@ -41,7 +41,7 @@ def backup_hpo_study_to_drive(
     if study_name_template:
         study_name = study_name_template.replace("{backbone}", backbone)
 
-    # Get the actual storage path (may be in Drive due to resolve_checkpoint_path)
+    # Get the actual storage path (may be in Drive due to resolve_platform_checkpoint_path)
     from orchestration.jobs.hpo.local.checkpoint.manager import resolve_storage_path
 
     actual_storage_path = resolve_storage_path(

@@ -5,13 +5,13 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock, call
 
-from orchestration.benchmark_utils import run_benchmarking
+from benchmarking.utils import run_benchmarking
 
 
 class TestBenchmarkUtilsConfigUsage:
     """Test that run_benchmarking() uses config options correctly."""
 
-    @patch("orchestration.benchmark_utils.subprocess.run")
+    @patch("benchmarking.utils.subprocess.run")
     def test_run_benchmarking_uses_batch_sizes(
         self,
         mock_subprocess,
@@ -67,7 +67,7 @@ class TestBenchmarkUtilsConfigUsage:
         actual_batch_sizes = [int(arg) for arg in batch_size_values[:next_flag_idx]]
         assert actual_batch_sizes == batch_sizes
 
-    @patch("orchestration.benchmark_utils.subprocess.run")
+    @patch("benchmarking.utils.subprocess.run")
     def test_run_benchmarking_uses_iterations(
         self,
         mock_subprocess,
@@ -114,7 +114,7 @@ class TestBenchmarkUtilsConfigUsage:
         iterations_value = int(call_args[iterations_idx + 1])
         assert iterations_value == iterations
 
-    @patch("orchestration.benchmark_utils.subprocess.run")
+    @patch("benchmarking.utils.subprocess.run")
     def test_run_benchmarking_uses_warmup_iterations(
         self,
         mock_subprocess,
@@ -161,7 +161,7 @@ class TestBenchmarkUtilsConfigUsage:
         warmup_value = int(call_args[warmup_idx + 1])
         assert warmup_value == warmup
 
-    @patch("orchestration.benchmark_utils.subprocess.run")
+    @patch("benchmarking.utils.subprocess.run")
     def test_run_benchmarking_uses_max_length(
         self,
         mock_subprocess,
@@ -208,7 +208,7 @@ class TestBenchmarkUtilsConfigUsage:
         max_length_value = int(call_args[max_length_idx + 1])
         assert max_length_value == max_length
 
-    @patch("orchestration.benchmark_utils.subprocess.run")
+    @patch("benchmarking.utils.subprocess.run")
     def test_run_benchmarking_uses_device_when_provided(
         self,
         mock_subprocess,
@@ -256,7 +256,7 @@ class TestBenchmarkUtilsConfigUsage:
         device_value = call_args[device_idx + 1]
         assert device_value == device
 
-    @patch("orchestration.benchmark_utils.subprocess.run")
+    @patch("benchmarking.utils.subprocess.run")
     def test_run_benchmarking_skips_device_when_null(
         self,
         mock_subprocess,
@@ -298,7 +298,7 @@ class TestBenchmarkUtilsConfigUsage:
         
         assert "--device" not in call_args
 
-    @patch("orchestration.benchmark_utils.subprocess.run")
+    @patch("benchmarking.utils.subprocess.run")
     def test_run_benchmarking_uses_output_path(
         self,
         mock_subprocess,
@@ -345,7 +345,7 @@ class TestBenchmarkUtilsConfigUsage:
         output_value = call_args[output_idx + 1]
         assert Path(output_value).name == filename
 
-    @patch("orchestration.benchmark_utils.subprocess.run")
+    @patch("benchmarking.utils.subprocess.run")
     def test_run_benchmarking_all_config_options_together(
         self,
         mock_subprocess,

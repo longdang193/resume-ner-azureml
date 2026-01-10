@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from orchestration.jobs.conversion.executor import execute_conversion
+from conversion.orchestration import execute_conversion
 
 __all__ = [
     "execute_conversion",

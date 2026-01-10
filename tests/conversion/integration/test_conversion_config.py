@@ -4,7 +4,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from conversion.executor import execute_conversion
+from conversion.orchestration import execute_conversion
 from config.conversion import load_conversion_config
 from config.loader import ExperimentConfig
 
@@ -12,9 +12,9 @@ from config.loader import ExperimentConfig
 class TestConversionConfig:
     """Test conversion logic using config options."""
 
-    @patch("orchestration.jobs.conversion.executor.subprocess.Popen")
-    @patch("orchestration.jobs.conversion.executor.build_output_path")
-    @patch("orchestration.jobs.conversion.executor._find_onnx_model")
+    @patch("conversion.orchestration.subprocess.Popen")
+    @patch("conversion.orchestration.build_output_path")
+    @patch("conversion.orchestration._find_onnx_model")
     def test_opset_version_passed_to_subprocess(
         self,
         mock_find_onnx,
@@ -42,16 +42,16 @@ class TestConversionConfig:
         conversion_config = resolved_conversion_config.copy()
         conversion_config["onnx"]["opset_version"] = 19
         
-        with patch("orchestration.jobs.conversion.executor.detect_platform") as mock_detect, \
-             patch("orchestration.jobs.conversion.executor.create_naming_context") as mock_create_context, \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_run_name") as mock_build_name, \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_tags") as mock_build_tags, \
-             patch("orchestration.jobs.conversion.executor.mlflow") as mock_mlflow, \
-             patch("orchestration.jobs.conversion.executor.MlflowClient") as mock_client_class, \
-             patch("orchestration.jobs.conversion.executor.update_mlflow_index"), \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_run_key"), \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_run_key_hash"), \
-             patch("orchestration.jobs.conversion.executor.load_conversion_config") as mock_load_config:
+        with patch("conversion.orchestration.detect_platform") as mock_detect, \
+             patch("conversion.orchestration.create_naming_context") as mock_create_context, \
+             patch("conversion.orchestration.build_mlflow_run_name") as mock_build_name, \
+             patch("conversion.orchestration.build_mlflow_tags") as mock_build_tags, \
+             patch("conversion.orchestration.mlflow") as mock_mlflow, \
+             patch("conversion.orchestration.MlflowClient") as mock_client_class, \
+             patch("conversion.orchestration.update_mlflow_index"), \
+             patch("conversion.orchestration.build_mlflow_run_key"), \
+             patch("conversion.orchestration.build_mlflow_run_key_hash"), \
+             patch("conversion.orchestration.load_conversion_config") as mock_load_config:
             
             # Setup mocks
             mock_detect.return_value = "local"
@@ -93,9 +93,9 @@ class TestConversionConfig:
             opset_idx = call_args.index("--opset-version")
             assert call_args[opset_idx + 1] == "19"
 
-    @patch("orchestration.jobs.conversion.executor.subprocess.Popen")
-    @patch("orchestration.jobs.conversion.executor.build_output_path")
-    @patch("orchestration.jobs.conversion.executor._find_onnx_model")
+    @patch("conversion.orchestration.subprocess.Popen")
+    @patch("conversion.orchestration.build_output_path")
+    @patch("conversion.orchestration._find_onnx_model")
     def test_quantization_int8_adds_flag(
         self,
         mock_find_onnx,
@@ -123,16 +123,16 @@ class TestConversionConfig:
         conversion_config = resolved_conversion_config.copy()
         conversion_config["onnx"]["quantization"] = "int8"
         
-        with patch("orchestration.jobs.conversion.executor.detect_platform") as mock_detect, \
-             patch("orchestration.jobs.conversion.executor.create_naming_context") as mock_create_context, \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_run_name") as mock_build_name, \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_tags") as mock_build_tags, \
-             patch("orchestration.jobs.conversion.executor.mlflow") as mock_mlflow, \
-             patch("orchestration.jobs.conversion.executor.MlflowClient") as mock_client_class, \
-             patch("orchestration.jobs.conversion.executor.update_mlflow_index"), \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_run_key"), \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_run_key_hash"), \
-             patch("orchestration.jobs.conversion.executor.load_conversion_config") as mock_load_config:
+        with patch("conversion.orchestration.detect_platform") as mock_detect, \
+             patch("conversion.orchestration.create_naming_context") as mock_create_context, \
+             patch("conversion.orchestration.build_mlflow_run_name") as mock_build_name, \
+             patch("conversion.orchestration.build_mlflow_tags") as mock_build_tags, \
+             patch("conversion.orchestration.mlflow") as mock_mlflow, \
+             patch("conversion.orchestration.MlflowClient") as mock_client_class, \
+             patch("conversion.orchestration.update_mlflow_index"), \
+             patch("conversion.orchestration.build_mlflow_run_key"), \
+             patch("conversion.orchestration.build_mlflow_run_key_hash"), \
+             patch("conversion.orchestration.load_conversion_config") as mock_load_config:
             
             mock_detect.return_value = "local"
             mock_create_context.return_value = Mock()
@@ -171,9 +171,9 @@ class TestConversionConfig:
             call_args = mock_popen.call_args[0][0]
             assert "--quantize-int8" in call_args
 
-    @patch("orchestration.jobs.conversion.executor.subprocess.Popen")
-    @patch("orchestration.jobs.conversion.executor.build_output_path")
-    @patch("orchestration.jobs.conversion.executor._find_onnx_model")
+    @patch("conversion.orchestration.subprocess.Popen")
+    @patch("conversion.orchestration.build_output_path")
+    @patch("conversion.orchestration._find_onnx_model")
     def test_quantization_none_no_flag(
         self,
         mock_find_onnx,
@@ -201,16 +201,16 @@ class TestConversionConfig:
         conversion_config = resolved_conversion_config.copy()
         conversion_config["onnx"]["quantization"] = "none"
         
-        with patch("orchestration.jobs.conversion.executor.detect_platform") as mock_detect, \
-             patch("orchestration.jobs.conversion.executor.create_naming_context") as mock_create_context, \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_run_name") as mock_build_name, \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_tags") as mock_build_tags, \
-             patch("orchestration.jobs.conversion.executor.mlflow") as mock_mlflow, \
-             patch("orchestration.jobs.conversion.executor.MlflowClient") as mock_client_class, \
-             patch("orchestration.jobs.conversion.executor.update_mlflow_index"), \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_run_key"), \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_run_key_hash"), \
-             patch("orchestration.jobs.conversion.executor.load_conversion_config") as mock_load_config:
+        with patch("conversion.orchestration.detect_platform") as mock_detect, \
+             patch("conversion.orchestration.create_naming_context") as mock_create_context, \
+             patch("conversion.orchestration.build_mlflow_run_name") as mock_build_name, \
+             patch("conversion.orchestration.build_mlflow_tags") as mock_build_tags, \
+             patch("conversion.orchestration.mlflow") as mock_mlflow, \
+             patch("conversion.orchestration.MlflowClient") as mock_client_class, \
+             patch("conversion.orchestration.update_mlflow_index"), \
+             patch("conversion.orchestration.build_mlflow_run_key"), \
+             patch("conversion.orchestration.build_mlflow_run_key_hash"), \
+             patch("conversion.orchestration.load_conversion_config") as mock_load_config:
             
             mock_detect.return_value = "local"
             mock_create_context.return_value = Mock()
@@ -249,9 +249,9 @@ class TestConversionConfig:
             call_args = mock_popen.call_args[0][0]
             assert "--quantize-int8" not in call_args
 
-    @patch("orchestration.jobs.conversion.executor.subprocess.Popen")
-    @patch("orchestration.jobs.conversion.executor.build_output_path")
-    @patch("orchestration.jobs.conversion.executor._find_onnx_model")
+    @patch("conversion.orchestration.subprocess.Popen")
+    @patch("conversion.orchestration.build_output_path")
+    @patch("conversion.orchestration._find_onnx_model")
     def test_run_smoke_test_true_adds_flag(
         self,
         mock_find_onnx,
@@ -279,16 +279,16 @@ class TestConversionConfig:
         conversion_config = resolved_conversion_config.copy()
         conversion_config["onnx"]["run_smoke_test"] = True
         
-        with patch("orchestration.jobs.conversion.executor.detect_platform") as mock_detect, \
-             patch("orchestration.jobs.conversion.executor.create_naming_context") as mock_create_context, \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_run_name") as mock_build_name, \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_tags") as mock_build_tags, \
-             patch("orchestration.jobs.conversion.executor.mlflow") as mock_mlflow, \
-             patch("orchestration.jobs.conversion.executor.MlflowClient") as mock_client_class, \
-             patch("orchestration.jobs.conversion.executor.update_mlflow_index"), \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_run_key"), \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_run_key_hash"), \
-             patch("orchestration.jobs.conversion.executor.load_conversion_config") as mock_load_config:
+        with patch("conversion.orchestration.detect_platform") as mock_detect, \
+             patch("conversion.orchestration.create_naming_context") as mock_create_context, \
+             patch("conversion.orchestration.build_mlflow_run_name") as mock_build_name, \
+             patch("conversion.orchestration.build_mlflow_tags") as mock_build_tags, \
+             patch("conversion.orchestration.mlflow") as mock_mlflow, \
+             patch("conversion.orchestration.MlflowClient") as mock_client_class, \
+             patch("conversion.orchestration.update_mlflow_index"), \
+             patch("conversion.orchestration.build_mlflow_run_key"), \
+             patch("conversion.orchestration.build_mlflow_run_key_hash"), \
+             patch("conversion.orchestration.load_conversion_config") as mock_load_config:
             
             mock_detect.return_value = "local"
             mock_create_context.return_value = Mock()
@@ -327,9 +327,9 @@ class TestConversionConfig:
             call_args = mock_popen.call_args[0][0]
             assert "--run-smoke-test" in call_args
 
-    @patch("orchestration.jobs.conversion.executor.subprocess.Popen")
-    @patch("orchestration.jobs.conversion.executor.build_output_path")
-    @patch("orchestration.jobs.conversion.executor._find_onnx_model")
+    @patch("conversion.orchestration.subprocess.Popen")
+    @patch("conversion.orchestration.build_output_path")
+    @patch("conversion.orchestration._find_onnx_model")
     def test_run_smoke_test_false_no_flag(
         self,
         mock_find_onnx,
@@ -357,16 +357,16 @@ class TestConversionConfig:
         conversion_config = resolved_conversion_config.copy()
         conversion_config["onnx"]["run_smoke_test"] = False
         
-        with patch("orchestration.jobs.conversion.executor.detect_platform") as mock_detect, \
-             patch("orchestration.jobs.conversion.executor.create_naming_context") as mock_create_context, \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_run_name") as mock_build_name, \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_tags") as mock_build_tags, \
-             patch("orchestration.jobs.conversion.executor.mlflow") as mock_mlflow, \
-             patch("orchestration.jobs.conversion.executor.MlflowClient") as mock_client_class, \
-             patch("orchestration.jobs.conversion.executor.update_mlflow_index"), \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_run_key"), \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_run_key_hash"), \
-             patch("orchestration.jobs.conversion.executor.load_conversion_config") as mock_load_config:
+        with patch("conversion.orchestration.detect_platform") as mock_detect, \
+             patch("conversion.orchestration.create_naming_context") as mock_create_context, \
+             patch("conversion.orchestration.build_mlflow_run_name") as mock_build_name, \
+             patch("conversion.orchestration.build_mlflow_tags") as mock_build_tags, \
+             patch("conversion.orchestration.mlflow") as mock_mlflow, \
+             patch("conversion.orchestration.MlflowClient") as mock_client_class, \
+             patch("conversion.orchestration.update_mlflow_index"), \
+             patch("conversion.orchestration.build_mlflow_run_key"), \
+             patch("conversion.orchestration.build_mlflow_run_key_hash"), \
+             patch("conversion.orchestration.load_conversion_config") as mock_load_config:
             
             mock_detect.return_value = "local"
             mock_create_context.return_value = Mock()
@@ -405,8 +405,8 @@ class TestConversionConfig:
             call_args = mock_popen.call_args[0][0]
             assert "--run-smoke-test" not in call_args
 
-    @patch("orchestration.jobs.conversion.executor.subprocess.Popen")
-    @patch("orchestration.jobs.conversion.executor.build_output_path")
+    @patch("conversion.orchestration.subprocess.Popen")
+    @patch("conversion.orchestration.build_output_path")
     def test_filename_pattern_used_in_find_onnx_model(
         self,
         mock_build_path,
@@ -433,17 +433,17 @@ class TestConversionConfig:
         conversion_config = resolved_conversion_config.copy()
         conversion_config["output"]["filename_pattern"] = "custom_{quantization}_model.onnx"
         
-        with patch("orchestration.jobs.conversion.executor.detect_platform") as mock_detect, \
-             patch("orchestration.jobs.conversion.executor.create_naming_context") as mock_create_context, \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_run_name") as mock_build_name, \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_tags") as mock_build_tags, \
-             patch("orchestration.jobs.conversion.executor.mlflow") as mock_mlflow, \
-             patch("orchestration.jobs.conversion.executor.MlflowClient") as mock_client_class, \
-             patch("orchestration.jobs.conversion.executor.update_mlflow_index"), \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_run_key"), \
-             patch("orchestration.jobs.conversion.executor.build_mlflow_run_key_hash"), \
-             patch("orchestration.jobs.conversion.executor._find_onnx_model") as mock_find_onnx, \
-             patch("orchestration.jobs.conversion.executor.load_conversion_config") as mock_load_config:
+        with patch("conversion.orchestration.detect_platform") as mock_detect, \
+             patch("conversion.orchestration.create_naming_context") as mock_create_context, \
+             patch("conversion.orchestration.build_mlflow_run_name") as mock_build_name, \
+             patch("conversion.orchestration.build_mlflow_tags") as mock_build_tags, \
+             patch("conversion.orchestration.mlflow") as mock_mlflow, \
+             patch("conversion.orchestration.MlflowClient") as mock_client_class, \
+             patch("conversion.orchestration.update_mlflow_index"), \
+             patch("conversion.orchestration.build_mlflow_run_key"), \
+             patch("conversion.orchestration.build_mlflow_run_key_hash"), \
+             patch("conversion.orchestration._find_onnx_model") as mock_find_onnx, \
+             patch("conversion.orchestration.load_conversion_config") as mock_load_config:
             
             mock_detect.return_value = "local"
             mock_create_context.return_value = Mock()
@@ -480,6 +480,8 @@ class TestConversionConfig:
             
             # Verify _find_onnx_model was called with filename_pattern
             assert mock_find_onnx.called
-            call_kwargs = mock_find_onnx.call_args[1]  # Keyword arguments
-            assert call_kwargs["filename_pattern"] == "custom_{quantization}_model.onnx"
+            # _find_onnx_model is called with positional args: (output_dir, quantization, filename_pattern)
+            call_args = mock_find_onnx.call_args[0]  # Positional arguments
+            assert len(call_args) >= 3
+            assert call_args[2] == "custom_{quantization}_model.onnx"  # filename_pattern is 3rd arg
 

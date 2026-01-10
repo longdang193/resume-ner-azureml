@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-import os
-import subprocess
-import sys
 from pathlib import Path
 from typing import Any, Dict
 
 import mlflow
-from mlflow.tracking import MlflowClient
+from training.execution import (
+    MLflowConfig,
+    TrainingOptions,
+    build_training_command,
+    create_training_mlflow_run,
+    execute_training_subprocess,
+    setup_training_environment,
+)
 
 from config.loader import ExperimentConfig, load_all_configs
 from azureml.data_assets import resolve_dataset_path
@@ -267,60 +271,42 @@ def execute_final_training(
             f"  3. That the dataset directory exists at the specified path"
         )
 
-    # Build training command arguments
-    training_args = [
-        sys.executable,
-        "-m",
-        "training.train",
-        "--data-asset",
-        str(dataset_local_path),
-        "--config-dir",
-        str(config_dir),
-        "--backbone",
-        final_training_config["backbone"],
-        "--learning-rate",
-        str(final_training_config["learning_rate"]),
-        "--batch-size",
-        str(final_training_config["batch_size"]),
-        "--dropout",
-        str(final_training_config["dropout"]),
-        "--weight-decay",
-        str(final_training_config["weight_decay"]),
-        "--epochs",
-        str(final_training_config["epochs"]),
-        "--random-seed",
-        str(final_training_config["random_seed"]),
-        "--early-stopping-enabled",
-        str(final_training_config.get("early_stopping_enabled", False)).lower(),
-        "--use-combined-data",
-        str(final_training_config.get("use_combined_data", True)).lower(),
-    ]
+    # Build training command arguments using shared infrastructure
+    training_options = TrainingOptions(
+        epochs=final_training_config["epochs"],
+        early_stopping_enabled=final_training_config.get("early_stopping_enabled", False),
+        use_combined_data=final_training_config.get("use_combined_data", True),
+        random_seed=final_training_config["random_seed"],
+    )
+    hyperparameters = {
+        "learning_rate": final_training_config["learning_rate"],
+        "batch_size": final_training_config["batch_size"],
+        "dropout": final_training_config["dropout"],
+        "weight_decay": final_training_config["weight_decay"],
+    }
+    training_args = build_training_command(
+        backbone=final_training_config["backbone"],
+        dataset_path=dataset_local_path,
+        config_dir=config_dir,
+        hyperparameters=hyperparameters,
+        training_options=training_options,
+    )
 
-    # Set up environment variables
-    training_env = os.environ.copy()
-    # Set checkpoint output directory (resolver converts output_name to uppercase)
-    training_env["AZURE_ML_OUTPUT_CHECKPOINT"] = str(final_output_dir)
-
-    # Add src directory to PYTHONPATH
-    src_dir = root_dir / "src"
-    pythonpath = training_env.get("PYTHONPATH", "")
-    if pythonpath:
-        training_env["PYTHONPATH"] = f"{str(src_dir)}{os.pathsep}{pythonpath}"
-    else:
-        training_env["PYTHONPATH"] = str(src_dir)
-
-    # Set MLflow tracking environment
+    # Set up environment variables using shared infrastructure
     mlflow_tracking_uri = mlflow.get_tracking_uri()
-    if mlflow_tracking_uri:
-        training_env["MLFLOW_TRACKING_URI"] = mlflow_tracking_uri
-        mlflow.set_tracking_uri(mlflow_tracking_uri)
-        
-        # Set Azure ML artifact upload timeout if using Azure ML
-        if "azureml" in mlflow_tracking_uri.lower():
-            training_env["AZUREML_ARTIFACTS_DEFAULT_TIMEOUT"] = "600"
-    training_env["MLFLOW_EXPERIMENT_NAME"] = training_experiment_name
+    mlflow_config = MLflowConfig(
+        experiment_name=training_experiment_name,
+        tracking_uri=mlflow_tracking_uri,
+        run_id=None,  # Will be set after run creation
+    )
+    training_env = setup_training_environment(
+        root_dir=root_dir,
+        src_dir=root_dir / "src",
+        output_dir=final_output_dir,
+        mlflow_config=mlflow_config,
+    )
 
-    # Create MLflow run in parent process (no active context)
+    # Create MLflow run in parent process (no active context) using shared infrastructure
     # Build systematic run name
     run_name = build_mlflow_run_name(
         context=training_context,
@@ -328,24 +314,6 @@ def execute_final_training(
         root_dir=root_dir,
         output_dir=final_output_dir,
     )
-
-    # Get or create experiment
-    client = MlflowClient()
-    experiment_id = None
-    try:
-        experiment = client.get_experiment_by_name(training_experiment_name)
-        if experiment is None:
-            experiment_id = client.create_experiment(training_experiment_name)
-        else:
-            experiment_id = experiment.experiment_id
-    except Exception as e:
-        # Fallback: use mlflow API
-        mlflow.set_experiment(training_experiment_name)
-        experiment = mlflow.get_experiment_by_name(training_experiment_name)
-        if experiment is None:
-            raise RuntimeError(
-                f"Could not get or create experiment: {training_experiment_name}") from e
-        experiment_id = experiment.experiment_id
 
     # Build tags using build_mlflow_tags + add training-specific and lineage tags
     tags = build_mlflow_tags(
@@ -406,30 +374,20 @@ def execute_final_training(
     if lineage.get("hpo_sweep_run_id"):
         tags[lineage_hpo_sweep_run_id_tag] = lineage["hpo_sweep_run_id"]
 
-    # Create run WITHOUT starting it (no active context)
+    # Create run WITHOUT starting it (no active context) using shared infrastructure
+    run_id = None
+    experiment_id = None
     try:
-        created_run = client.create_run(
-            experiment_id=experiment_id,
+        run_id, created_run = create_training_mlflow_run(
+            experiment_name=training_experiment_name,
             run_name=run_name,
             tags=tags,
+            root_dir=root_dir,
+            config_dir=config_dir,
+            context=training_context,
+            tracking_uri=mlflow_tracking_uri,
         )
-        run_id = created_run.info.run_id
-
-        # Update local index
-        try:
-            run_key = build_mlflow_run_key(training_context)
-            run_key_hash = build_mlflow_run_key_hash(run_key)
-            update_mlflow_index(
-                root_dir=root_dir,
-                run_key_hash=run_key_hash,
-                run_id=run_id,
-                experiment_id=experiment_id,
-                tracking_uri=mlflow_tracking_uri or mlflow.get_tracking_uri(),
-                config_dir=config_dir,
-            )
-        except Exception as e:
-            print(f"⚠ Could not update MLflow index: {e}")
-
+        experiment_id = created_run.info.experiment_id
         print(f"✓ Created MLflow run: {run_name} ({run_id[:12]}...)")
 
         # Pass run_id to subprocess
@@ -441,68 +399,24 @@ def execute_final_training(
         # Continue without MLflow run (training will still work, just no tracking)
         run_id = None
 
-    # Execute training
+    # Execute training using shared infrastructure
     print("🔄 Running final training...")
-    result = subprocess.run(
-        training_args,
-        cwd=root_dir,
-        env=training_env,
-        capture_output=True,
-        text=True,
-    )
-
-    # Handle subprocess failure - ensure run is marked as FAILED
-    if result.returncode != 0:
-        if run_id:
-            from tracking.mlflow import terminate_run_safe
-            terminate_run_safe(run_id, status="FAILED", check_status=True)
-        raise RuntimeError(
-            f"Final training failed with return code {result.returncode}\n"
-            f"STDOUT: {result.stdout}\n"
-            f"STDERR: {result.stderr}"
+    try:
+        result = execute_training_subprocess(
+            command=training_args,
+            cwd=root_dir,
+            env=training_env,
         )
-    else:
-        # Filter out verbose debug messages from subprocess output
-        if result.stdout:
-            # Filter out "Attempted to log scalar metric" debug messages and their values
-            lines = result.stdout.split("\n")
-            filtered_lines = []
-            skip_next = False
-            for line in lines:
-                if line.strip().startswith("Attempted to log scalar metric"):
-                    skip_next = True  # Skip the value line that follows
-                    continue
-                if skip_next and line.strip() and not line.strip().startswith("["):
-                    # Skip the value line (unless it's a log message starting with [)
-                    skip_next = False
-                    continue
-                skip_next = False
-                filtered_lines.append(line)
-            filtered_stdout = "\n".join(filtered_lines)
-            if filtered_stdout.strip():
-                print(filtered_stdout)
-        if result.stderr:
-            # Filter out "Attempted to log scalar metric" debug messages and their values
-            lines = result.stderr.split("\n")
-            filtered_lines = []
-            skip_next = False
-            for line in lines:
-                if line.strip().startswith("Attempted to log scalar metric"):
-                    skip_next = True  # Skip the value line that follows
-                    continue
-                if skip_next and line.strip() and not line.strip().startswith("["):
-                    # Skip the value line (unless it's a log message starting with [)
-                    skip_next = False
-                    continue
-                skip_next = False
-                filtered_lines.append(line)
-            filtered_stderr = "\n".join(filtered_lines)
-            if filtered_stderr.strip():
-                print(filtered_stderr, file=sys.stderr)
         # Subprocess should have ended the run, but verify it's terminated
         if run_id:
             from tracking.mlflow import ensure_run_terminated
             ensure_run_terminated(run_id, expected_status="FINISHED")
+    except RuntimeError as e:
+        # Handle subprocess failure - ensure run is marked as FAILED
+        if run_id:
+            from tracking.mlflow import terminate_run_safe
+            terminate_run_safe(run_id, status="FAILED", check_status=True)
+        raise
 
     # Find final checkpoint directory
     final_checkpoint_dir = final_output_dir / "checkpoint"

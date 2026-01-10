@@ -33,16 +33,6 @@ class ExperimentConfig:
     naming: Dict[str, Any]
 
 
-def _load_yaml(path: Path) -> Dict[str, Any]:
-    """
-    Load a YAML file from disk.
-
-    Note: kept as a thin wrapper for backwards readability within this module.
-    The underlying implementation is centralized in ``shared.yaml_utils``.
-    """
-    return load_yaml(path)
-
-
 def load_experiment_config(config_root: Path, experiment_name: str) -> ExperimentConfig:
     """
     Resolve an experiment-level YAML into an ``ExperimentConfig``.
@@ -59,7 +49,7 @@ def load_experiment_config(config_root: Path, experiment_name: str) -> Experimen
         An ``ExperimentConfig`` with fully-resolved config paths and metadata.
     """
     experiment_path = config_root / "experiment" / f"{experiment_name}.yaml"
-    raw = _load_yaml(experiment_path)
+    raw = load_yaml(experiment_path)
 
     def resolve(relative: str) -> Path:
         return config_root / relative
@@ -89,16 +79,16 @@ def load_all_configs(exp_cfg: ExperimentConfig) -> Dict[str, Any]:
         ``data``, ``model``, ``train``, ``hpo``, ``env``, ``benchmark``.
     """
     configs = {
-        "data": _load_yaml(exp_cfg.data_config),
-        "model": _load_yaml(exp_cfg.model_config),
-        "train": _load_yaml(exp_cfg.train_config),
-        "hpo": _load_yaml(exp_cfg.hpo_config),
-        "env": _load_yaml(exp_cfg.env_config),
+        "data": load_yaml(exp_cfg.data_config),
+        "model": load_yaml(exp_cfg.model_config),
+        "train": load_yaml(exp_cfg.train_config),
+        "hpo": load_yaml(exp_cfg.hpo_config),
+        "env": load_yaml(exp_cfg.env_config),
     }
     
     # Load benchmark config if it exists
     if exp_cfg.benchmark_config.exists():
-        configs["benchmark"] = _load_yaml(exp_cfg.benchmark_config)
+        configs["benchmark"] = load_yaml(exp_cfg.benchmark_config)
     
     return configs
 

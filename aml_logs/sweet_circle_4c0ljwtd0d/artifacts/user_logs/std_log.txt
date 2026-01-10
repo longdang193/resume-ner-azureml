@@ -1,8 +1,0 @@
-/azureml-envs/azureml_1f436580892771040fea38f34f9600b4/lib/python3.10/site-packages/azureml/core/__init__.py:11: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
-  import pkg_resources
-Traceback (most recent call last):
-  File "/mnt/azureml/cr/j/061495fd51e7404ea968b1356158ce08/exe/wd/train.py", line 130, in <module>
-    main()
-  File "/mnt/azureml/cr/j/061495fd51e7404ea968b1356158ce08/exe/wd/train.py", line 111, in main
-    raise FileNotFoundError(f"Config directory not found: {config_dir}")
-FileNotFoundError: Config directory not found: ../config

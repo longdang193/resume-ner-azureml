@@ -12,25 +12,24 @@ from hpo.execution.local.cv import run_training_trial_with_cv
 class TestTrialExecutionNoCV:
     """Test trial execution without CV (k_fold.enabled=false)."""
 
-    @patch("orchestration.jobs.hpo.local.trial.execution.subprocess.run")
-    @patch("orchestration.jobs.hpo.local.trial.execution.Path.exists")
-    def test_trial_execution_no_cv_creates_single_run(self, mock_exists, mock_subprocess, tmp_path):
+    @patch("hpo.execution.local.trial.execute_training_subprocess")
+    def test_trial_execution_no_cv_creates_single_run(self, mock_execute, tmp_path):
         """Test that trial execution without CV creates single trial run (no fold runs)."""
         # Setup
         config_dir = tmp_path / "config"
         config_dir.mkdir()
+        # Create training module structure for verify_training_environment
+        (tmp_path / "src" / "training").mkdir(parents=True)
+        (tmp_path / "src" / "training" / "__init__.py").touch()
         output_dir = tmp_path / "outputs" / "hpo" / "trial_0"
         output_dir.mkdir(parents=True)
         
-        # Mock Path.exists to return True for training module check
-        mock_exists.return_value = True
-        
-        # Mock subprocess
+        # Mock subprocess execution
         mock_result = Mock()
         mock_result.returncode = 0
         mock_result.stdout = ""
         mock_result.stderr = ""
-        mock_subprocess.return_value = mock_result
+        mock_execute.return_value = mock_result
         
         # Create metrics file
         metrics_file = output_dir / "metrics.json"
@@ -60,23 +59,24 @@ class TestTrialExecutionNoCV:
         
         # Verify metric was returned
         assert metric_value == 0.75
-        assert mock_subprocess.called
+        assert mock_execute.called
 
-    @patch("orchestration.jobs.hpo.local.trial.execution.subprocess.run")
-    @patch("orchestration.jobs.hpo.local.trial.execution.Path.exists")
-    def test_trial_execution_no_cv_output_path(self, mock_exists, mock_subprocess, tmp_path):
+    @patch("hpo.execution.local.trial.execute_training_subprocess")
+    def test_trial_execution_no_cv_output_path(self, mock_execute, tmp_path):
         """Test that trial execution without CV uses correct output path."""
         config_dir = tmp_path / "config"
         config_dir.mkdir()
+        # Create training module structure for verify_training_environment
+        (tmp_path / "src" / "training").mkdir(parents=True)
+        (tmp_path / "src" / "training" / "__init__.py").touch()
         
         # Create v2 path structure
         output_dir = tmp_path / "outputs" / "hpo" / "local" / "distilbert" / "study-abc12345" / "trial-def67890"
         output_dir.mkdir(parents=True)
         
-        mock_exists.return_value = True
         mock_result = Mock()
         mock_result.returncode = 0
-        mock_subprocess.return_value = mock_result
+        mock_execute.return_value = mock_result
         
         metrics_file = output_dir / "metrics.json"
         metrics_file.write_text(json.dumps({"macro-f1": 0.80}))
@@ -100,19 +100,20 @@ class TestTrialExecutionNoCV:
         assert "study-abc12345" in str(output_dir)
         assert "trial-def67890" in str(output_dir)
 
-    @patch("orchestration.jobs.hpo.local.trial.execution.subprocess.run")
-    @patch("orchestration.jobs.hpo.local.trial.execution.Path.exists")
-    def test_trial_execution_no_cv_metrics_file(self, mock_exists, mock_subprocess, tmp_path):
+    @patch("hpo.execution.local.trial.execute_training_subprocess")
+    def test_trial_execution_no_cv_metrics_file(self, mock_execute, tmp_path):
         """Test that metrics.json is read from trial output directory."""
         config_dir = tmp_path / "config"
         config_dir.mkdir()
+        # Create training module structure for verify_training_environment
+        (tmp_path / "src" / "training").mkdir(parents=True)
+        (tmp_path / "src" / "training" / "__init__.py").touch()
         output_dir = tmp_path / "outputs" / "hpo" / "trial_0"
         output_dir.mkdir(parents=True)
         
-        mock_exists.return_value = True
         mock_result = Mock()
         mock_result.returncode = 0
-        mock_subprocess.return_value = mock_result
+        mock_execute.return_value = mock_result
         
         # Create metrics file with multiple metrics
         metrics = {
@@ -144,7 +145,7 @@ class TestTrialExecutionWithCV:
     """Test trial execution with CV (k_fold.enabled=true, n_splits=2)."""
 
     @patch("orchestration.jobs.hpo.local.cv.orchestrator.run_training_trial")
-    @patch("orchestration.jobs.hpo.local.cv.orchestrator.mlflow")
+    @patch("hpo.execution.local.cv.mlflow")
     def test_trial_execution_with_cv_creates_nested_runs(self, mock_mlflow, mock_run_trial, tmp_path):
         """Test that trial execution with CV creates trial run and fold runs."""
         # Setup
@@ -215,7 +216,7 @@ class TestTrialExecutionWithCV:
         assert mock_client.create_run.called
 
     @patch("orchestration.jobs.hpo.local.cv.orchestrator.run_training_trial")
-    @patch("orchestration.jobs.hpo.local.cv.orchestrator.mlflow")
+    @patch("hpo.execution.local.cv.mlflow")
     def test_trial_execution_with_cv_creates_fold_runs(self, mock_mlflow, mock_run_trial, tmp_path):
         """Test that each fold creates a fold-level MLflow run (child of trial run)."""
         config_dir = tmp_path / "config"
@@ -285,7 +286,7 @@ class TestTrialExecutionWithCV:
         assert mock_client.create_run.called
 
     @patch("orchestration.jobs.hpo.local.cv.orchestrator.run_training_trial")
-    @patch("orchestration.jobs.hpo.local.cv.orchestrator.mlflow")
+    @patch("hpo.execution.local.cv.mlflow")
     def test_trial_execution_with_cv_aggregates_metrics(self, mock_mlflow, mock_run_trial, tmp_path):
         """Test that CV trial aggregates metrics across folds (average)."""
         config_dir = tmp_path / "config"
@@ -345,7 +346,7 @@ class TestTrialExecutionWithCV:
         assert fold_metrics == [0.70, 0.85]
 
     @patch("orchestration.jobs.hpo.local.cv.orchestrator.run_training_trial")
-    @patch("orchestration.jobs.hpo.local.cv.orchestrator.mlflow")
+    @patch("hpo.execution.local.cv.mlflow")
     def test_trial_execution_with_cv_output_paths(self, mock_mlflow, mock_run_trial, tmp_path):
         """Test that CV trial creates fold-specific output directories."""
         config_dir = tmp_path / "config"
@@ -423,7 +424,7 @@ class TestTrialExecutionWithCV:
             assert "fold_idx" in call.kwargs or len(call.args) > 0
 
     @patch("orchestration.jobs.hpo.local.cv.orchestrator.run_training_trial")
-    @patch("orchestration.jobs.hpo.local.cv.orchestrator.mlflow")
+    @patch("hpo.execution.local.cv.mlflow")
     def test_trial_execution_with_cv_smoke_yaml_params(self, mock_mlflow, mock_run_trial, tmp_path):
         """Test CV trial execution with smoke.yaml parameters (n_splits=2, random_seed=42)."""
         config_dir = tmp_path / "config"
@@ -487,4 +488,3 @@ class TestTrialExecutionWithCV:
         assert len(fold_metrics) == 2
         assert mock_run_trial.call_count == 2
         assert avg_metric == pytest.approx(0.775)
-

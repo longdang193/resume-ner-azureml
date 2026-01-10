@@ -36,7 +36,7 @@ def validate_checkpoint(checkpoint_path: Path) -> bool:
     return has_config and has_model
 
 
-def resolve_checkpoint_path(
+def resolve_training_checkpoint_path(
     config: Dict[str, Any],
     previous_cache_path: Optional[Path] = None,
     backbone: Optional[str] = None,

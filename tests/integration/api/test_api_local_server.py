@@ -63,6 +63,15 @@ def server_handle(server_manager, onnx_model_path, checkpoint_dir, test_config):
     This fixture starts the server once per test session and stops it
     after all tests complete.
     """
+    # Check if ONNX model exists before starting server
+    onnx_path = Path(onnx_model_path)
+    if not onnx_path.exists():
+        pytest.skip(f"ONNX model not found: {onnx_path}. Skipping API server tests.")
+    
+    checkpoint_path = Path(checkpoint_dir)
+    if not checkpoint_path.exists():
+        pytest.skip(f"Checkpoint directory not found: {checkpoint_path}. Skipping API server tests.")
+    
     server_cfg = test_config["server"]
     host = server_cfg["default_host"]
     port = server_cfg["default_port"]
@@ -77,8 +86,8 @@ def server_handle(server_manager, onnx_model_path, checkpoint_dir, test_config):
             pytest.skip(f"No available port in range {port_range}")
 
     handle = server_manager.start_server(
-        onnx_path=Path(onnx_model_path),
-        checkpoint_dir=Path(checkpoint_dir),
+        onnx_path=onnx_path,
+        checkpoint_dir=checkpoint_path,
         host=host,
         port=port,
         timeout=timeout,
@@ -115,6 +124,15 @@ class TestServerLifecycle:
 
     def test_server_startup_with_valid_model(self, server_manager, onnx_model_path, checkpoint_dir, test_config):
         """Test server starts successfully with valid model paths."""
+        # Check if ONNX model exists
+        onnx_path = Path(onnx_model_path)
+        if not onnx_path.exists():
+            pytest.skip(f"ONNX model not found: {onnx_path}")
+        
+        checkpoint_path = Path(checkpoint_dir)
+        if not checkpoint_path.exists():
+            pytest.skip(f"Checkpoint directory not found: {checkpoint_path}")
+        
         server_cfg = test_config["server"]
         host = server_cfg["default_host"]
         port = server_cfg["default_port"]

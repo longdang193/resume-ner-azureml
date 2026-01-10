@@ -55,7 +55,7 @@ except ImportError:
 
 # Conversion job creation - moved to conversion/jobs.py
 try:
-    from conversion.jobs import (
+    from conversion.azureml import (
         get_checkpoint_output_from_training_job,
         create_conversion_job,
         validate_conversion_job,

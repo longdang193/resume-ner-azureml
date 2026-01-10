@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Dict, Any, List
 
 from shared.yaml_utils import load_yaml
-from training.config import load_config_file
+from shared.yaml_utils import load_yaml
 from config.loader import load_experiment_config, load_all_configs
 from training.data import build_label_list
 
@@ -63,7 +63,7 @@ schema:
     entity_density: 0.35
 """)
         
-        config = load_config_file(tmp_config_dir, "data/resume_tiny.yaml")
+        config = load_yaml(tmp_config_dir / "data/resume_tiny.yaml")
         
         assert config["name"] == "resume-ner-data-tiny-short"
         assert config["version"] == "v3"
@@ -91,7 +91,7 @@ class TestDataConfigOptions:
         data_yaml = tmp_config_dir / "data" / "test.yaml"
         data_yaml.write_text("name: test-dataset\n")
         
-        config = load_config_file(tmp_config_dir, "data/test.yaml")
+        config = load_yaml(tmp_config_dir / "data/test.yaml")
         
         assert config["name"] == "test-dataset"
 
@@ -100,7 +100,7 @@ class TestDataConfigOptions:
         data_yaml = tmp_config_dir / "data" / "test.yaml"
         data_yaml.write_text("version: v1\n")
         
-        config = load_config_file(tmp_config_dir, "data/test.yaml")
+        config = load_yaml(tmp_config_dir / "data/test.yaml")
         
         assert config["version"] == "v1"
 
@@ -109,7 +109,7 @@ class TestDataConfigOptions:
         data_yaml = tmp_config_dir / "data" / "test.yaml"
         data_yaml.write_text('description: "Test dataset description"\n')
         
-        config = load_config_file(tmp_config_dir, "data/test.yaml")
+        config = load_yaml(tmp_config_dir / "data/test.yaml")
         
         assert config["description"] == "Test dataset description"
 
@@ -118,7 +118,7 @@ class TestDataConfigOptions:
         data_yaml = tmp_config_dir / "data" / "test.yaml"
         data_yaml.write_text("local_path: ../dataset\n")
         
-        config = load_config_file(tmp_config_dir, "data/test.yaml")
+        config = load_yaml(tmp_config_dir / "data/test.yaml")
         
         assert config["local_path"] == "../dataset"
 
@@ -127,7 +127,7 @@ class TestDataConfigOptions:
         data_yaml = tmp_config_dir / "data" / "test.yaml"
         data_yaml.write_text("seed: 1\n")
         
-        config = load_config_file(tmp_config_dir, "data/test.yaml")
+        config = load_yaml(tmp_config_dir / "data/test.yaml")
         
         assert config["seed"] == 1
         assert isinstance(config["seed"], int)
@@ -140,7 +140,7 @@ splitting:
   train_test_ratio: 0.9
 """)
         
-        config = load_config_file(tmp_config_dir, "data/test.yaml")
+        config = load_yaml(tmp_config_dir / "data/test.yaml")
         
         assert config["splitting"]["train_test_ratio"] == 0.9
         assert isinstance(config["splitting"]["train_test_ratio"], float)
@@ -153,7 +153,7 @@ splitting:
   stratified: true
 """)
         
-        config = load_config_file(tmp_config_dir, "data/test.yaml")
+        config = load_yaml(tmp_config_dir / "data/test.yaml")
         
         assert config["splitting"]["stratified"] is True
         assert isinstance(config["splitting"]["stratified"], bool)
@@ -166,7 +166,7 @@ splitting:
   stratified: false
 """)
         
-        config = load_config_file(tmp_config_dir, "data/test.yaml")
+        config = load_yaml(tmp_config_dir / "data/test.yaml")
         
         assert config["splitting"]["stratified"] is False
 
@@ -178,7 +178,7 @@ splitting:
   random_seed: 123
 """)
         
-        config = load_config_file(tmp_config_dir, "data/test.yaml")
+        config = load_yaml(tmp_config_dir / "data/test.yaml")
         
         assert config["splitting"]["random_seed"] == 123
         assert isinstance(config["splitting"]["random_seed"], int)
@@ -191,7 +191,7 @@ schema:
   format: json
 """)
         
-        config = load_config_file(tmp_config_dir, "data/test.yaml")
+        config = load_yaml(tmp_config_dir / "data/test.yaml")
         
         assert config["schema"]["format"] == "json"
 
@@ -203,7 +203,7 @@ schema:
   annotation_format: character_spans
 """)
         
-        config = load_config_file(tmp_config_dir, "data/test.yaml")
+        config = load_yaml(tmp_config_dir / "data/test.yaml")
         
         assert config["schema"]["annotation_format"] == "character_spans"
 
@@ -218,7 +218,7 @@ schema:
     - NAME
 """)
         
-        config = load_config_file(tmp_config_dir, "data/test.yaml")
+        config = load_yaml(tmp_config_dir / "data/test.yaml")
         
         assert isinstance(config["schema"]["entity_types"], list)
         assert len(config["schema"]["entity_types"]) == 3
@@ -235,7 +235,7 @@ schema:
     median_sentence_length: 25
 """)
         
-        config = load_config_file(tmp_config_dir, "data/test.yaml")
+        config = load_yaml(tmp_config_dir / "data/test.yaml")
         
         assert config["schema"]["stats"]["median_sentence_length"] == 25
         assert isinstance(config["schema"]["stats"]["median_sentence_length"], int)
@@ -249,7 +249,7 @@ schema:
     mean_sentence_length: 26.5
 """)
         
-        config = load_config_file(tmp_config_dir, "data/test.yaml")
+        config = load_yaml(tmp_config_dir / "data/test.yaml")
         
         assert config["schema"]["stats"]["mean_sentence_length"] == 26.5
         assert isinstance(config["schema"]["stats"]["mean_sentence_length"], (int, float))
@@ -263,7 +263,7 @@ schema:
     p95_sentence_length: 50
 """)
         
-        config = load_config_file(tmp_config_dir, "data/test.yaml")
+        config = load_yaml(tmp_config_dir / "data/test.yaml")
         
         assert config["schema"]["stats"]["p95_sentence_length"] == 50
         assert isinstance(config["schema"]["stats"]["p95_sentence_length"], int)
@@ -277,7 +277,7 @@ schema:
     suggested_sequence_length: 50
 """)
         
-        config = load_config_file(tmp_config_dir, "data/test.yaml")
+        config = load_yaml(tmp_config_dir / "data/test.yaml")
         
         assert config["schema"]["stats"]["suggested_sequence_length"] == 50
         assert isinstance(config["schema"]["stats"]["suggested_sequence_length"], int)
@@ -291,7 +291,7 @@ schema:
     entity_density: 0.4
 """)
         
-        config = load_config_file(tmp_config_dir, "data/test.yaml")
+        config = load_yaml(tmp_config_dir / "data/test.yaml")
         
         assert config["schema"]["stats"]["entity_density"] == 0.4
         assert isinstance(config["schema"]["stats"]["entity_density"], float)
@@ -362,7 +362,7 @@ schema:
     - NAME
 """)
         
-        config = load_config_file(tmp_config_dir, "data/test.yaml")
+        config = load_yaml(tmp_config_dir / "data/test.yaml")
         
         labels = build_label_list(config)
         
@@ -387,7 +387,7 @@ name: minimal-dataset
 local_path: ../dataset
 """)
         
-        config = load_config_file(tmp_config_dir, "data/minimal.yaml")
+        config = load_yaml(tmp_config_dir / "data/minimal.yaml")
         
         assert config["name"] == "minimal-dataset"
         assert config["local_path"] == "../dataset"
@@ -405,7 +405,7 @@ splitting:
   train_test_ratio: 0.7
 """)
         
-        config = load_config_file(tmp_config_dir, "data/partial.yaml")
+        config = load_yaml(tmp_config_dir / "data/partial.yaml")
         
         assert config["splitting"]["train_test_ratio"] == 0.7
         # Other splitting options may be missing
@@ -421,7 +421,7 @@ schema:
     - SKILL
 """)
         
-        config = load_config_file(tmp_config_dir, "data/partial.yaml")
+        config = load_yaml(tmp_config_dir / "data/partial.yaml")
         
         assert config["schema"]["format"] == "json"
         assert "SKILL" in config["schema"]["entity_types"]
@@ -438,7 +438,7 @@ schema:
     mean_sentence_length: 21
 """)
         
-        config = load_config_file(tmp_config_dir, "data/partial.yaml")
+        config = load_yaml(tmp_config_dir / "data/partial.yaml")
         
         assert config["schema"]["stats"]["median_sentence_length"] == 20
         assert config["schema"]["stats"]["mean_sentence_length"] == 21
@@ -461,7 +461,7 @@ schema:
     entity_density: 0.35
 """)
         
-        config = load_config_file(tmp_config_dir, "data/test.yaml")
+        config = load_yaml(tmp_config_dir / "data/test.yaml")
         
         assert isinstance(config["seed"], int)
         assert isinstance(config["splitting"]["train_test_ratio"], float)
@@ -480,7 +480,7 @@ splitting:
   stratified: true
 """)
         
-        config = load_config_file(tmp_config_dir, "data/test.yaml")
+        config = load_yaml(tmp_config_dir / "data/test.yaml")
         
         assert isinstance(config["splitting"]["stratified"], bool)
         assert config["splitting"]["stratified"] is True
@@ -501,7 +501,7 @@ schema:
     - LOCATION
 """)
         
-        config = load_config_file(tmp_config_dir, "data/test.yaml")
+        config = load_yaml(tmp_config_dir / "data/test.yaml")
         
         assert isinstance(config["schema"]["entity_types"], list)
         assert len(config["schema"]["entity_types"]) == 8
@@ -515,7 +515,7 @@ class TestDataConfigRealFiles:
         """Test loading real resume_tiny.yaml from config directory."""
         config_dir = Path(__file__).parent.parent.parent / "config"
         if (config_dir / "data" / "resume_tiny.yaml").exists():
-            config = load_config_file(config_dir, "data/resume_tiny.yaml")
+            config = load_yaml(config_dir / "data/resume_tiny.yaml")
             
             assert "name" in config
             assert "version" in config
@@ -527,7 +527,7 @@ class TestDataConfigRealFiles:
         """Test loading real resume_v1.yaml from config directory."""
         config_dir = Path(__file__).parent.parent.parent / "config"
         if (config_dir / "data" / "resume_v1.yaml").exists():
-            config = load_config_file(config_dir, "data/resume_v1.yaml")
+            config = load_yaml(config_dir / "data/resume_v1.yaml")
             
             assert "name" in config
             assert "version" in config

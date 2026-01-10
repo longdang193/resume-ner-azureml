@@ -1,80 +1,34 @@
-"""Shared token registry for naming and path patterns."""
+"""Legacy facade for tokens module.
 
-from dataclasses import dataclass
-from typing import Dict, Optional, Set, Iterable
-import re
+This module provides backward compatibility by re-exporting from core.tokens and core.placeholders.
+All imports from this module are deprecated.
+"""
 
+import warnings
+from core.tokens import (
+    TOKENS,
+    Token,
+    get_token,
+    is_token_known,
+    is_token_allowed,
+    tokens_for_scope,
+)
+from core.placeholders import extract_placeholders
 
-@dataclass(frozen=True)
-class Token:
-    name: str
-    scopes: Set[str]  # allowed scopes: "name", "path"
+__all__ = [
+    "TOKENS",
+    "Token",
+    "get_token",
+    "is_token_known",
+    "is_token_allowed",
+    "tokens_for_scope",
+    "extract_placeholders",
+]
 
-
-# Registry of known tokens and their scopes.
-TOKENS: Dict[str, Token] = {
-    # Common identity
-    "env": Token("env", {"name"}),
-    "storage_env": Token("storage_env", {"path"}),
-    "model": Token("model", {"name", "path"}),
-    # Fingerprints / hashes
-    "spec_fp": Token("spec_fp", {"name", "path"}),
-    "exec_fp": Token("exec_fp", {"name", "path"}),
-    "spec_hash": Token("spec_hash", {"name"}),  # shortened spec_fp for names
-    "exec_hash": Token("exec_hash", {"name"}),  # shortened exec_fp for names
-    "variant": Token("variant", {"name", "path"}),
-    # HPO/benchmark hashes (full + short forms)
-    "study_hash": Token("study_hash", {"name"}),
-    "trial_hash": Token("trial_hash", {"name"}),
-    "study8": Token("study8", {"name", "path"}),
-    "trial8": Token("trial8", {"name", "path"}),
-    "bench8": Token("bench8", {"name", "path"}),
-    "bench_hash": Token("bench_hash", {"name"}),
-    # Trials / folds
-    "trial_number": Token("trial_number", {"name"}),
-    "fold_idx": Token("fold_idx", {"name"}),
-    "trial_id": Token("trial_id", {"path"}),
-    # Conversion / parent
-    "parent_training_id": Token("parent_training_id", {"path"}),
-    "conv_fp": Token("conv_fp", {"name", "path"}),
-    "conv_hash": Token("conv_hash", {"name"}),
-    # Cache-related identifiers
-    "backbone": Token("backbone", {"path"}),
-    "trial": Token("trial", {"path"}),
-    "run_id": Token("run_id", {"path"}),
-    "identifier": Token("identifier", {"path"}),
-    "timestamp": Token("timestamp", {"path"}),
-    # Short fingerprint helpers for lineage
-    "spec8": Token("spec8", {"name", "path"}),
-    "exec8": Token("exec8", {"name", "path"}),
-    "conv8": Token("conv8", {"name", "path"}),
-    # Naming-only helpers
-    "semantic_suffix": Token("semantic_suffix", {"name"}),
-    "version": Token("version", {"name"}),
-}
-
-
-_PLACEHOLDER_RE = re.compile(r"{([^{}]+)}")
-
-
-def extract_placeholders(pattern: str) -> Set[str]:
-    """Return a set of placeholder names found in a pattern like '{foo}_{bar}'."""
-    return set(_PLACEHOLDER_RE.findall(pattern))
-
-
-def get_token(name: str) -> Optional[Token]:
-    return TOKENS.get(name)
-
-
-def is_token_known(name: str) -> bool:
-    return name in TOKENS
-
-
-def is_token_allowed(name: str, scope: str) -> bool:
-    token = TOKENS.get(name)
-    return token is not None and scope in token.scopes
-
-
-def tokens_for_scope(scope: str) -> Iterable[str]:
-    return (t.name for t in TOKENS.values() if scope in t.scopes)
-
+# Issue deprecation warning
+warnings.warn(
+    "Importing 'tokens' from 'orchestration' is deprecated. "
+    "Please import from 'core.tokens' (and 'core.placeholders' for extract_placeholders) instead.",
+    DeprecationWarning,
+    stacklevel=2
+)

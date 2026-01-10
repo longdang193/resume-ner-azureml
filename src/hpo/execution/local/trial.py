@@ -7,15 +7,22 @@ Combines TrialExecutor class and run_training_trial function.
 from __future__ import annotations
 
 import json
-import os
-import subprocess
-import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 import mlflow
 from paths import find_project_root
 from shared.logging_utils import get_logger
+from training.execution import (
+    FoldConfig,
+    MLflowConfig,
+    TrialConfig,
+    TrainingOptions,
+    build_training_command,
+    execute_training_subprocess,
+    setup_training_environment,
+    verify_training_environment,
+)
 
 from hpo.trial.metrics import read_trial_metrics
 
@@ -75,60 +82,51 @@ class TrialExecutor:
         root_dir = find_project_root(self.config_dir)
         src_dir = root_dir / "src"
 
-        # Build command
-        args = self._build_command(
-            trial_params=trial_params,
-            dataset_path=dataset_path,
-            backbone=backbone,
-            train_config=train_config,
+        # Build command using shared infrastructure
+        training_options = TrainingOptions(
             fold_idx=fold_idx,
+            epochs=train_config.get("training", {}).get("hpo_epochs", 1),
+            early_stopping_enabled=False,  # Disable for HPO (consistent evaluation)
+        )
+        args = build_training_command(
+            backbone=backbone,
+            dataset_path=dataset_path,
+            config_dir=self.config_dir,
+            hyperparameters=trial_params,
+            training_options=training_options,
         )
 
-        # Set up environment
-        env = self._setup_environment(
-            output_dir=output_dir,
+        # Set up environment using shared infrastructure
+        mlflow_config = MLflowConfig(
+            experiment_name=self.mlflow_experiment_name,
+            parent_run_id=parent_run_id,
+            trial_number=trial_params.get("trial_number") if trial_params else None,
+        )
+        fold_config = (
+            FoldConfig(fold_idx=fold_idx, fold_splits_file=fold_splits_file)
+            if fold_idx is not None
+            else None
+        )
+        trial_config = TrialConfig(skip_artifact_logging=True)
+        env = setup_training_environment(
             root_dir=root_dir,
             src_dir=src_dir,
-            mlflow_experiment_name=self.mlflow_experiment_name,
-            fold_idx=fold_idx,
-            fold_splits_file=fold_splits_file,
-            parent_run_id=parent_run_id,
-            trial_params=trial_params,
+            output_dir=output_dir,
+            mlflow_config=mlflow_config,
+            fold_config=fold_config,
+            trial_config=trial_config,
         )
 
-        # Run training subprocess
+        # Verify environment before running
+        verify_training_environment(root_dir, env, logger)
 
-        # Verify the training module can be found
-        training_module_path = root_dir / "src" / "training" / "__init__.py"
-        if not training_module_path.exists():
-            raise RuntimeError(
-                f"[TRIAL] Training module not found at {training_module_path}. "
-                f"Root dir: {root_dir}, src_dir: {src_dir}"
-            )
-
-        # Verify PYTHONPATH is set
-        pythonpath_value = env.get("PYTHONPATH", "")
-        if not pythonpath_value:
-            raise RuntimeError(
-                f"[TRIAL] PYTHONPATH not set in environment. "
-                f"Expected: {src_dir}"
-            )
-
-        result = subprocess.run(
-            args,
+        # Run training subprocess using shared infrastructure
+        result = execute_training_subprocess(
+            command=args,
             cwd=root_dir,
             env=env,
-            capture_output=True,
-            text=True,
+            logger_instance=logger,
         )
-
-        # Check if training succeeded
-        if result.returncode != 0:
-            logger.error(
-                f"[TRIAL] Training failed with return code {result.returncode}")
-            logger.error(f"[TRIAL] STDOUT:\n{result.stdout}")
-            logger.error(f"[TRIAL] STDERR:\n{result.stderr}")
-            raise RuntimeError(f"Training failed: {result.stderr}")
 
         # Read metrics from output directory
         metrics = read_trial_metrics(
@@ -150,101 +148,6 @@ class TrialExecutor:
         )
 
         return metric_value
-
-    def _build_command(
-        self,
-        trial_params: Dict[str, Any],
-        dataset_path: str,
-        backbone: str,
-        train_config: Dict[str, Any],
-        fold_idx: Optional[int] = None,
-    ) -> list[str]:
-        """Build command arguments for training."""
-        args = [
-            sys.executable,
-            "-m",
-            "training.train",
-            "--data-asset",
-            dataset_path,
-            "--config-dir",
-            str(self.config_dir),
-            "--backbone",
-            backbone,
-        ]
-
-        # Add hyperparameters
-        if "learning_rate" in trial_params:
-            args.extend(["--learning-rate", str(trial_params["learning_rate"])])
-        if "batch_size" in trial_params:
-            args.extend(["--batch-size", str(trial_params["batch_size"])])
-        if "dropout" in trial_params:
-            args.extend(["--dropout", str(trial_params["dropout"])])
-        if "weight_decay" in trial_params:
-            args.extend(["--weight-decay", str(trial_params["weight_decay"])])
-
-        # Add fold index if k-fold CV is enabled
-        if fold_idx is not None:
-            args.extend(["--fold-idx", str(fold_idx)])
-
-        # Use minimal epochs for HPO (speed optimization)
-        epochs = train_config.get("training", {}).get("hpo_epochs", 1)
-        args.extend(["--epochs", str(epochs)])
-
-        # Disable early stopping for HPO (we want consistent evaluation)
-        args.extend(["--early-stopping-enabled", "false"])
-
-        return args
-
-    def _setup_environment(
-        self,
-        output_dir: Path,
-        root_dir: Path,
-        src_dir: Path,
-        mlflow_experiment_name: str,
-        fold_idx: Optional[int] = None,
-        fold_splits_file: Optional[Path] = None,
-        parent_run_id: Optional[str] = None,
-        trial_params: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, str]:
-        """Set up environment variables for training subprocess."""
-        env = os.environ.copy()
-
-        # Set PYTHONPATH to include src directory
-        env["PYTHONPATH"] = str(src_dir)
-
-        # Set output directory for checkpoint saving
-        env["AZURE_ML_OUTPUT_CHECKPOINT"] = str(output_dir)
-        env["AZURE_ML_OUTPUT_checkpoint"] = str(output_dir)
-
-        # Set MLflow tracking
-        mlflow.set_experiment(mlflow_experiment_name)
-        tracking_uri = mlflow.get_tracking_uri()
-        if tracking_uri:
-            env["MLFLOW_TRACKING_URI"] = tracking_uri
-        env["MLFLOW_EXPERIMENT_NAME"] = mlflow_experiment_name
-
-        # Set parent run ID and trial number for nested runs
-        if parent_run_id:
-            env["MLFLOW_PARENT_RUN_ID"] = parent_run_id
-
-        # Set trial number for proper MLflow run naming
-        if trial_params:
-            trial_number = trial_params.get("trial_number")
-            if trial_number is not None:
-                env["MLFLOW_TRIAL_NUMBER"] = str(trial_number)
-
-        # Disable automatic artifact logging during HPO trials
-        # Only the refit checkpoint of the best trial will be logged via log_best_checkpoint
-        # This prevents logging all fold checkpoints of all trials (saves storage and time)
-        env["MLFLOW_SKIP_ARTIFACT_LOGGING"] = "true"
-
-        # Set fold index if k-fold CV is enabled
-        if fold_idx is not None:
-            env["MLFLOW_FOLD_IDX"] = str(fold_idx)
-            if fold_splits_file:
-                env["MLFLOW_FOLD_SPLITS_FILE"] = str(fold_splits_file)
-
-        return env
 
 
 def run_training_trial(

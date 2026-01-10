@@ -2,14 +2,14 @@
 
 import pytest
 from pathlib import Path
-from orchestration.fingerprints import compute_spec_fp, compute_exec_fp, compute_conv_fp
+from fingerprints import compute_spec_fp, compute_exec_fp, compute_conv_fp
 from orchestration.naming_centralized import (
     create_naming_context,
     build_output_path,
     build_parent_training_id,
 )
-from orchestration.metadata_manager import save_metadata_with_fingerprints
-from orchestration.index_manager import update_index, find_by_spec_fp
+from metadata.training import save_metadata_with_fingerprints
+from metadata.index import update_index, find_by_spec_fp
 
 
 def test_end_to_end_final_training(tmp_path):
@@ -18,15 +18,15 @@ def test_end_to_end_final_training(tmp_path):
     root_dir.mkdir()
     
     # Step 1: Compute fingerprints
-    model_hash = "abc123def4567890"
-    data_hash = "xyz789abc1234567"
-    train_hash = "def456xyz7890123"
+    model_config = {"backbone": "distilbert"}
+    data_config = {"dataset": "resume_ner"}
+    train_config = {"learning_rate": 2e-5}
     seed = 42
     
-    spec_fp = compute_spec_fp(model_hash, data_hash, train_hash, seed)
+    spec_fp = compute_spec_fp(model_config, data_config, train_config, seed)
     exec_fp = compute_exec_fp(
         git_sha="test123",
-        env_config={"torch_version": "2.0", "transformers_version": "4.30"}
+        env_config={"platform": "local"}
     )
     
     assert spec_fp is not None
@@ -55,15 +55,18 @@ def test_end_to_end_final_training(tmp_path):
     assert "v1" in str(output_path)
     
     # Step 4: Save metadata
-    metadata_path = output_path / "metadata.json"
-    save_metadata_with_fingerprints(
-        metadata_path=metadata_path,
-        spec_fp=spec_fp,
-        exec_fp=exec_fp,
-        variant=1,
-        environment="local",
-        model="distilbert",
-        status={"training": {"completed": True}}
+    config_dir = root_dir / "config"
+    config_dir.mkdir(exist_ok=True)
+    metadata_content = {
+        "created_at": "2025-01-01T12:00:00Z"
+    }
+    status_updates = {"training": {"completed": True}}
+    metadata_path = save_metadata_with_fingerprints(
+        root_dir=root_dir,
+        config_dir=config_dir,
+        context=context,
+        metadata_content=metadata_content,
+        status_updates=status_updates
     )
     
     assert metadata_path.exists()
@@ -100,9 +103,8 @@ def test_end_to_end_conversion(tmp_path):
         parent_spec_fp=spec_fp,
         parent_exec_fp=exec_fp,
         conversion_config={
-            "conversion_config_hash": "conv1234567890",
-            "optimum_version": "1.10",
-            "onnxruntime_version": "1.15"
+            "quantization": "int8",
+            "opset": 14
         }
     )
     

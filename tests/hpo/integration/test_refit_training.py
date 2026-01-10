@@ -13,14 +13,16 @@ from hpo.execution.local.refit import run_refit_training
 class TestRefitTrainingSetup:
     """Test refit training setup and configuration."""
 
-    @patch("orchestration.jobs.hpo.local.refit.executor.subprocess.run")
-    @patch("orchestration.jobs.hpo.local.refit.executor.mlflow")
-    @patch("orchestration.jobs.hpo.local.refit.executor.Path.exists")
-    def test_refit_uses_best_trial_hyperparameters(self, mock_exists, mock_mlflow, mock_subprocess, tmp_path):
+    @patch("hpo.execution.local.refit.execute_training_subprocess")
+    @patch("hpo.execution.local.refit.mlflow")
+    def test_refit_uses_best_trial_hyperparameters(self, mock_mlflow, mock_execute, tmp_path):
         """Test that refit training uses hyperparameters from best trial."""
         # Setup
         config_dir = tmp_path / "config"
         config_dir.mkdir()
+        # Create training module structure for verify_training_environment
+        (tmp_path / "src" / "training").mkdir(parents=True)
+        (tmp_path / "src" / "training" / "__init__.py").touch()
         output_dir = tmp_path / "outputs" / "hpo" / "local" / "distilbert" / "study-abc12345"
         output_dir.mkdir(parents=True)
         
@@ -37,10 +39,9 @@ class TestRefitTrainingSetup:
         }
         
         # Mock subprocess
-        mock_exists.return_value = True
         mock_result = Mock()
         mock_result.returncode = 0
-        mock_subprocess.return_value = mock_result
+        mock_execute.return_value = mock_result
         
         # Note: refit_output_dir will be created by run_refit_training
         # We'll create metrics file after the function runs, or patch the path
@@ -69,8 +70,8 @@ class TestRefitTrainingSetup:
         )
         
         # Verify subprocess was called with correct hyperparameters
-        assert mock_subprocess.called
-        call_args = mock_subprocess.call_args[0][0]
+        assert mock_execute.called
+        call_args = mock_execute.call_args[1]["command"]
         call_args_str = " ".join(call_args)
         
         # Verify hyperparameters are in command
@@ -88,13 +89,15 @@ class TestRefitTrainingSetup:
         assert "--use-all-data" in call_args
         assert "true" in call_args
 
-    @patch("orchestration.jobs.hpo.local.refit.executor.subprocess.run")
-    @patch("orchestration.jobs.hpo.local.refit.executor.mlflow")
-    @patch("orchestration.jobs.hpo.local.refit.executor.Path.exists")
-    def test_refit_creates_mlflow_run(self, mock_exists, mock_mlflow, mock_subprocess, tmp_path):
+    @patch("hpo.execution.local.refit.execute_training_subprocess")
+    @patch("hpo.execution.local.refit.mlflow")
+    def test_refit_creates_mlflow_run(self, mock_mlflow, mock_execute, tmp_path):
         """Test that refit creates MLflow run as child of HPO parent."""
         config_dir = tmp_path / "config"
         config_dir.mkdir()
+        # Create training module structure for verify_training_environment
+        (tmp_path / "src" / "training").mkdir(parents=True)
+        (tmp_path / "src" / "training" / "__init__.py").touch()
         output_dir = tmp_path / "outputs" / "hpo" / "local" / "distilbert" / "study-abc12345"
         output_dir.mkdir(parents=True)
         
@@ -103,10 +106,9 @@ class TestRefitTrainingSetup:
         best_trial.number = 0
         best_trial.params = {"learning_rate": 3e-5, "backbone": "distilbert"}
         
-        mock_exists.return_value = True
         mock_result = Mock()
         mock_result.returncode = 0
-        mock_subprocess.return_value = mock_result
+        mock_execute.return_value = mock_result
         
         # Create metrics file in the expected location
         # The refit executor uses study_key_hash to construct the path
@@ -155,13 +157,15 @@ class TestRefitTrainingSetup:
         # Verify refit_run_id is returned
         assert refit_run_id == "refit_run_123"
 
-    @patch("orchestration.jobs.hpo.local.refit.executor.subprocess.run")
-    @patch("orchestration.jobs.hpo.local.refit.executor.mlflow")
-    @patch("orchestration.jobs.hpo.local.refit.executor.Path.exists")
-    def test_refit_creates_v2_output_directory(self, mock_exists, mock_mlflow, mock_subprocess, tmp_path):
+    @patch("hpo.execution.local.refit.execute_training_subprocess")
+    @patch("hpo.execution.local.refit.mlflow")
+    def test_refit_creates_v2_output_directory(self, mock_mlflow, mock_execute, tmp_path):
         """Test that refit creates output directory in v2 structure (trial-{hash}/refit)."""
         config_dir = tmp_path / "config"
         config_dir.mkdir()
+        # Create training module structure for verify_training_environment
+        (tmp_path / "src" / "training").mkdir(parents=True)
+        (tmp_path / "src" / "training" / "__init__.py").touch()
         output_dir = tmp_path / "outputs" / "hpo" / "local" / "distilbert" / "study-abc12345"
         output_dir.mkdir(parents=True)
         
@@ -170,10 +174,9 @@ class TestRefitTrainingSetup:
         best_trial.number = 0
         best_trial.params = {"learning_rate": 3e-5, "backbone": "distilbert"}
         
-        mock_exists.return_value = True
         mock_result = Mock()
         mock_result.returncode = 0
-        mock_subprocess.return_value = mock_result
+        mock_execute.return_value = mock_result
         
         trial_key_hash = "b" * 64
         trial8 = trial_key_hash[:8]
@@ -213,13 +216,15 @@ class TestRefitTrainingSetup:
 class TestRefitTrainingExecution:
     """Test refit training execution and metrics."""
 
-    @patch("orchestration.jobs.hpo.local.refit.executor.subprocess.run")
-    @patch("orchestration.jobs.hpo.local.refit.executor.mlflow")
-    @patch("orchestration.jobs.hpo.local.refit.executor.Path.exists")
-    def test_refit_reads_metrics_from_file(self, mock_exists, mock_mlflow, mock_subprocess, tmp_path):
+    @patch("hpo.execution.local.refit.execute_training_subprocess")
+    @patch("hpo.execution.local.refit.mlflow")
+    def test_refit_reads_metrics_from_file(self, mock_mlflow, mock_execute, tmp_path):
         """Test that refit reads metrics from metrics.json file."""
         config_dir = tmp_path / "config"
         config_dir.mkdir()
+        # Create training module structure for verify_training_environment
+        (tmp_path / "src" / "training").mkdir(parents=True)
+        (tmp_path / "src" / "training" / "__init__.py").touch()
         output_dir = tmp_path / "outputs" / "hpo" / "local" / "distilbert" / "study-abc12345"
         output_dir.mkdir(parents=True)
         
@@ -228,10 +233,9 @@ class TestRefitTrainingExecution:
         best_trial.number = 0
         best_trial.params = {"learning_rate": 3e-5, "backbone": "distilbert"}
         
-        mock_exists.return_value = True
         mock_result = Mock()
         mock_result.returncode = 0
-        mock_subprocess.return_value = mock_result
+        mock_execute.return_value = mock_result
         
         refit_output_dir = output_dir / "trial-def67890" / "refit"
         refit_output_dir.mkdir(parents=True)
@@ -271,13 +275,15 @@ class TestRefitTrainingExecution:
         if returned_metrics:
             assert "macro-f1" in returned_metrics or returned_metrics.get("macro-f1") == 0.80
 
-    @patch("orchestration.jobs.hpo.local.refit.executor.subprocess.run")
-    @patch("orchestration.jobs.hpo.local.refit.executor.mlflow")
-    @patch("orchestration.jobs.hpo.local.refit.executor.Path.exists")
-    def test_refit_logs_metrics_to_mlflow(self, mock_exists, mock_mlflow, mock_subprocess, tmp_path):
+    @patch("hpo.execution.local.refit.execute_training_subprocess")
+    @patch("hpo.execution.local.refit.mlflow")
+    def test_refit_logs_metrics_to_mlflow(self, mock_mlflow, mock_execute, tmp_path):
         """Test that refit logs metrics to MLflow run."""
         config_dir = tmp_path / "config"
         config_dir.mkdir()
+        # Create training module structure for verify_training_environment
+        (tmp_path / "src" / "training").mkdir(parents=True)
+        (tmp_path / "src" / "training" / "__init__.py").touch()
         output_dir = tmp_path / "outputs" / "hpo" / "local" / "distilbert" / "study-abc12345"
         output_dir.mkdir(parents=True)
         
@@ -286,10 +292,9 @@ class TestRefitTrainingExecution:
         best_trial.number = 0
         best_trial.params = {"learning_rate": 3e-5, "backbone": "distilbert"}
         
-        mock_exists.return_value = True
         mock_result = Mock()
         mock_result.returncode = 0
-        mock_subprocess.return_value = mock_result
+        mock_execute.return_value = mock_result
         
         refit_output_dir = output_dir / "trial-def67890" / "refit"
         refit_output_dir.mkdir(parents=True)
@@ -323,13 +328,15 @@ class TestRefitTrainingExecution:
         # The key is that the function doesn't crash
         pass  # Function completed without error
 
-    @patch("orchestration.jobs.hpo.local.refit.executor.subprocess.run")
-    @patch("orchestration.jobs.hpo.local.refit.executor.mlflow")
-    @patch("orchestration.jobs.hpo.local.refit.executor.Path.exists")
-    def test_refit_creates_checkpoint_directory(self, mock_exists, mock_mlflow, mock_subprocess, tmp_path):
+    @patch("hpo.execution.local.refit.execute_training_subprocess")
+    @patch("hpo.execution.local.refit.mlflow")
+    def test_refit_creates_checkpoint_directory(self, mock_mlflow, mock_execute, tmp_path):
         """Test that refit creates checkpoint directory."""
         config_dir = tmp_path / "config"
         config_dir.mkdir()
+        # Create training module structure for verify_training_environment
+        (tmp_path / "src" / "training").mkdir(parents=True)
+        (tmp_path / "src" / "training" / "__init__.py").touch()
         output_dir = tmp_path / "outputs" / "hpo" / "local" / "distilbert" / "study-abc12345"
         output_dir.mkdir(parents=True)
         
@@ -338,10 +345,9 @@ class TestRefitTrainingExecution:
         best_trial.number = 0
         best_trial.params = {"learning_rate": 3e-5, "backbone": "distilbert"}
         
-        mock_exists.return_value = True
         mock_result = Mock()
         mock_result.returncode = 0
-        mock_subprocess.return_value = mock_result
+        mock_execute.return_value = mock_result
         
         # Create metrics file in the expected location
         # The refit executor uses study_key_hash to construct the path
@@ -399,10 +405,9 @@ class TestRefitTrainingExecution:
 class TestRefitTrainingSmokeYaml:
     """Test refit training with smoke.yaml configuration."""
 
-    @patch("orchestration.jobs.hpo.local.refit.executor.subprocess.run")
-    @patch("orchestration.jobs.hpo.local.refit.executor.mlflow")
-    @patch("orchestration.jobs.hpo.local.refit.executor.Path.exists")
-    def test_refit_enabled_in_smoke_yaml(self, mock_exists, mock_mlflow, mock_subprocess, tmp_path):
+    @patch("hpo.execution.local.refit.execute_training_subprocess")
+    @patch("hpo.execution.local.refit.mlflow")
+    def test_refit_enabled_in_smoke_yaml(self, mock_mlflow, mock_execute, tmp_path):
         """Test that refit is enabled in smoke.yaml (refit.enabled=true)."""
         config_dir = tmp_path / "config"
         config_dir.mkdir()
@@ -414,10 +419,9 @@ class TestRefitTrainingSmokeYaml:
         best_trial.number = 0
         best_trial.params = {"learning_rate": 3e-5, "backbone": "distilbert"}
         
-        mock_exists.return_value = True
         mock_result = Mock()
         mock_result.returncode = 0
-        mock_subprocess.return_value = mock_result
+        mock_execute.return_value = mock_result
         
         # Create metrics file in the expected location
         # The refit executor uses study_key_hash to construct the path
@@ -458,13 +462,15 @@ class TestRefitTrainingSmokeYaml:
         assert checkpoint_dir is not None
         assert refit_run_id is not None
 
-    @patch("orchestration.jobs.hpo.local.refit.executor.subprocess.run")
-    @patch("orchestration.jobs.hpo.local.refit.executor.mlflow")
-    @patch("orchestration.jobs.hpo.local.refit.executor.Path.exists")
-    def test_refit_uses_full_epochs(self, mock_exists, mock_mlflow, mock_subprocess, tmp_path):
+    @patch("hpo.execution.local.refit.execute_training_subprocess")
+    @patch("hpo.execution.local.refit.mlflow")
+    def test_refit_uses_full_epochs(self, mock_mlflow, mock_execute, tmp_path):
         """Test that refit uses full epochs (not minimal like HPO trials)."""
         config_dir = tmp_path / "config"
         config_dir.mkdir()
+        # Create training module structure for verify_training_environment
+        (tmp_path / "src" / "training").mkdir(parents=True)
+        (tmp_path / "src" / "training" / "__init__.py").touch()
         output_dir = tmp_path / "outputs" / "hpo" / "local" / "distilbert" / "study-abc12345"
         output_dir.mkdir(parents=True)
         
@@ -473,10 +479,9 @@ class TestRefitTrainingSmokeYaml:
         best_trial.number = 0
         best_trial.params = {"learning_rate": 3e-5, "backbone": "distilbert"}
         
-        mock_exists.return_value = True
         mock_result = Mock()
         mock_result.returncode = 0
-        mock_subprocess.return_value = mock_result
+        mock_execute.return_value = mock_result
         
         # Create metrics file in the expected location
         # The refit executor uses study_key_hash to construct the path
@@ -513,7 +518,7 @@ class TestRefitTrainingSmokeYaml:
         )
         
         # Verify --epochs is in command with full value
-        call_args = mock_subprocess.call_args[0][0]
+        call_args = mock_execute.call_args[1]["command"]
         assert "--epochs" in call_args
         epochs_idx = call_args.index("--epochs")
         assert call_args[epochs_idx + 1] == "10"

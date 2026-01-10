@@ -7,8 +7,8 @@ from typing import Any, Dict
 
 from shared.yaml_utils import load_yaml
 from shared.json_cache import load_json
-from orchestration.config_loader import ExperimentConfig
-from orchestration.fingerprints import compute_conv_fp
+from config.loader import ExperimentConfig
+from fingerprints import compute_conv_fp
 
 
 def load_conversion_config(

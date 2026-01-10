@@ -132,6 +132,8 @@ _deprecation_warning("final_training_config", "config.training")
 _deprecation_warning("environment", "config.environment")
 _deprecation_warning("config_compat", "config.validation")
 _deprecation_warning("data_assets", "azureml.data_assets")
+_deprecation_warning("normalize", "core.normalize")
+_deprecation_warning("tokens", "core.tokens")
 
 __all__ = [
     "STAGE_SMOKE",

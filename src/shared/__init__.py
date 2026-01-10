@@ -16,7 +16,7 @@ from .tokenization_utils import (
     get_offset_mapping,
     prepare_onnx_inputs_with_offsets,
 )
-from .platform_detection import detect_platform, resolve_checkpoint_path
+from .platform_detection import detect_platform, resolve_platform_checkpoint_path
 from .mlflow_setup import (
     setup_mlflow_cross_platform,
     setup_mlflow_from_config,
@@ -38,7 +38,7 @@ __all__ = [
     "get_offset_mapping",
     "prepare_onnx_inputs_with_offsets",
     "detect_platform",
-    "resolve_checkpoint_path",
+    "resolve_platform_checkpoint_path",
     "setup_mlflow_cross_platform",
     "setup_mlflow_from_config",
     "create_ml_client_from_config",

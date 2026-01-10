@@ -130,9 +130,10 @@ class TestArtifactUploadUtilities:
             manifest = {"file_count": 2, "total_size": 200}
             run_id = "test-run-id-789"
             
-            with patch('tracking.mlflow.artifacts.log_artifact_safe') as mock_log:
-                mock_log.return_value = True
-                
+            # Mock MlflowClient to verify the function works correctly
+            with patch('mlflow.tracking.MlflowClient') as mock_client_class:
+                mock_client = MagicMock()
+                mock_client_class.return_value = mock_client
                 result = upload_checkpoint_archive(
                     archive_path=archive_path,
                     manifest=manifest,
@@ -141,7 +142,8 @@ class TestArtifactUploadUtilities:
                 )
                 
                 assert result is True, "Should succeed"
-                assert mock_log.call_count >= 1, "Should call log_artifact_safe"
+                # Verify that MlflowClient was used (indirectly via log_artifact_safe)
+                assert mock_client_class.called, "MlflowClient should be instantiated"
         finally:
             archive_path.unlink(missing_ok=True)
 

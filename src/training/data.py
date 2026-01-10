@@ -179,12 +179,23 @@ def save_split_files(
     _dump_safe(test_data, output_dir / "test.json")
 
 
-def normalize_text(raw_text: Any) -> str:
+def normalize_text_for_tokenization(raw_text: Any) -> str:
     """
-    Normalize arbitrary text input (string, list, dict, etc.) into a single string
-    that the tokenizer can consume.
+    Normalize arbitrary text input for tokenization.
 
-    Always returns a string, never None, list, tuple, or other types.
+    This function is training-specific and converts various input types (string, list,
+    dict, etc.) into a single string that tokenizers can consume. It handles type
+    conversion and flattening of nested structures.
+
+    Note: This is distinct from naming/path normalization in core/normalize.py.
+    This function is specifically for preparing text data for model tokenization.
+
+    Args:
+        raw_text: Input text in any format (string, list, dict, etc.)
+
+    Returns:
+        Normalized string suitable for tokenization. Always returns a string,
+        never None, list, tuple, or other types. Empty string if input is None or empty.
     """
     # Handle None explicitly
     if raw_text is None:
@@ -314,7 +325,7 @@ class ResumeNERDataset(Dataset):
 
         # Get and normalize text
         raw_text = item.get("text", "")
-        text = normalize_text(raw_text)
+        text = normalize_text_for_tokenization(raw_text)
 
         # Ensure text is a string after normalization
         if not isinstance(text, str):
@@ -353,7 +364,7 @@ class ResumeNERDataset(Dataset):
         if type(text) is not str:
             text = str(text)
 
-        # Handle case where normalize_text might return a list/tuple
+        # Handle case where normalize_text_for_tokenization might return a list/tuple
         # The tokenizer expects a single string, not a sequence
         if isinstance(text, (list, tuple)):
             # If text is a list/tuple, join it into a string

@@ -91,11 +91,11 @@ def test_execute_final_training_reuse_if_exists_skips_training(tmp_path, monkeyp
     # Ensure training subprocess would be visible if called
     calls = {}
 
-    def fake_subprocess_run(*args, **kwargs):
+    def fake_execute_training_subprocess(*args, **kwargs):
         calls["called"] = True
-        raise AssertionError("subprocess.run should not be called in reuse_if_exists path")
+        raise AssertionError("execute_training_subprocess should not be called in reuse_if_exists path")
 
-    monkeypatch.setattr(executor, "subprocess", SimpleNamespace(run=fake_subprocess_run))
+    monkeypatch.setattr("training.execution.subprocess_runner.execute_training_subprocess", fake_execute_training_subprocess)
 
     # Mock MLflow to avoid real calls
     mock_client = Mock()
@@ -152,8 +152,8 @@ def test_execute_final_training_force_new_runs_training(tmp_path, monkeypatch):
     # Track subprocess calls
     subprocess_calls = []
 
-    def fake_subprocess_run(*args, **kwargs):
-        subprocess_calls.append(args)
+    def fake_execute_training_subprocess(*args, **kwargs):
+        subprocess_calls.append((args, kwargs))
         # Return successful mock result
         result = Mock()
         result.returncode = 0
@@ -161,7 +161,7 @@ def test_execute_final_training_force_new_runs_training(tmp_path, monkeypatch):
         result.stderr = ""
         return result
 
-    monkeypatch.setattr(executor, "subprocess", SimpleNamespace(run=fake_subprocess_run))
+    monkeypatch.setattr("training.execution.subprocess_runner.execute_training_subprocess", fake_execute_training_subprocess)
 
     # Mock MLflow
     mock_client = Mock()
@@ -188,10 +188,10 @@ def test_execute_final_training_force_new_runs_training(tmp_path, monkeypatch):
         platform="local",
     )
 
-    # Should have called subprocess.run
+    # Should have called execute_training_subprocess
     assert len(subprocess_calls) > 0
     # Check that training command was invoked
-    assert any("training.train" in str(args[0]) for args in subprocess_calls)
+    assert any("training.train" in str(call[1].get("command", [])) for call in subprocess_calls)
 
 
 def test_execute_final_training_resume_if_incomplete_continues(tmp_path, monkeypatch):
@@ -229,15 +229,15 @@ def test_execute_final_training_resume_if_incomplete_continues(tmp_path, monkeyp
 
     subprocess_calls = []
 
-    def fake_subprocess_run(*args, **kwargs):
-        subprocess_calls.append(args)
+    def fake_execute_training_subprocess(*args, **kwargs):
+        subprocess_calls.append((args, kwargs))
         result = Mock()
         result.returncode = 0
         result.stdout = ""
         result.stderr = ""
         return result
 
-    monkeypatch.setattr(executor, "subprocess", SimpleNamespace(run=fake_subprocess_run))
+    monkeypatch.setattr("training.execution.subprocess_runner.execute_training_subprocess", fake_execute_training_subprocess)
 
     mock_client = Mock()
     mock_experiment = Mock()
@@ -336,15 +336,15 @@ def test_execute_final_training_local_path_override(tmp_path, monkeypatch):
 
     subprocess_calls = []
 
-    def fake_subprocess_run(*args, **kwargs):
-        subprocess_calls.append(args)
+    def fake_execute_training_subprocess(*args, **kwargs):
+        subprocess_calls.append((args, kwargs))
         result = Mock()
         result.returncode = 0
         result.stdout = ""
         result.stderr = ""
         return result
 
-    monkeypatch.setattr(executor, "subprocess", SimpleNamespace(run=fake_subprocess_run))
+    monkeypatch.setattr("training.execution.subprocess_runner.execute_training_subprocess", fake_execute_training_subprocess)
 
     mock_client = Mock()
     mock_experiment = Mock()
@@ -401,14 +401,14 @@ def test_execute_final_training_training_failure_marks_run_failed(tmp_path, monk
         executor, "resolve_dataset_path", lambda data_config: dataset_dir
     )
 
-    def fake_subprocess_run(*args, **kwargs):
+    def fake_execute_training_subprocess(*args, **kwargs):
         result = Mock()
         result.returncode = 1  # Training failed
         result.stdout = "Error: training failed"
         result.stderr = "Traceback..."
         return result
 
-    monkeypatch.setattr(executor, "subprocess", SimpleNamespace(run=fake_subprocess_run))
+    monkeypatch.setattr("training.execution.subprocess_runner.execute_training_subprocess", fake_execute_training_subprocess)
 
     mock_client = Mock()
     mock_experiment = Mock()
@@ -469,15 +469,15 @@ def test_execute_final_training_mlflow_disabled_skips_tracking(tmp_path, monkeyp
 
     subprocess_calls = []
 
-    def fake_subprocess_run(*args, **kwargs):
-        subprocess_calls.append(args)
+    def fake_execute_training_subprocess(*args, **kwargs):
+        subprocess_calls.append((args, kwargs))
         result = Mock()
         result.returncode = 0
         result.stdout = ""
         result.stderr = ""
         return result
 
-    monkeypatch.setattr(executor, "subprocess", SimpleNamespace(run=fake_subprocess_run))
+    monkeypatch.setattr("training.execution.subprocess_runner.execute_training_subprocess", fake_execute_training_subprocess)
 
     # Mock MLflow to return None (disabled)
     mock_client = Mock()
@@ -557,8 +557,8 @@ def test_execute_final_training_source_scratch_no_checkpoint(tmp_path, monkeypat
     subprocess_calls = []
     subprocess_envs = []
 
-    def fake_subprocess_run(*args, **kwargs):
-        subprocess_calls.append(args)
+    def fake_execute_training_subprocess(*args, **kwargs):
+        subprocess_calls.append((args, kwargs))
         subprocess_envs.append(kwargs.get("env", {}))
         result = Mock()
         result.returncode = 0
@@ -566,7 +566,7 @@ def test_execute_final_training_source_scratch_no_checkpoint(tmp_path, monkeypat
         result.stderr = ""
         return result
 
-    monkeypatch.setattr(executor, "subprocess", SimpleNamespace(run=fake_subprocess_run))
+    monkeypatch.setattr("training.execution.subprocess_runner.execute_training_subprocess", fake_execute_training_subprocess)
 
     mock_client = Mock()
     mock_experiment = Mock()
@@ -654,8 +654,8 @@ def test_execute_final_training_source_final_training_with_checkpoint(tmp_path, 
     subprocess_calls = []
     subprocess_envs = []
 
-    def fake_subprocess_run(*args, **kwargs):
-        subprocess_calls.append(args)
+    def fake_execute_training_subprocess(*args, **kwargs):
+        subprocess_calls.append((args, kwargs))
         subprocess_envs.append(kwargs.get("env", {}))
         result = Mock()
         result.returncode = 0
@@ -663,7 +663,7 @@ def test_execute_final_training_source_final_training_with_checkpoint(tmp_path, 
         result.stderr = ""
         return result
 
-    monkeypatch.setattr(executor, "subprocess", SimpleNamespace(run=fake_subprocess_run))
+    monkeypatch.setattr("training.execution.subprocess_runner.execute_training_subprocess", fake_execute_training_subprocess)
 
     mock_client = Mock()
     mock_experiment = Mock()
@@ -753,15 +753,15 @@ def test_execute_final_training_hyperparameter_precedence(tmp_path, monkeypatch)
 
     subprocess_calls = []
 
-    def fake_subprocess_run(*args, **kwargs):
-        subprocess_calls.append(args)
+    def fake_execute_training_subprocess(*args, **kwargs):
+        subprocess_calls.append((args, kwargs))
         result = Mock()
         result.returncode = 0
         result.stdout = ""
         result.stderr = ""
         return result
 
-    monkeypatch.setattr(executor, "subprocess", SimpleNamespace(run=fake_subprocess_run))
+    monkeypatch.setattr("training.execution.subprocess_runner.execute_training_subprocess", fake_execute_training_subprocess)
 
     mock_client = Mock()
     mock_experiment = Mock()
@@ -788,7 +788,7 @@ def test_execute_final_training_hyperparameter_precedence(tmp_path, monkeypatch)
     # Should have called training
     assert len(subprocess_calls) > 0
     # Verify hyperparameters in subprocess args
-    training_args = subprocess_calls[0][0]
+    training_args = subprocess_calls[0][1]["command"]
     args_str = " ".join(str(arg) for arg in training_args)
     
     # Check that overridden values appear in args
@@ -886,15 +886,15 @@ def test_execute_final_training_mlflow_overrides(tmp_path, monkeypatch):
 
     subprocess_calls = []
 
-    def fake_subprocess_run(*args, **kwargs):
-        subprocess_calls.append(args)
+    def fake_execute_training_subprocess(*args, **kwargs):
+        subprocess_calls.append((args, kwargs))
         result = Mock()
         result.returncode = 0
         result.stdout = ""
         result.stderr = ""
         return result
 
-    monkeypatch.setattr(executor, "subprocess", SimpleNamespace(run=fake_subprocess_run))
+    monkeypatch.setattr("training.execution.subprocess_runner.execute_training_subprocess", fake_execute_training_subprocess)
 
     mock_client = Mock()
     mock_experiment = Mock()

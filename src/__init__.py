@@ -4,7 +4,7 @@ Source code package for Resume NER training and conversion scripts.
 This package contains:
 - Training modules (training/)
 - API modules (api/)
-- Model conversion utilities (model_conversion/)
+- Model conversion utilities (conversion/)
 - Shared utilities (shared/)
 - Platform adapters (platform_adapters/)
 - Orchestration utilities (orchestration/)

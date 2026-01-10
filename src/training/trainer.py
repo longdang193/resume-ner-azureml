@@ -18,7 +18,7 @@ from .model import create_model_and_tokenizer
 from .evaluator import evaluate_model
 from .cv_utils import load_fold_splits, get_fold_data
 from .distributed import RunContext, create_run_context
-from .checkpoint_loader import resolve_checkpoint_path
+from .checkpoint_loader import resolve_training_checkpoint_path
 
 # Default constants (can be overridden via config)
 DEFAULT_VAL_SPLIT_DIVISOR = 10
@@ -291,7 +291,7 @@ def train_model(
     if checkpoint_config:
         backbone_for_resolve = backbone
         run_id_for_resolve = config.get("training", {}).get("run_id")
-        resolved_path = resolve_checkpoint_path(
+        resolved_path = resolve_training_checkpoint_path(
             config=config,
             backbone=backbone_for_resolve,
             run_id=run_id_for_resolve,

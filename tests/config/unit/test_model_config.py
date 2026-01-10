@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Dict, Any
 
 from shared.yaml_utils import load_yaml
-from training.config import load_config_file
 from config.loader import load_experiment_config, load_all_configs
 
 
@@ -47,7 +46,7 @@ loss:
   ignore_index: -100
 """)
         
-        config = load_config_file(tmp_config_dir, "model/distilbert.yaml")
+        config = load_yaml(tmp_config_dir / "model" / "distilbert.yaml")
         
         assert config["backbone"] == "distilbert-base-uncased"
         assert config["tokenizer"] == "distilbert-base-uncased"
@@ -85,7 +84,7 @@ loss:
   ignore_index: -100
 """)
         
-        config = load_config_file(tmp_config_dir, "model/distilroberta.yaml")
+        config = load_yaml(tmp_config_dir / "model/distilroberta.yaml")
         
         assert config["backbone"] == "distilroberta-base"
         assert config["tokenizer"] == "distilroberta-base"
@@ -112,7 +111,7 @@ loss:
   ignore_index: -100
 """)
         
-        config = load_config_file(tmp_config_dir, "model/deberta.yaml")
+        config = load_yaml(tmp_config_dir / "model/deberta.yaml")
         
         assert config["backbone"] == "microsoft/deberta-v3-base"
         assert config["tokenizer"] == "microsoft/deberta-v3-base"
@@ -126,7 +125,7 @@ class TestModelConfigOptions:
         model_yaml = tmp_config_dir / "model" / "test.yaml"
         model_yaml.write_text("backbone: \"test-backbone\"\n")
         
-        config = load_config_file(tmp_config_dir, "model/test.yaml")
+        config = load_yaml(tmp_config_dir / "model/test.yaml")
         
         assert config["backbone"] == "test-backbone"
 
@@ -135,7 +134,7 @@ class TestModelConfigOptions:
         model_yaml = tmp_config_dir / "model" / "test.yaml"
         model_yaml.write_text("tokenizer: \"test-tokenizer\"\n")
         
-        config = load_config_file(tmp_config_dir, "model/test.yaml")
+        config = load_yaml(tmp_config_dir / "model/test.yaml")
         
         assert config["tokenizer"] == "test-tokenizer"
 
@@ -147,7 +146,7 @@ preprocessing:
   sequence_length: 50
 """)
         
-        config = load_config_file(tmp_config_dir, "model/test.yaml")
+        config = load_yaml(tmp_config_dir / "model/test.yaml")
         
         assert config["preprocessing"]["sequence_length"] == 50
 
@@ -159,7 +158,7 @@ preprocessing:
   max_length: 256
 """)
         
-        config = load_config_file(tmp_config_dir, "model/test.yaml")
+        config = load_yaml(tmp_config_dir / "model/test.yaml")
         
         assert config["preprocessing"]["max_length"] == 256
 
@@ -171,7 +170,7 @@ preprocessing:
   tokenization: "subword"
 """)
         
-        config = load_config_file(tmp_config_dir, "model/test.yaml")
+        config = load_yaml(tmp_config_dir / "model/test.yaml")
         
         assert config["preprocessing"]["tokenization"] == "subword"
 
@@ -183,7 +182,7 @@ preprocessing:
   replace_rare_with_unk: false
 """)
         
-        config = load_config_file(tmp_config_dir, "model/test.yaml")
+        config = load_yaml(tmp_config_dir / "model/test.yaml")
         
         assert config["preprocessing"]["replace_rare_with_unk"] is False
 
@@ -195,7 +194,7 @@ preprocessing:
   unk_frequency_threshold: 5
 """)
         
-        config = load_config_file(tmp_config_dir, "model/test.yaml")
+        config = load_yaml(tmp_config_dir / "model/test.yaml")
         
         assert config["preprocessing"]["unk_frequency_threshold"] == 5
 
@@ -207,7 +206,7 @@ preprocessing:
   keep_stopwords: false
 """)
         
-        config = load_config_file(tmp_config_dir, "model/test.yaml")
+        config = load_yaml(tmp_config_dir / "model/test.yaml")
         
         assert config["preprocessing"]["keep_stopwords"] is False
 
@@ -219,7 +218,7 @@ decoding:
   use_crf: false
 """)
         
-        config = load_config_file(tmp_config_dir, "model/test.yaml")
+        config = load_yaml(tmp_config_dir / "model/test.yaml")
         
         assert config["decoding"]["use_crf"] is False
 
@@ -231,7 +230,7 @@ decoding:
   crf_learning_rate: 0.05
 """)
         
-        config = load_config_file(tmp_config_dir, "model/test.yaml")
+        config = load_yaml(tmp_config_dir / "model/test.yaml")
         
         assert config["decoding"]["crf_learning_rate"] == 0.05
 
@@ -243,7 +242,7 @@ loss:
   use_class_weights: false
 """)
         
-        config = load_config_file(tmp_config_dir, "model/test.yaml")
+        config = load_yaml(tmp_config_dir / "model/test.yaml")
         
         assert config["loss"]["use_class_weights"] is False
 
@@ -255,7 +254,7 @@ loss:
   class_weight_smoothing: 0.2
 """)
         
-        config = load_config_file(tmp_config_dir, "model/test.yaml")
+        config = load_yaml(tmp_config_dir / "model/test.yaml")
         
         assert config["loss"]["class_weight_smoothing"] == 0.2
 
@@ -267,7 +266,7 @@ loss:
   ignore_index: -1
 """)
         
-        config = load_config_file(tmp_config_dir, "model/test.yaml")
+        config = load_yaml(tmp_config_dir / "model/test.yaml")
         
         assert config["loss"]["ignore_index"] == -1
 
@@ -346,7 +345,7 @@ loss:
         args.backbone = "distilbert"
         
         # Build training config
-        config = load_config_file(tmp_config_dir, f"model/{args.backbone}.yaml")
+        config = load_yaml(tmp_config_dir / f"model/{args.backbone}.yaml")
         
         assert config["backbone"] == "distilbert-base-uncased"
         assert config["preprocessing"]["sequence_length"] == 40
@@ -365,7 +364,7 @@ backbone: "test-backbone"
 tokenizer: "test-tokenizer"
 """)
         
-        config = load_config_file(tmp_config_dir, "model/minimal.yaml")
+        config = load_yaml(tmp_config_dir / "model/minimal.yaml")
         
         assert config["backbone"] == "test-backbone"
         assert config["tokenizer"] == "test-tokenizer"
@@ -384,7 +383,7 @@ preprocessing:
   max_length: 256
 """)
         
-        config = load_config_file(tmp_config_dir, "model/partial.yaml")
+        config = load_yaml(tmp_config_dir / "model/partial.yaml")
         
         assert config["preprocessing"]["sequence_length"] == 50
         assert config["preprocessing"]["max_length"] == 256
@@ -399,7 +398,7 @@ decoding:
   use_crf: true
 """)
         
-        config = load_config_file(tmp_config_dir, "model/partial.yaml")
+        config = load_yaml(tmp_config_dir / "model/partial.yaml")
         
         assert config["decoding"]["use_crf"] is True
         # crf_learning_rate may be missing
@@ -413,7 +412,7 @@ loss:
   use_class_weights: false
 """)
         
-        config = load_config_file(tmp_config_dir, "model/partial.yaml")
+        config = load_yaml(tmp_config_dir / "model/partial.yaml")
         
         assert config["loss"]["use_class_weights"] is False
         # Other loss options may be missing
@@ -433,7 +432,7 @@ loss:
   ignore_index: -100
 """)
         
-        config = load_config_file(tmp_config_dir, "model/test.yaml")
+        config = load_yaml(tmp_config_dir / "model/test.yaml")
         
         assert isinstance(config["preprocessing"]["sequence_length"], int)
         assert isinstance(config["preprocessing"]["max_length"], int)
@@ -455,7 +454,7 @@ loss:
   use_class_weights: false
 """)
         
-        config = load_config_file(tmp_config_dir, "model/test.yaml")
+        config = load_yaml(tmp_config_dir / "model/test.yaml")
         
         assert isinstance(config["preprocessing"]["replace_rare_with_unk"], bool)
         assert isinstance(config["preprocessing"]["keep_stopwords"], bool)
@@ -474,7 +473,7 @@ class TestModelConfigRealFiles:
         """Test loading real distilbert.yaml from config directory."""
         config_dir = Path(__file__).parent.parent.parent / "config"
         if (config_dir / "model" / "distilbert.yaml").exists():
-            config = load_config_file(config_dir, "model/distilbert.yaml")
+            config = load_yaml(config_dir / "model/distilbert.yaml")
             
             assert "backbone" in config
             assert "tokenizer" in config
@@ -485,7 +484,7 @@ class TestModelConfigRealFiles:
         """Test loading real distilroberta.yaml from config directory."""
         config_dir = Path(__file__).parent.parent.parent / "config"
         if (config_dir / "model" / "distilroberta.yaml").exists():
-            config = load_config_file(config_dir, "model/distilroberta.yaml")
+            config = load_yaml(config_dir / "model/distilroberta.yaml")
             
             assert "backbone" in config
             assert "tokenizer" in config
@@ -496,7 +495,7 @@ class TestModelConfigRealFiles:
         """Test loading real deberta.yaml from config directory."""
         config_dir = Path(__file__).parent.parent.parent / "config"
         if (config_dir / "model" / "deberta.yaml").exists():
-            config = load_config_file(config_dir, "model/deberta.yaml")
+            config = load_yaml(config_dir / "model/deberta.yaml")
             
             assert "backbone" in config
             assert "tokenizer" in config

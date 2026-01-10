@@ -11,6 +11,7 @@ from shared.yaml_utils import load_yaml
 from shared.platform_detection import detect_platform
 from training.checkpoint_loader import validate_checkpoint
 from .loader import load_all_configs, ExperimentConfig
+from .merging import merge_configs_with_precedence
 from naming import create_naming_context
 from paths import build_output_path
 
@@ -816,25 +817,22 @@ def _merge_configs(
         "early_stopping_enabled": training_defaults.get("early_stopping", {}).get("enabled", False),
     }
 
-    # Apply best_config hyperparameters
-    if "learning_rate" in hyperparameters:
-        merged["learning_rate"] = hyperparameters["learning_rate"]
-    if "dropout" in hyperparameters:
-        merged["dropout"] = hyperparameters["dropout"]
-    if "weight_decay" in hyperparameters:
-        merged["weight_decay"] = hyperparameters["weight_decay"]
+    # Apply best_config hyperparameters using merge utility
+    hyperparams_dict = {
+        "learning_rate": hyperparameters.get("learning_rate"),
+        "dropout": hyperparameters.get("dropout"),
+        "weight_decay": hyperparameters.get("weight_decay"),
+    }
+    # Filter out None values before merging
+    hyperparams_dict = {k: v for k, v in hyperparams_dict.items() if v is not None}
+    merged = merge_configs_with_precedence(merged, hyperparams_dict)
 
-    # Apply final_training.yaml overrides (non-null values only)
-    if training_overrides.get("learning_rate") is not None:
-        merged["learning_rate"] = training_overrides["learning_rate"]
-    if training_overrides.get("epochs") is not None:
-        merged["epochs"] = training_overrides["epochs"]
-    if training_overrides.get("batch_size") is not None:
-        merged["batch_size"] = training_overrides["batch_size"]
-    if training_overrides.get("dropout") is not None:
-        merged["dropout"] = training_overrides["dropout"]
-    if training_overrides.get("weight_decay") is not None:
-        merged["weight_decay"] = training_overrides["weight_decay"]
+    # Apply final_training.yaml overrides (non-null values only) using merge utility
+    training_overrides_filtered = {
+        k: v for k, v in training_overrides.items()
+        if v is not None and k not in ["early_stopping"]
+    }
+    merged = merge_configs_with_precedence(merged, training_overrides_filtered)
 
     # Apply other training overrides
     for key in ["gradient_accumulation_steps", "warmup_steps", "max_grad_norm"]:

@@ -14,7 +14,7 @@ from orchestration.paths import (
     get_drive_backup_base,
     get_drive_backup_path,
 )
-from orchestration.normalize import normalize_for_path
+from core.normalize import normalize_for_path
 
 
 class TestBaseDirectories:

@@ -1,6 +1,6 @@
 """Training module for Resume NER model."""
 
-from .config import build_training_config, load_config_file
+from .config import build_training_config
 from .data import (
     load_dataset,
     build_label_list,
@@ -14,11 +14,10 @@ from .evaluator import evaluate_model
 from .metrics import compute_metrics
 from .logging import log_metrics
 from .utils import set_seed
-from .checkpoint_loader import resolve_checkpoint_path, validate_checkpoint
+from .checkpoint_loader import resolve_training_checkpoint_path, validate_checkpoint
 
 __all__ = [
     "build_training_config",
-    "load_config_file",
     "load_dataset",
     "build_label_list",
     "ResumeNERDataset",
@@ -30,7 +29,7 @@ __all__ = [
     "compute_metrics",
     "log_metrics",
     "set_seed",
-    "resolve_checkpoint_path",
+    "resolve_training_checkpoint_path",
     "validate_checkpoint",
 ]
 

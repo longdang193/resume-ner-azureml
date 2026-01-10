@@ -28,7 +28,7 @@ def detect_platform() -> str:
     return "local"
 
 
-def resolve_checkpoint_path(base_path: Path, relative_path: str) -> Path:
+def resolve_platform_checkpoint_path(base_path: Path, relative_path: str) -> Path:
     """
     Resolve checkpoint path with platform-specific optimizations.
 

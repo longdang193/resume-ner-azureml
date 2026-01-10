@@ -23,20 +23,18 @@ import optuna
 class TestTrialExecutionErrors:
     """Test error handling in trial execution."""
 
-    @patch("orchestration.jobs.hpo.local.trial.execution.subprocess.run")
-    @patch("orchestration.jobs.hpo.local.trial.execution.Path.exists")
+    @patch("hpo.execution.local.trial.execute_training_subprocess")
     @patch("orchestration.jobs.hpo.local.trial.run_manager.create_trial_run_no_cv")
-    def test_training_subprocess_failure(self, mock_create_run, mock_exists, mock_subprocess, tmp_path):
+    def test_training_subprocess_failure(self, mock_create_run, mock_execute, tmp_path):
         """Test that training subprocess failure raises RuntimeError."""
         mock_create_run.return_value = "trial_run_123"
-        mock_exists.return_value = True
         
         # Mock subprocess to return non-zero exit code
         mock_result = Mock()
         mock_result.returncode = 1
         mock_result.stdout = "Some output"
         mock_result.stderr = "Training error: CUDA out of memory"
-        mock_subprocess.return_value = mock_result
+        mock_execute.return_value = mock_result
         
         config_dir = tmp_path / "config"
         config_dir.mkdir()
@@ -101,13 +99,15 @@ class TestTrialExecutionErrors:
         # Should return empty dict when metrics file is missing and no MLflow
         assert metrics == {}
 
-    @patch("orchestration.jobs.hpo.local.trial.execution.subprocess.run")
-    @patch("orchestration.jobs.hpo.local.trial.execution.Path.exists")
+    @patch("hpo.execution.local.trial.execute_training_subprocess")
     @patch("orchestration.jobs.hpo.local.trial.run_manager.create_trial_run_no_cv")
-    def test_missing_objective_metric_in_metrics(self, mock_create_run, mock_exists, mock_subprocess, tmp_path):
+    def test_missing_objective_metric_in_metrics(self, mock_create_run, mock_execute, tmp_path):
         """Test that missing objective metric raises ValueError."""
         mock_create_run.return_value = "trial_run_123"
-        mock_exists.return_value = True
+        
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_execute.return_value = mock_result
         
         output_dir = tmp_path / "outputs" / "hpo" / "local" / "distilbert" / "study-abc12345" / "trial-def67890"
         output_dir.mkdir(parents=True)
@@ -148,7 +148,7 @@ class TestCVOrchestratorErrors:
     """Test error handling in CV orchestrator."""
 
     @patch("orchestration.jobs.hpo.local.cv.orchestrator.run_training_trial")
-    @patch("orchestration.jobs.hpo.local.cv.orchestrator.mlflow")
+    @patch("hpo.execution.local.cv.mlflow")
     def test_cv_trial_failure_propagates_error(self, mock_mlflow, mock_run_trial, tmp_path):
         """Test that CV trial failure raises RuntimeError."""
         # Mock run_training_trial to raise RuntimeError
@@ -190,7 +190,7 @@ class TestCVOrchestratorErrors:
                 study_key_hash="a" * 64,
             )
 
-    @patch("orchestration.jobs.hpo.local.cv.orchestrator.mlflow")
+    @patch("hpo.execution.local.cv.mlflow")
     def test_cv_missing_trial_key_hash_raises_error(self, mock_mlflow, tmp_path):
         """Test that missing trial_key_hash in v2 study folder raises RuntimeError."""
         config_dir = tmp_path / "config"
@@ -235,9 +235,9 @@ class TestCVOrchestratorErrors:
 class TestRefitExecutionErrors:
     """Test error handling in refit execution."""
 
-    @patch("orchestration.jobs.hpo.local.refit.executor.subprocess.run")
-    @patch("orchestration.jobs.hpo.local.refit.executor.mlflow")
-    def test_refit_subprocess_failure(self, mock_mlflow, mock_subprocess, tmp_path):
+    @patch("hpo.execution.local.refit.execute_training_subprocess")
+    @patch("hpo.execution.local.refit.mlflow")
+    def test_refit_subprocess_failure(self, mock_mlflow, mock_execute, tmp_path):
         """Test that refit subprocess failure raises RuntimeError."""
         
         # Mock subprocess to return non-zero exit code
@@ -245,7 +245,7 @@ class TestRefitExecutionErrors:
         mock_result.returncode = 1
         mock_result.stdout = "Refit output"
         mock_result.stderr = "Refit training failed: Out of memory"
-        mock_subprocess.return_value = mock_result
+        mock_execute.return_value = mock_result
         
         config_dir = tmp_path / "config"
         config_dir.mkdir()
@@ -289,7 +289,7 @@ class TestRefitExecutionErrors:
             )
 
     @patch("orchestration.naming_centralized.build_output_path")
-    @patch("orchestration.jobs.hpo.local.refit.executor.mlflow")
+    @patch("hpo.execution.local.refit.mlflow")
     def test_refit_non_v2_study_folder_raises_error(self, mock_mlflow, mock_build_path, tmp_path):
         """Test that refit in non-v2 study folder raises RuntimeError."""
         # Mock build_output_path to return None (simulating failure)

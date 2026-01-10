@@ -16,16 +16,25 @@ def onnx_model_path(request) -> str:
     Otherwise, searches in common locations:
     1. outputs/final_training/distilroberta/distilroberta_model.onnx
     2. outputs/distilroberta_model.onnx
+    
+    Raises:
+        pytest.skip: If ONNX model is not found
     """
     # Check command line option first
     onnx_path = request.config.getoption("--onnx-model", default=None)
     if onnx_path:
-        return str(Path(onnx_path).resolve())
+        path = Path(onnx_path).resolve()
+        if path.exists():
+            return str(path)
+        pytest.skip(f"ONNX model not found at specified path: {path}")
     
     # Check environment variable
     onnx_path = os.getenv("ONNX_MODEL_PATH")
     if onnx_path:
-        return str(Path(onnx_path).resolve())
+        path = Path(onnx_path).resolve()
+        if path.exists():
+            return str(path)
+        pytest.skip(f"ONNX model not found at ONNX_MODEL_PATH: {path}")
     
     # Standard structure location
     root_dir = Path(__file__).parent.parent.parent.parent
@@ -34,8 +43,8 @@ def onnx_model_path(request) -> str:
     if standard_path.exists():
         return str(standard_path.resolve())
     
-    # Return standard path (for skip message)
-    return str(standard_path.resolve())
+    # Skip if not found
+    pytest.skip(f"ONNX model not found: {standard_path}. Provide via --onnx-model or ONNX_MODEL_PATH")
 
 
 @pytest.fixture(scope="session")
