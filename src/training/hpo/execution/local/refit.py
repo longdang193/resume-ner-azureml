@@ -50,6 +50,7 @@ from infrastructure.paths import find_project_root
 from training.execution import (
     MLflowConfig,
     TrainingOptions,
+    TrialConfig,
     build_training_command,
     create_training_mlflow_run,
     execute_training_subprocess,
@@ -210,11 +211,15 @@ def run_refit_training(
         experiment_name=mlflow_experiment_name,
         parent_run_id=hpo_parent_run_id,
     )
+    # Skip artifact logging during refit training - checkpoint will be uploaded as archive
+    # by sweep_tracker.log_best_checkpoint() after refit completes
+    trial_config = TrialConfig(skip_artifact_logging=True)
     env = setup_training_environment(
         root_dir=root_dir,
         src_dir=root_dir / "src",
         output_dir=refit_output_dir,
         mlflow_config=mlflow_config,
+        trial_config=trial_config,
     )
 
     # Build MLflow run name and tags

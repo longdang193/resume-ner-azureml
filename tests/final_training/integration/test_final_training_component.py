@@ -102,7 +102,7 @@ def test_execute_final_training_reuse_if_exists_skips_training(tmp_path, monkeyp
         raise AssertionError("execute_training_subprocess should not be called in reuse_if_exists path")
 
     # Patch where it's imported in executor module
-    monkeypatch.setattr("training_exec.executor.execute_training_subprocess", fake_execute_training_subprocess)
+    monkeypatch.setattr("training.execution.executor.execute_training_subprocess", fake_execute_training_subprocess)
 
     # Mock MLflow to avoid real calls
     mock_client = Mock()
@@ -169,7 +169,7 @@ def test_execute_final_training_force_new_runs_training(tmp_path, monkeypatch):
         return result
 
     # Patch where it's imported in executor module
-    monkeypatch.setattr("training_exec.executor.execute_training_subprocess", fake_execute_training_subprocess)
+    monkeypatch.setattr("training.execution.executor.execute_training_subprocess", fake_execute_training_subprocess)
 
     # Mock MLflow
     mock_client = Mock()
@@ -199,8 +199,8 @@ def test_execute_final_training_force_new_runs_training(tmp_path, monkeypatch):
 
     # Should have called execute_training_subprocess
     assert len(subprocess_calls) > 0
-    # Check that training command was invoked
-    assert any("training.train" in str(call[1].get("command", [])) for call in subprocess_calls)
+    # Check that training command was invoked (command uses training.cli.train)
+    assert any("training.cli.train" in str(call[1].get("command", [])) for call in subprocess_calls)
 
 
 def test_execute_final_training_resume_if_incomplete_continues(tmp_path, monkeypatch):
@@ -247,7 +247,7 @@ def test_execute_final_training_resume_if_incomplete_continues(tmp_path, monkeyp
         return result
 
     # Patch where it's imported in executor module
-    monkeypatch.setattr("training_exec.executor.execute_training_subprocess", fake_execute_training_subprocess)
+    monkeypatch.setattr("training.execution.executor.execute_training_subprocess", fake_execute_training_subprocess)
 
     mock_client = Mock()
     mock_experiment = Mock()
@@ -357,7 +357,7 @@ def test_execute_final_training_local_path_override(tmp_path, monkeypatch):
         return result
 
     # Patch where it's imported in executor module
-    monkeypatch.setattr("training_exec.executor.execute_training_subprocess", fake_execute_training_subprocess)
+    monkeypatch.setattr("training.execution.executor.execute_training_subprocess", fake_execute_training_subprocess)
 
     mock_client = Mock()
     mock_experiment = Mock()
@@ -386,7 +386,9 @@ def test_execute_final_training_local_path_override(tmp_path, monkeypatch):
     # Should have used override path in training command
     assert len(subprocess_calls) > 0
     # Check that --data-asset points to override path
-    training_args = subprocess_calls[0][0]
+    # subprocess_calls[0] is (args, kwargs), args[0] is the command list
+    call_kwargs = subprocess_calls[0][1]
+    training_args = call_kwargs.get("command", [])
     data_asset_idx = training_args.index("--data-asset")
     assert str(override_dataset) in str(training_args[data_asset_idx + 1])
 
@@ -416,14 +418,15 @@ def test_execute_final_training_training_failure_marks_run_failed(tmp_path, monk
     )
 
     def fake_execute_training_subprocess(*args, **kwargs):
-        result = Mock()
-        result.returncode = 1  # Training failed
-        result.stdout = "Error: training failed"
-        result.stderr = "Traceback..."
-        return result
+        # Raise RuntimeError to simulate training failure
+        raise RuntimeError(
+            "Training failed with return code 1\n"
+            "STDOUT: Error: training failed\n"
+            "STDERR: Traceback..."
+        )
 
     # Patch where it's imported in executor module
-    monkeypatch.setattr("training_exec.executor.execute_training_subprocess", fake_execute_training_subprocess)
+    monkeypatch.setattr("training.execution.executor.execute_training_subprocess", fake_execute_training_subprocess)
 
     mock_client = Mock()
     mock_experiment = Mock()
@@ -442,7 +445,7 @@ def test_execute_final_training_training_failure_marks_run_failed(tmp_path, monk
     best_model = {"backbone": "distilbert-base-uncased", "params": {}}
     experiment_config = DummyExperimentConfig()
 
-    with pytest.raises(RuntimeError, match="Final training failed"):
+    with pytest.raises(RuntimeError, match="Training failed"):
         executor.execute_final_training(
             root_dir=root_dir,
             config_dir=config_dir,
@@ -494,7 +497,7 @@ def test_execute_final_training_mlflow_disabled_skips_tracking(tmp_path, monkeyp
         return result
 
     # Patch where it's imported in executor module
-    monkeypatch.setattr("training_exec.executor.execute_training_subprocess", fake_execute_training_subprocess)
+    monkeypatch.setattr("training.execution.executor.execute_training_subprocess", fake_execute_training_subprocess)
 
     # Mock MLflow to return None (disabled)
     mock_client = Mock()
@@ -585,7 +588,7 @@ def test_execute_final_training_source_scratch_no_checkpoint(tmp_path, monkeypat
         return result
 
     # Patch where it's imported in executor module
-    monkeypatch.setattr("training_exec.executor.execute_training_subprocess", fake_execute_training_subprocess)
+    monkeypatch.setattr("training.execution.executor.execute_training_subprocess", fake_execute_training_subprocess)
 
     mock_client = Mock()
     mock_experiment = Mock()
@@ -684,7 +687,7 @@ def test_execute_final_training_source_final_training_with_checkpoint(tmp_path, 
         return result
 
     # Patch where it's imported in executor module
-    monkeypatch.setattr("training_exec.executor.execute_training_subprocess", fake_execute_training_subprocess)
+    monkeypatch.setattr("training.execution.executor.execute_training_subprocess", fake_execute_training_subprocess)
 
     mock_client = Mock()
     mock_experiment = Mock()
@@ -784,7 +787,7 @@ def test_execute_final_training_hyperparameter_precedence(tmp_path, monkeypatch)
         return result
 
     # Patch where it's imported in executor module
-    monkeypatch.setattr("training_exec.executor.execute_training_subprocess", fake_execute_training_subprocess)
+    monkeypatch.setattr("training.execution.executor.execute_training_subprocess", fake_execute_training_subprocess)
 
     mock_client = Mock()
     mock_experiment = Mock()
@@ -919,7 +922,7 @@ def test_execute_final_training_mlflow_overrides(tmp_path, monkeypatch):
         return result
 
     # Patch where it's imported in executor module
-    monkeypatch.setattr("training_exec.executor.execute_training_subprocess", fake_execute_training_subprocess)
+    monkeypatch.setattr("training.execution.executor.execute_training_subprocess", fake_execute_training_subprocess)
 
     mock_client = Mock()
     mock_experiment = Mock()

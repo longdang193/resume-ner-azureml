@@ -214,7 +214,7 @@ def test_best_config_selection_e2e(tmp_path, monkeypatch):
     }
 
     # Import inside test so monkeypatch on module attribute is effective
-    from selection import mlflow_selection
+    from evaluation.selection import mlflow_selection
 
     best_model = mlflow_selection.find_best_model_from_mlflow(
         benchmark_experiment=benchmark_experiment,
@@ -226,7 +226,7 @@ def test_best_config_selection_e2e(tmp_path, monkeypatch):
     assert best_model is fake_best_model
 
     # Artifact acquisition
-    from selection.artifact_acquisition import acquire_best_model_checkpoint
+    from evaluation.selection.artifact_acquisition import acquire_best_model_checkpoint
 
     best_checkpoint_dir = acquire_best_model_checkpoint(
         best_run_info=best_model,
@@ -317,7 +317,7 @@ def test_best_config_selection_e2e(tmp_path, monkeypatch):
             pass
 
     # Conversion
-    from conversion import execute_conversion
+    from deployment.conversion import execute_conversion
 
     conversion_output_dir = execute_conversion(
         root_dir=ROOT_DIR,

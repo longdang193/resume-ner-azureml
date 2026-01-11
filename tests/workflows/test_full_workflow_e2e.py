@@ -327,7 +327,7 @@ def test_full_workflow_e2e(
         return mock_result
     
     with patch('benchmarking.utils.subprocess.run', side_effect=benchmark_subprocess_side_effect):
-        from benchmarking import benchmark_best_trials
+        from evaluation.benchmarking import benchmark_best_trials
         
         best_trials = {
             "distilbert": {
@@ -462,7 +462,7 @@ def test_full_workflow_e2e(
         lambda *args, **kwargs: fake_best_model,
     )
     
-    from selection import mlflow_selection
+    from evaluation.selection import mlflow_selection
     
     best_model = mlflow_selection.find_best_model_from_mlflow(
         benchmark_experiment=benchmark_experiment,
@@ -484,7 +484,7 @@ def test_full_workflow_e2e(
         lambda *args, **kwargs: fake_checkpoint_dir,
     )
     
-    from selection.artifact_acquisition import acquire_best_model_checkpoint
+    from evaluation.selection.artifact_acquisition import acquire_best_model_checkpoint
     
     best_checkpoint_dir = acquire_best_model_checkpoint(
         best_run_info=best_model,
@@ -576,7 +576,7 @@ def test_full_workflow_e2e(
         lambda **kwargs: fake_conversion_output_dir,
     )
     
-    from conversion import execute_conversion
+    from deployment.conversion import execute_conversion
     
     conversion_output_dir = execute_conversion(
         root_dir=ROOT_DIR,

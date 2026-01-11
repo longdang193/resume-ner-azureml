@@ -31,7 +31,7 @@ try:
     from importlib.util import spec_from_loader
     
     class ProxyLoader(Loader):
-        """Loader that loads from evaluation.* but registers as selection.* or benchmarking.*"""
+        """Loader that loads from evaluation.* or deployment.* but registers as old module names."""
         def __init__(self, target_module_name):
             self.target_module_name = target_module_name
         
@@ -74,14 +74,48 @@ try:
                     pass
             return None
     
+    class ConversionSubmoduleFinder(MetaPathFinder):
+        """Custom finder for conversion.* submodules."""
+        def find_spec(self, name, path, target=None):
+            if name.startswith('conversion.') and name != 'conversion':
+                submodule_name = name.replace('conversion.', 'deployment.conversion.', 1)
+                try:
+                    spec = importlib.util.find_spec(submodule_name)
+                    if spec is not None:
+                        loader = ProxyLoader(submodule_name)
+                        return spec_from_loader(name, loader)
+                except (ImportError, ValueError):
+                    pass
+            return None
+    
+    class ApiSubmoduleFinder(MetaPathFinder):
+        """Custom finder for api.* submodules."""
+        def find_spec(self, name, path, target=None):
+            if name.startswith('api.') and name != 'api':
+                submodule_name = name.replace('api.', 'deployment.api.', 1)
+                try:
+                    spec = importlib.util.find_spec(submodule_name)
+                    if spec is not None:
+                        loader = ProxyLoader(submodule_name)
+                        return spec_from_loader(name, loader)
+                except (ImportError, ValueError):
+                    pass
+            return None
+    
     # Install finders if not already installed
     _selection_finder_installed = any(isinstance(f, SelectionSubmoduleFinder) for f in sys.meta_path)
     _benchmarking_finder_installed = any(isinstance(f, BenchmarkingSubmoduleFinder) for f in sys.meta_path)
+    _conversion_finder_installed = any(isinstance(f, ConversionSubmoduleFinder) for f in sys.meta_path)
+    _api_finder_installed = any(isinstance(f, ApiSubmoduleFinder) for f in sys.meta_path)
     
     if not _selection_finder_installed:
         sys.meta_path.insert(0, SelectionSubmoduleFinder())
     if not _benchmarking_finder_installed:
         sys.meta_path.insert(0, BenchmarkingSubmoduleFinder())
+    if not _conversion_finder_installed:
+        sys.meta_path.insert(0, ConversionSubmoduleFinder())
+    if not _api_finder_installed:
+        sys.meta_path.insert(0, ApiSubmoduleFinder())
 except Exception:
     # If finder installation fails, continue - the shims will handle it when modules are imported
     pass

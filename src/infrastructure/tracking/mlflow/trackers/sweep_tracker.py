@@ -1065,10 +1065,11 @@ class MLflowSweepTracker(BaseTracker):
                 )
             
             # Use safe upload utility with explicit run_id
+            # Upload as best_trial_checkpoint.tar.gz (file name, not directory)
             upload_checkpoint_archive(
                 archive_path=archive_path,
                 manifest=manifest,
-                artifact_path="best_trial_checkpoint",
+                artifact_path="best_trial_checkpoint.tar.gz",
                 run_id=run_id_to_use,
                 max_retries=5,
                 base_delay=2.0,

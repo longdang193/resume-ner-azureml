@@ -5,8 +5,8 @@ from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 import numpy as np
 
-from src.api.inference import ONNXInferenceEngine
-from src.api.exceptions import InferenceError, ModelNotLoadedError
+from src.deployment.api.inference import ONNXInferenceEngine
+from src.deployment.api.exceptions import InferenceError, ModelNotLoadedError
 
 
 class TestONNXInferenceEngine:

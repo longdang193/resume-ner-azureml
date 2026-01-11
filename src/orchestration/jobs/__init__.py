@@ -55,9 +55,9 @@ except ImportError:
     create_hpo_sweep_job_for_backbone = None
     validate_sweep_job = None
 
-# Conversion job creation - moved to conversion/jobs.py
+# Conversion job creation - moved to deployment.conversion.azureml
 try:
-    from conversion.azureml import (
+    from deployment.conversion.azureml import (
         get_checkpoint_output_from_training_job,
         create_conversion_job,
         validate_conversion_job,

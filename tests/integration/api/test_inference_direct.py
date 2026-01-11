@@ -4,7 +4,7 @@ import pytest
 import time
 from pathlib import Path
 
-from src.api.inference import ONNXInferenceEngine
+from src.deployment.api.inference import ONNXInferenceEngine
 
 
 @pytest.mark.integration

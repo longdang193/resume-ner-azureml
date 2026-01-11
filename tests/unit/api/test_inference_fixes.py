@@ -12,8 +12,8 @@ from unittest.mock import Mock, patch, MagicMock
 
 # Handle missing dependencies gracefully
 try:
-    from src.api.inference import ONNXInferenceEngine
-    from src.api.exceptions import InferenceError
+    from src.deployment.api.inference import ONNXInferenceEngine
+    from src.deployment.api.exceptions import InferenceError
     INFERENCE_AVAILABLE = True
 except ImportError:
     INFERENCE_AVAILABLE = False

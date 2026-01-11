@@ -4,13 +4,13 @@ import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-from src.api.extractors import (
+from src.deployment.api.extractors import (
     extract_text_from_pdf,
     extract_text_from_image,
     detect_file_type,
     validate_file,
 )
-from src.api.exceptions import (
+from src.deployment.api.exceptions import (
     TextExtractionError,
     InvalidFileTypeError,
     FileSizeExceededError,
@@ -68,7 +68,7 @@ class TestPDFExtraction:
 
     def test_extract_pdf_invalid_extractor(self):
         """Test PDF extraction with invalid extractor."""
-        from src.api.exceptions import TextExtractionError
+        from src.deployment.api.exceptions import TextExtractionError
         with pytest.raises(TextExtractionError):
             extract_text_from_pdf(b"content", extractor="invalid")
 
@@ -101,7 +101,7 @@ class TestImageExtraction:
 
     def test_extract_image_invalid_extractor(self):
         """Test image extraction with invalid extractor."""
-        from src.api.exceptions import TextExtractionError
+        from src.deployment.api.exceptions import TextExtractionError
         with pytest.raises(TextExtractionError):
             extract_text_from_image(b"content", extractor="invalid")
 

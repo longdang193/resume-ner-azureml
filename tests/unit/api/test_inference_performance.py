@@ -21,8 +21,8 @@ except ImportError:
     TRANSFORMERS_AVAILABLE = False
 
 try:
-    from src.api.inference import ONNXInferenceEngine
-    from src.api.exceptions import InferenceError, ModelNotLoadedError
+    from src.deployment.api.inference import ONNXInferenceEngine
+    from src.deployment.api.exceptions import InferenceError, ModelNotLoadedError
     INFERENCE_AVAILABLE = True
 except ImportError:
     INFERENCE_AVAILABLE = False

@@ -70,8 +70,8 @@ from infrastructure.config.loader import (
     create_config_metadata,
 )
 from hpo import run_local_hpo_sweep
-from benchmarking import benchmark_best_trials
-from selection.trial_finder import find_best_trials_for_backbones
+from evaluation.benchmarking import benchmark_best_trials
+from evaluation.selection.trial_finder import find_best_trials_for_backbones
 from common.shared.platform_detection import detect_platform
 
 

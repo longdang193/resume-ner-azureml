@@ -44,7 +44,7 @@ from pathlib import Path
 tracking_uri = os.environ.get("MLFLOW_TRACKING_URI")
 if tracking_uri and "azureml" in tracking_uri.lower():
     try:
-        from shared.mlflow_setup import _try_import_azureml_mlflow
+        from common.shared.mlflow_setup import _try_import_azureml_mlflow
         _try_import_azureml_mlflow()
     except Exception:
         # If import fails, we'll handle fallback in main() before using MLflow
@@ -121,20 +121,47 @@ def main() -> None:
         # Verify Azure ML scheme is registered before starting run
         current_tracking_uri = mlflow.get_tracking_uri()
         if current_tracking_uri and "azureml" in current_tracking_uri.lower():
+            # Ensure azureml.mlflow is imported to register the scheme
+            # This should have been done at module import time, but ensure it's done here too
+            try:
+                from common.shared.mlflow_setup import _try_import_azureml_mlflow
+                _try_import_azureml_mlflow()
+            except Exception as e:
+                _log.debug(f"Could not import azureml.mlflow: {e}")
+            
+            # Ensure compatibility patch is applied (for artifact logging)
+            try:
+                from infrastructure.tracking.mlflow.compatibility import apply_azureml_artifact_patch
+                apply_azureml_artifact_patch()
+            except Exception as e:
+                _log.debug(f"Could not apply Azure ML compatibility patch: {e}")
+            
+            # Check if scheme is registered by trying to get the store builder
+            # Note: Even if this check fails, we'll still try to use Azure ML if MLFLOW_RUN_ID is set
+            # The check is mainly for warning purposes
             try:
                 from mlflow.tracking._tracking_service.registry import _tracking_store_registry
-                _tracking_store_registry.get_store_builder("azureml://test")
-            except (KeyError, Exception):
-                # Scheme not registered - fall back to local tracking
-                _log.warning("Azure ML scheme not registered, falling back to local tracking")
-                local_uri = _get_local_tracking_uri()
-                mlflow.set_tracking_uri(local_uri)
-                os.environ["MLFLOW_TRACKING_URI"] = local_uri
-                if "MLFLOW_RUN_ID" in os.environ:
-                    del os.environ["MLFLOW_RUN_ID"]
-                if "MLFLOW_USE_RUN_ID" in os.environ:
-                    del os.environ["MLFLOW_USE_RUN_ID"]
-                use_run_id = None
+                # Try to get the store builder - this will raise KeyError if scheme not registered
+                builder = _tracking_store_registry.get_store_builder("azureml://test")
+                if builder is None:
+                    raise KeyError("Azure ML scheme builder is None")
+            except (KeyError, AttributeError, Exception) as e:
+                # Scheme check failed, but if we have a run_id, try to use it anyway
+                # The artifact logging compatibility patch might still work
+                if use_run_id:
+                    _log.warning(
+                        f"Azure ML scheme registration check failed (error: {e}), "
+                        "but continuing with Azure ML run_id. Artifact logging may fail."
+                    )
+                    # Don't remove run_id - let's try to use it anyway
+                else:
+                    # No run_id, so fall back to local tracking
+                    _log.warning(
+                        f"Azure ML scheme not registered (error: {e}), falling back to local tracking."
+                    )
+                    local_uri = _get_local_tracking_uri()
+                    mlflow.set_tracking_uri(local_uri)
+                    os.environ["MLFLOW_TRACKING_URI"] = local_uri
 
         # Start MLflow run if run_id provided
         if use_run_id:

@@ -10,8 +10,8 @@ import time
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-from src.api.inference import ONNXInferenceEngine
-from src.api.exceptions import InferenceError
+from src.deployment.api.inference import ONNXInferenceEngine
+from src.deployment.api.exceptions import InferenceError
 
 
 @pytest.mark.integration
@@ -35,7 +35,7 @@ class TestInferencePerformanceIntegration:
         4. Performance is within acceptable thresholds
         """
         from pathlib import Path
-        from src.api.exceptions import InferenceError, ModelNotLoadedError
+        from src.deployment.api.exceptions import InferenceError, ModelNotLoadedError
         
         onnx_path = Path(onnx_model_path).resolve()
         checkpoint = Path(checkpoint_dir).resolve()

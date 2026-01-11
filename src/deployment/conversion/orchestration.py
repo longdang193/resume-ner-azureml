@@ -154,7 +154,7 @@ def execute_conversion(
     conversion_args = [
         sys.executable,
         "-m",
-        "conversion.execution",
+        "deployment.conversion.execution",
         "--checkpoint-path",
         checkpoint_path,
         "--config-dir",

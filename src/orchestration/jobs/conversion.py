@@ -173,7 +173,7 @@ def create_conversion_job(
     # Use project root as code snapshot so both `src/` and `config/` are included.
     return command(
         code="..",
-        command=f"python -m conversion.execution {command_args}",
+        command=f"python -m deployment.conversion.execution {command_args}",
         inputs={
             "checkpoint": checkpoint_input,
         },
