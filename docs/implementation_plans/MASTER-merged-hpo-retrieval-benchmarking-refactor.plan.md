@@ -39,7 +39,15 @@ This plan merges multiple related refactoring efforts into a unified, step-by-st
 - Removed unused fallbacks and redundant logic (DRY cleanup)
 - Artifact acquisition now checks local disk first (as configured)
 
-**⏳ Phase 2: Champion Selection** - PENDING (BLOCKED on Phase 1.6 ✅)
+**⏳ Phase 1.7: Unified Artifact Acquisition (SSOT)** - PENDING (BLOCKED on Phase 1.6 ✅)
+- Artifact-identity-driven acquisition (not stage-driven)
+- Refit-aware run selection (trial→refit mapping in one place)
+- Configurable priority per artifact_kind
+- Declared vs probe availability checks
+- Artifact-kind-specific validation
+- Model loading kept separate (domain-specific)
+
+**⏳ Phase 2: Champion Selection** - PENDING (BLOCKED on Phase 1.6 ✅, Phase 1.7 recommended)
 - study_key_hash v2 with bound fingerprints - **READY TO IMPLEMENT** (foundation complete)
 - Champion selection with safety requirements - **READY TO IMPLEMENT**
 - MLflow query patterns extraction - **READY TO IMPLEMENT**
@@ -54,7 +62,7 @@ This plan merges multiple related refactoring efforts into a unified, step-by-st
 - **Hash consistency** ensures reliable grouping and retrieval (foundation for Phase 2)
 - **Retrieval** needs variant-aware logic from HPO and consistent hashes
 - **Benchmarking** uses both HPO variants and retrieval results
-- **Run mode** controls behavior across all three stages
+- **Run mode** controls behavior for final training, selection, and benchmarking (HPO uses explicit study_name)
 - **Shared utilities** reduce duplication (DRY)
 
 ### Scope
@@ -63,6 +71,7 @@ This plan merges multiple related refactoring efforts into a unified, step-by-st
 - Phase 1: HPO run mode + variant generation (foundation) ✅ **COMPLETED**
 - Phase 1.5: Unified run decision logic ✅ **COMPLETED**
 - Phase 1.6: Hash consistency & single source of truth ✅ **COMPLETED**
+- Phase 1.7: Unified artifact acquisition (SSOT for all artifact operations) ⏳ **PENDING**
 - Phase 2: Deterministic best trial retrieval (uses HPO variants + consistent hashes) ⏳ **PENDING**
 - Phase 3: Idempotent benchmarking (uses both HPO + retrieval) ⏳ **PENDING**
 - Extract shared utilities following DRY principles ✅ **COMPLETED**
@@ -78,9 +87,10 @@ This plan merges multiple related refactoring efforts into a unified, step-by-st
 ### Goals
 
 - **G1**: Single source of truth for run mode extraction (no duplication) ✅ **COMPLETED**
-- **G2**: HPO variants (v1, v2, v3) with run.mode control ✅ **COMPLETED**
+- **G2**: HPO study versioning with explicit study_name (simplified approach) ✅ **COMPLETED**
 - **G1.5**: Unified run decision logic (single source of truth for reuse vs. create new) ✅ **COMPLETED**
 - **G1.6**: Hash consistency & SSOT (MLflow tags as source of truth, consistent computation) ✅ **COMPLETED**
+- **G1.7**: Unified artifact acquisition (artifact-identity-driven, refit-aware, configurable per kind) ⏳ **PENDING**
 - **G3**: Deterministic champion selection per backbone (MLflow-first, safe grouping) ⏳ **PENDING**
 - **G4**: Idempotent benchmarking with stable keys ⏳ **PENDING**
 - **G5**: Reuse existing code (DRY) - no unnecessary duplication ✅ **COMPLETED**
@@ -88,7 +98,7 @@ This plan merges multiple related refactoring efforts into a unified, step-by-st
 ### Success Criteria
 
 - [x] `run_mode.py` utility replaces all 4+ duplicate extractions
-- [x] HPO creates variants (v1, v2, v3) based on `run.mode`
+- [x] HPO uses explicit study_name for versioning (simplified, no run.mode dependency)
 - [x] Unified `run_decision.py` module for consistent reuse logic
 - [x] Centralized `hash_utils.py` for hash retrieval and computation (SSOT)
 - [x] MLflow tags established as single source of truth for hashes
@@ -96,6 +106,9 @@ This plan merges multiple related refactoring efforts into a unified, step-by-st
 - [x] Artifact acquisition checks local disk first (respects priority config)
 - [x] All existing tests pass
 - [x] No code duplication (shared utilities used)
+- [ ] Unified artifact acquisition module (artifact-identity-driven, refit-aware)
+- [ ] Trial→refit mapping centralized in run selector (SSOT)
+- [ ] Artifact-kind-specific validation and priority configuration
 - [ ] `select_champion_per_backbone()` with MLflow-first priority and all safety requirements
 - [ ] Benchmarking skips already-benchmarked trials
 
@@ -127,7 +140,7 @@ This plan merges multiple related refactoring efforts into a unified, step-by-st
 ├─────────────────────────────────────────────────────────────┤
 │ 1.1: Extract run_mode.py utility (replaces 4+ duplicates)  │
 │ 1.2: Generalize variants.py (reuse from training.py)       │
-│ 1.3: Add run.mode to HPO configs                           │
+│ 1.3: Simplify HPO study naming (explicit study_name)      │
 │ 1.4: Implement HPO variant generation (uses variants.py)   │
 └─────────────────────────────────────────────────────────────┘
                           │
@@ -163,9 +176,23 @@ This plan merges multiple related refactoring efforts into a unified, step-by-st
 ├─────────────────────────────────────────────────────────────┤
 │ 3.1: Build stable benchmark keys (champion run_id + fps)  │
 │ 3.2: Add idempotency check (MLflow + disk)                 │
-│ 3.3: Add run mode inheritance (uses run_mode.py)           │
+│ 3.3: Add run mode configuration (independent, uses run_mode.py) │
 │ 3.4: Update benchmarking to use champions (not variants)  │
 │ 3.5: Update notebooks (complete 3-step flow)              │
+└─────────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│ Phase 1.7: Unified Artifact Acquisition (SSOT) ⏳         │
+├─────────────────────────────────────────────────────────────┤
+│ 1.7.1: Create artifact types and request/result dataclasses│
+│ 1.7.2: Implement run selector with trial→refit mapping     │
+│ 1.7.3: Implement artifact-kind-specific validation         │
+│ 1.7.4: Implement discovery for local/drive/mlflow           │
+│ 1.7.5: Implement main acquisition orchestration            │
+│ 1.7.6: Update config for per-artifact-kind priority        │
+│ 1.7.7: Refactor existing modules to use unified API        │
+│ 1.7.8: Remove duplicate acquisition/validation code        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -188,10 +215,10 @@ def get_run_mode(config: Dict[str, Any], default: RunMode = "reuse_if_exists") -
     Extract run.mode from configuration with consistent defaults.
     
     Used across all stages:
-    - HPO: Controls whether to create new study or reuse existing
+    - HPO: No longer uses run.mode (uses explicit study_name and auto_resume instead)
     - Final Training: Controls variant creation and checkpoint reuse
     - Best Model Selection: Controls cache reuse
-    - Benchmarking: Inherits from HPO
+    - Benchmarking: Independent run.mode configuration (defaults to reuse_if_exists)
     
     Args:
         config: Configuration dictionary (e.g., from YAML)
@@ -365,7 +392,9 @@ def _scan_final_training_variants(
 
 ---
 
-### Step 1.3: Add Run Mode to HPO Configs
+### Step 1.3: Simplify HPO Study Naming (Explicit study_name)
+
+**Status:** ✅ **COMPLETED** (Simplified approach - removed run.mode dependency)
 
 **Files:**
 - `config/hpo/smoke.yaml`
@@ -373,103 +402,64 @@ def _scan_final_training_variants(
 
 **Changes:**
 ```yaml
-# Run mode configuration (unified behavior control)
-run:
-  # Run mode determines overall behavior:
-  # - reuse_if_exists: Reuse existing study if found (default, respects auto_resume)
-  # - force_new: Always create a new study with next variant (v1, v2, v3...)
-  mode: force_new  # or reuse_if_exists
-
+# HPO no longer uses run.mode - use explicit study_name for versioning
 checkpoint:
   enabled: true
-  # study_name: null  # null = auto-generate base as "hpo_{backbone}" (default)
-  #                    # When run.mode=force_new, code will compute next variant (v1, v2, v3...)
+  # study_name: Explicit study name for versioning (e.g., "hpo_{backbone}_v2")
+  #             If null, defaults to "hpo_{backbone}"
+  #             Use explicit names like "hpo_distilbert_v2" for new versions
+  study_name: hpo_{backbone}_v2  # Example: explicit versioning
   storage_path: "{study_name}/study.db"
-  auto_resume: true
+  auto_resume: true  # If true and study exists, resume; if false, raise error on duplicate
   save_only_best: true
 ```
 
-**Documentation:** Add comments explaining variant behavior
+**Key Simplification:**
+- Removed `run.mode` dependency from HPO
+- Use explicit `study_name` in config for versioning (e.g., `hpo_distilbert_v2`)
+- `auto_resume: true` controls whether to load existing study or create new one
+- If study_name exists and `auto_resume: false`, raises error guiding user to set new `study_name` or `auto_resume: true`
 
 ---
 
-### Step 1.4: Implement HPO Variant Generation
+### Step 1.4: Simplify HPO Study Name Creation
+
+**Status:** ✅ **COMPLETED** (Simplified approach - explicit study_name, no run.mode dependency)
 
 **File:** `src/training/hpo/utils/helpers.py`
 
 **Changes:**
 ```python
-from infrastructure.config.run_mode import get_run_mode
-from infrastructure.config.variants import compute_next_variant, find_existing_variants
-
 def create_study_name(
     backbone: str,
-    run_id: str,
-    should_resume: bool,
     checkpoint_config: Optional[Dict[str, Any]] = None,
     hpo_config: Optional[Dict[str, Any]] = None,
-    run_mode: Optional[str] = None,
-    root_dir: Optional[Path] = None,
-    config_dir: Optional[Path] = None,
 ) -> str:
     """
-    Create Optuna study name with variant support (like final training).
+    Create Optuna study name from explicit study_name in config.
     
-    When run_mode == "force_new", computes next variant number (v1, v2, v3...).
-    When run_mode == "reuse_if_exists", uses base name for resumability.
+    Simplified approach:
+    - Uses study_name from checkpoint_config or hpo_config as-is
+    - Replaces {backbone} placeholder if present
+    - Defaults to "hpo_{backbone}" if not specified
+    - No automatic variant computation (user specifies explicit names)
     
-    Uses shared variants.py module (DRY).
+    Versioning: User explicitly sets study_name (e.g., "hpo_distilbert_v2")
+    Resume behavior: Controlled by auto_resume flag in checkpoint config
     """
     checkpoint_config = checkpoint_config or {}
     hpo_config = hpo_config or {}
-    checkpoint_enabled = checkpoint_config.get("enabled", False)
-    
-    # Get run_mode from config if not provided
-    if run_mode is None:
-        combined_config = {**hpo_config, **checkpoint_config}
-        run_mode = get_run_mode(combined_config)
     
     # Check for custom study_name in checkpoint config first, then HPO config
     study_name_template = checkpoint_config.get("study_name") or hpo_config.get("study_name")
     
     if study_name_template:
+        # Replace {backbone} placeholder if present
         study_name = study_name_template.replace("{backbone}", backbone)
-        # If force_new and we have root_dir/config_dir, compute variant
-        if run_mode == "force_new" and root_dir and config_dir:
-            variant = compute_next_variant(
-                root_dir=root_dir,
-                config_dir=config_dir,
-                process_type="hpo",
-                model=backbone,
-                base_name=study_name,
-            )
-            return f"{study_name}_v{variant}" if variant > 1 else study_name
-        # If reuse_if_exists, use base name
         return study_name
     
-    # Default behavior when no custom study_name is provided
-    base_name = f"hpo_{backbone}"
-    
-    if run_mode == "force_new":
-        # Compute next variant when force_new
-        if root_dir and config_dir:
-            variant = compute_next_variant(
-                root_dir=root_dir,
-                config_dir=config_dir,
-                process_type="hpo",
-                model=backbone,
-                base_name=base_name,
-            )
-            return f"{base_name}_v{variant}" if variant > 1 else base_name
-        else:
-            # Fallback: use run_id if root_dir/config_dir not available
-            return f"{base_name}_{run_id}"
-    elif checkpoint_enabled or should_resume:
-        # Use consistent name for resumability (no variant suffix)
-        return base_name
-    else:
-        # Use unique name for fresh start (only when checkpointing is disabled)
-        return f"{base_name}_{run_id}"
+    # Default: use base name
+    return f"hpo_{backbone}"
 
 def find_study_variants(
     output_dir: Path,
@@ -507,10 +497,11 @@ def find_study_variants(
 ```
 
 **Update HPO study creation:**
-- `src/training/hpo/core/study.py` → Extract `run_mode` using `get_run_mode()`
-- Pass `root_dir`, `config_dir`, `run_mode` to `create_study_name()`
+- `src/training/hpo/core/study.py` → Use explicit `study_name` from config
+- Simplified `_create_new_study()` to raise error on duplicate if `auto_resume: false`
+- Use `auto_resume` flag to control load_if_exists behavior
 
-**Tests:** Test variant generation (v1, v2, v3) with `force_new`
+**Tests:** Test explicit study_name handling, auto_resume behavior
 
 ---
 
@@ -1615,7 +1606,9 @@ def _benchmark_exists_on_disk(
 
 ---
 
-### Step 3.3: Add Run Mode Inheritance
+### Step 3.3: Benchmark Run Mode (Independent Configuration)
+
+**Status:** ✅ **COMPLETED** (Simplified - no inheritance from HPO)
 
 **File:** `src/evaluation/benchmarking/orchestrator.py`
 
@@ -1625,33 +1618,29 @@ from infrastructure.config.run_mode import get_run_mode
 
 def get_benchmark_run_mode(
     benchmark_config: Dict[str, Any],
-    hpo_config: Dict[str, Any],
+    hpo_config: Dict[str, Any],  # Unused - kept for compatibility
 ) -> str:
     """
-    Get benchmark run mode (inherits from HPO if null).
+    Get benchmark run mode (independent of HPO config).
     
     Uses shared run_mode.py utility (DRY).
+    
+    Note: HPO no longer uses run.mode, so benchmark mode is independent.
     """
-    # Get run mode from benchmark config (null = inherit from HPO)
-    benchmark_run_mode = benchmark_config.get("run", {}).get("mode")
-    
-    if benchmark_run_mode is None:
-        # Inherit from HPO config
-        hpo_run_mode = get_run_mode(hpo_config, default="reuse_if_exists")
-        return hpo_run_mode
-    
-    return get_run_mode(benchmark_config)
+    # Get run mode from benchmark config (defaults to "reuse_if_exists" if not specified)
+    # Note: HPO no longer uses run.mode, so benchmark mode is independent
+    return get_run_mode(benchmark_config, default="reuse_if_exists")
 ```
 
 **Update config:** `config/benchmark.yaml`
 ```yaml
-# Run mode configuration (inherits from HPO if null)
+# Run mode configuration (independent of HPO)
 run:
   # Run mode determines overall behavior:
-  # - null: Inherit from HPO config (default behavior)
-  # - reuse_if_exists: Reuse existing benchmark results if found
+  # - reuse_if_exists: Reuse existing benchmark results if found (default)
   # - force_new: Always create new benchmark run (ignores existing)
-  mode: null  # null = inherit from HPO config
+  # Note: HPO no longer uses run.mode - benchmark mode is independent
+  mode: force_new
 ```
 
 ---
@@ -1708,8 +1697,7 @@ def benchmark_champions(
     if not variants:
         return []
     
-    # Get run mode (inherited from HPO)
-    hpo_run_mode = get_run_mode(hpo_config, default="reuse_if_exists")
+    # Get run mode (independent configuration)
     benchmark_run_mode = get_benchmark_run_mode(benchmark_config, hpo_config)
     
     benchmarked_variants = []
@@ -1808,9 +1796,9 @@ else:
 
 ### Phase 1: HPO Foundation (Week 1)
 - ✅ Step 1.1: Create `run_mode.py` utility
-- ✅ Step 1.2: Generalize `variants.py` module
-- ✅ Step 1.3: Add run.mode to HPO configs
-- ✅ Step 1.4: Implement HPO variant generation
+- ✅ Step 1.2: Generalize `variants.py` module (NOTE: Not used for HPO - simplified approach)
+- ✅ Step 1.3: Simplify HPO study naming (explicit study_name, removed run.mode dependency)
+- ✅ Step 1.4: Simplify HPO study name creation (explicit study_name from config)
 
 ### Phase 1.5: Unified Run Decision Logic (Completed)
 - ✅ Step 1.5.1: Create `run_decision.py` module with `should_reuse_existing()`
@@ -1830,6 +1818,50 @@ else:
 - ✅ Step 1.6.7: Create consistent `eval_config` derivation utility
 - ✅ Step 1.6.8: Remove unused fallbacks and redundant logic (DRY cleanup)
 - ✅ All indentation errors fixed, code compiles successfully
+
+### Phase 1.7: Unified Artifact Acquisition (SSOT) - READY TO START
+**Prerequisites:** ✅ Phase 1.6 complete - hash consistency foundation in place
+
+**Goal:** Single source of truth for artifact acquisition across all stages
+
+**Key Principles:**
+- Artifact-identity-driven (not stage-driven)
+- Refit-aware run selection (trial→refit mapping in one place)
+- Configurable priority per artifact_kind
+- Declared vs probe availability checks
+- Artifact-kind-specific validation
+- Model loading kept separate (domain-specific)
+
+**Steps:**
+- [ ] Step 1.7.1: Create artifact types and request/result dataclasses
+- [ ] Step 1.7.2: Implement run selector with trial→refit mapping (SSOT)
+- [ ] Step 1.7.3: Implement artifact-kind-specific validation
+- [ ] Step 1.7.4: Implement discovery for local/drive/mlflow
+- [ ] Step 1.7.5: Implement main acquisition orchestration
+- [ ] Step 1.7.6: Update config to support per-artifact-kind priority
+- [ ] Step 1.7.7: Refactor existing modules to use unified API
+- [ ] Step 1.7.8: Remove duplicate acquisition/validation code
+**Prerequisites:** ✅ Phase 1.6 complete - hash consistency foundation in place
+
+**Goal:** Single source of truth for artifact acquisition across all stages (benchmarking, best config selection, final training, model conversion)
+
+**Key Principles:**
+- **Artifact-identity-driven** (not stage-driven) - use `artifact_kind` instead of `stage`
+- **Refit-aware run selection** - trial→refit mapping in exactly one place (`selectors.py`)
+- **Configurable priority per artifact_kind** - different sources for different artifact types
+- **Declared vs probe availability** - distinguish tag-based vs verified existence
+- **Artifact-kind-specific validation** - different required files per artifact type
+- **Model loading kept separate** - domain-specific logic stays in training/benchmarking modules
+
+**Steps:**
+- [ ] Step 1.7.1: Create artifact types and request/result dataclasses (`types.py`)
+- [ ] Step 1.7.2: Implement run selector with trial→refit mapping (SSOT in `selectors.py`)
+- [ ] Step 1.7.3: Implement artifact-kind-specific validation (`validation.py`)
+- [ ] Step 1.7.4: Implement discovery for local/drive/mlflow (`discovery.py`)
+- [ ] Step 1.7.5: Implement main acquisition orchestration (`acquisition.py`)
+- [ ] Step 1.7.6: Update config to support per-artifact-kind priority
+- [ ] Step 1.7.7: Refactor existing modules to use unified API
+- [ ] Step 1.7.8: Remove duplicate acquisition/validation code
 
 ### Phase 2: Deterministic Retrieval (Champion Selection) - READY TO START
 **Prerequisites:** ✅ Phase 1.6 complete - hash consistency foundation in place

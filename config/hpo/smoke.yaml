@@ -1,7 +1,7 @@
 search_space:
   backbone:
     type: "choice"
-    values: ["distilbert"]  # ["distilbert", "distilroberta"]
+    values: ["distilroberta"]  # ["distilbert", "distilroberta"]
     # Note: "deberta" excluded from smoke tests due to CUDA/NVRTC issues on Windows
     # DeBERTa requires nvrtc-builtins64_129.dll which may not be available in all environments
   
@@ -26,7 +26,7 @@ search_space:
 
 sampling:
   algorithm: "random"
-  max_trials: 2
+  max_trials: 1
   timeout_minutes: 20
 
 # Checkpoint configuration for HPO resume support

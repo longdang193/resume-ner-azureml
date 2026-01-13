@@ -327,26 +327,20 @@ def get_benchmark_run_mode(
     hpo_config: Dict[str, Any],
 ) -> str:
     """
-    Get benchmark run mode (inherits from HPO if null).
+    Get benchmark run mode (independent of HPO config).
     
     Uses shared run_mode.py utility (DRY).
     
     Args:
         benchmark_config: Benchmark configuration dictionary
-        hpo_config: HPO configuration dictionary
+        hpo_config: HPO configuration dictionary (unused - kept for compatibility)
         
     Returns:
         Run mode string: "reuse_if_exists", "force_new", or "resume_if_incomplete"
     """
-    # Get run mode from benchmark config (null = inherit from HPO)
-    benchmark_run_mode = benchmark_config.get("run", {}).get("mode")
-    
-    if benchmark_run_mode is None:
-        # Inherit from HPO config
-        hpo_run_mode = get_run_mode(hpo_config, default="reuse_if_exists")
-        return hpo_run_mode
-    
-    return get_run_mode(benchmark_config)
+    # Get run mode from benchmark config (defaults to "reuse_if_exists" if not specified)
+    # Note: HPO no longer uses run.mode, so benchmark mode is independent
+    return get_run_mode(benchmark_config, default="reuse_if_exists")
 
 
 def find_checkpoint_in_trial_dir(trial_dir: Path) -> Optional[Path]:

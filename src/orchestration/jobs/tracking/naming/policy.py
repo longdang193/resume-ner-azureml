@@ -256,21 +256,21 @@ def sanitize_semantic_suffix(study_name: str, max_length: int = 30, model: Optio
 
     # Minimal sanitization: just make it valid for MLflow run names
     label = study_name
-    
+
     # Replace spaces and slashes
     label = label.replace(" ", "").replace("/", "-")
-    
+
     # Remove problematic characters (keep alphanumeric, underscore, hyphen)
     label = re.sub(r'[^\w\-]', '', label)
-    
+
     # Truncate to max_length
     if len(label) > max_length:
         label = label[:max_length]
-    
+
     # Add underscore prefix if non-empty
     if label:
         return f"_{label}"
-    
+
     return ""
 
 

@@ -285,16 +285,16 @@ def run_refit_training(
     refit_run_key_hash = build_mlflow_run_key_hash(
         refit_run_key) if refit_run_key else None
     refit_tags = build_mlflow_tags(
-            context=refit_context,
-            output_dir=refit_output_dir,
-            parent_run_id=hpo_parent_run_id,
-            config_dir=config_dir,
+        context=refit_context,
+        output_dir=refit_output_dir,
+        parent_run_id=hpo_parent_run_id,
+        config_dir=config_dir,
             study_key_hash=computed_study_key_hash,  # Use computed study_key_hash
-            study_family_hash=study_family_hash,
+        study_family_hash=study_family_hash,
             trial_key_hash=computed_trial_key_hash,  # Use computed trial_key_hash
-            refit_protocol_fp=refit_protocol_fp,
-            run_key_hash=refit_run_key_hash,
-        )
+        refit_protocol_fp=refit_protocol_fp,
+        run_key_hash=refit_run_key_hash,
+    )
     refit_tags["mlflow.runType"] = "refit"
     refit_tags["mlflow.runName"] = refit_run_name
     

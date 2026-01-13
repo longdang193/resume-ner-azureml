@@ -264,54 +264,8 @@ def normalize_value(value: str, rules: Optional[Dict[str, Any]] = None) -> str:
 
     return result
 
-def sanitize_semantic_suffix(study_name: str, max_length: int = 30, model: Optional[str] = None) -> str:
-    """
-    Sanitize HPO study semantic suffix for custom study names.
-
-    Note: Auto-generated study names (when study_name: null) are handled upstream
-    by passing None to the context, so this function only processes custom study names.
-
-    Args:
-        study_name: Custom study name to sanitize (never None - handled upstream).
-        max_length: Maximum length for the suffix.
-        model: Optional model name to strip from beginning if present (avoids duplication).
-
-    Returns:
-        Sanitized suffix with underscore prefix (empty string if nothing remains after sanitization).
-    """
-    if not study_name:
-        return ""
-
-    # Remove "hpo_" prefix if present
-    label = study_name
-    if label.startswith("hpo_"):
-        label = label[len("hpo_"):]
-
-    # Strip model name from beginning if present (avoids duplication in run name)
-    if model and label.startswith(model):
-        # Remove model name and any following separator (_, -, etc.)
-        remaining = label[len(model):].lstrip("_-")
-        if remaining:  # Only use if there's something meaningful left after stripping
-            label = remaining
-        else:
-            # Nothing meaningful left - return empty to avoid redundancy
-            return ""
-
-    # Replace spaces and slashes
-    label = label.replace(" ", "").replace("/", "-")
-
-    # Remove other problematic characters
-    label = re.sub(r'[^\w\-]', '', label)
-
-    # Truncate to max_length
-    if len(label) > max_length:
-        label = label[:max_length]
-
-    # Add underscore prefix if non-empty
-    if label:
-        return f"_{label}"
-
-    return ""
+# sanitize_semantic_suffix is now imported from orchestration.jobs.tracking.naming.policy
+# (single source of truth - see import at top of file)
 
 def _short(value: Optional[str], length: int = 8, default: str = "unknown") -> str:
     """Return a short hash of specified length or a default if missing."""
@@ -385,6 +339,8 @@ def extract_component(
         max_length = component_config.get("max_length", 30)
         enabled = component_config.get("enabled", True)
         if enabled and value:
+            # Lazy import to avoid circular dependency (single source of truth)
+            from orchestration.jobs.tracking.naming.policy import sanitize_semantic_suffix
             # Pass model name to avoid duplication (e.g., "distilbert" in study_name)
             model_name = context.model if hasattr(context, "model") else None
             return sanitize_semantic_suffix(value, max_length, model=model_name)

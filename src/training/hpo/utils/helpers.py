@@ -114,7 +114,7 @@ def create_study_name(
     checkpoint_config = checkpoint_config or {}
     hpo_config = hpo_config or {}
     checkpoint_enabled = checkpoint_config.get("enabled", False)
-
+    
     # Check for custom study_name in checkpoint config first, then HPO config
     study_name_template = checkpoint_config.get("study_name") or hpo_config.get("study_name")
 

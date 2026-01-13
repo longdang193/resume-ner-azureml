@@ -306,7 +306,9 @@ class StudyManager:
             logger.warning(f"Could not load checkpoint: {e}")
             logger.info("Creating new study instead...")
             # Use unique study name when resume fails
-            study_name = f"hpo_{self.backbone}_{run_id}"
+            import uuid
+            unique_id = str(uuid.uuid4())[:8]
+            study_name = f"hpo_{self.backbone}_{unique_id}"
             study = self.optuna.create_study(
                 direction=self.direction,
                 sampler=self.sampler,
@@ -321,10 +323,6 @@ class StudyManager:
         self, study_name: str, storage_path: Path, storage_uri: str
     ) -> Tuple[Any, str, Path, str, bool]:
         """Create new study."""
-        # Use unified decision logic for load_if_exists flag
-        from infrastructure.config.run_decision import get_load_if_exists_flag
-        combined_config = {**self.hpo_config, **(self.checkpoint_config or {})}
-        
         if storage_uri:
             logger.info(
                 f"[HPO] Starting optimization for {self.backbone} with checkpointing..."
@@ -357,9 +355,8 @@ class StudyManager:
             )
 
         # If checkpointing is enabled and we loaded an existing study, check auto_resume
-        # But skip this if force_new (we already set load_if_exists=False above)
         should_resume = False
-        if self.checkpoint_enabled and load_if_exists and len(study.trials) > 0 and not force_new:
+        if self.checkpoint_enabled and load_if_exists and len(study.trials) > 0:
             auto_resume = self.checkpoint_config.get("auto_resume", True)
 
             if auto_resume:

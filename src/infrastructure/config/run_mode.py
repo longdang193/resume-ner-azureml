@@ -1,10 +1,10 @@
 """Unified run mode extraction utility.
 
 Single source of truth for run.mode extraction across all stages:
-- HPO: Controls whether to create new study or reuse existing
+- HPO: No longer uses run.mode (uses explicit study_name and auto_resume instead)
 - Final Training: Controls variant creation and checkpoint reuse
 - Best Model Selection: Controls cache reuse
-- Benchmarking: Inherits from HPO
+- Benchmarking: Independent run.mode configuration (defaults to reuse_if_exists)
 
 This module replaces 4+ duplicate extractions throughout the codebase.
 
@@ -24,10 +24,10 @@ def get_run_mode(config: Dict[str, Any], default: RunMode = "reuse_if_exists") -
     Extract run.mode from configuration with consistent defaults.
     
     Used across all stages:
-    - HPO: Controls whether to create new study or reuse existing
+    - HPO: No longer uses run.mode (uses explicit study_name and auto_resume instead)
     - Final Training: Controls variant creation and checkpoint reuse
     - Best Model Selection: Controls cache reuse
-    - Benchmarking: Inherits from HPO
+    - Benchmarking: Independent run.mode configuration (defaults to reuse_if_exists)
     
     Args:
         config: Configuration dictionary (e.g., from YAML)

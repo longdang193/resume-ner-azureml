@@ -488,13 +488,13 @@ def _create_trial_run(
                 if not computed_study_key_hash:
                     computed_study_key_hash = compute_study_key_hash_v2(
                         data_config, hpo_config, train_config, backbone, config_dir
-                    )
+                            )
                     if computed_study_key_hash:
-                        logger.debug(
-                            f"[TRIAL_RUN] Computed v2 study_key_hash from configs: "
-                            f"{computed_study_key_hash[:16]}... (fallback)"
-                        )
-                
+                            logger.debug(
+                                f"[TRIAL_RUN] Computed v2 study_key_hash from configs: "
+                                f"{computed_study_key_hash[:16]}... (fallback)"
+                            )
+                    
                 if not computed_study_family_hash:
                     try:
                         from infrastructure.tracking.mlflow.naming import (

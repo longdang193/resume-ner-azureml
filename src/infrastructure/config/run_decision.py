@@ -4,10 +4,10 @@ Single source of truth for determining whether to reuse existing
 or create new runs based on run.mode configuration.
 
 Used by:
-- HPO: Study reuse vs. new study creation
+- HPO: No longer uses run.mode (uses explicit study_name and auto_resume instead)
 - Final Training: Checkpoint reuse vs. new training run
 - Best Model Selection: Cache reuse
-- Benchmarking: Inherits from HPO
+- Benchmarking: Independent run.mode configuration
 """
 
 from __future__ import annotations
