@@ -93,12 +93,10 @@ def create_study_name(
     config_dir: Optional[Path] = None,
 ) -> str:
     """
-    Create Optuna study name with variant support (like final training).
+    Create Optuna study name (simplified version - no automatic variant computation).
     
-    When run_mode == "force_new", computes next variant number (v1, v2, v3...).
-    When run_mode == "reuse_if_exists", uses base name for resumability.
-    
-    Uses shared variants.py module (DRY).
+    Simple approach: Use study_name from config as-is, or default to hpo_{backbone}.
+    User controls versioning by explicitly specifying study_name (e.g., hpo_distilbert_v2).
 
     Args:
         backbone: Model backbone name.
@@ -106,66 +104,36 @@ def create_study_name(
         should_resume: Whether resuming from checkpoint.
         checkpoint_config: Optional checkpoint configuration dictionary.
         hpo_config: Optional HPO configuration dictionary.
-        run_mode: Optional run mode (if None, extracted from configs).
-        root_dir: Optional project root directory (required for variant computation).
-        config_dir: Optional config directory (required for variant computation).
+        run_mode: Optional run mode (unused, kept for compatibility).
+        root_dir: Optional project root directory (unused, kept for compatibility).
+        config_dir: Optional config directory (unused, kept for compatibility).
 
     Returns:
-        Study name string (with variant suffix if force_new and variant > 1).
+        Study name string (from config or default).
     """
     checkpoint_config = checkpoint_config or {}
     hpo_config = hpo_config or {}
     checkpoint_enabled = checkpoint_config.get("enabled", False)
 
-    # Get run_mode from config if not provided
-    if run_mode is None:
-        from infrastructure.config.run_mode import get_run_mode
-        combined_config = {**hpo_config, **checkpoint_config}
-        run_mode = get_run_mode(combined_config)
-    
     # Check for custom study_name in checkpoint config first, then HPO config
     study_name_template = checkpoint_config.get("study_name") or hpo_config.get("study_name")
 
     if study_name_template:
+        # Use custom study name as-is (replace {backbone} placeholder if present)
         study_name = study_name_template.replace("{backbone}", backbone)
-        # If force_new and we have root_dir/config_dir, compute variant
-        if run_mode == "force_new" and root_dir and config_dir:
-            from infrastructure.config.variants import compute_next_variant
-            variant = compute_next_variant(
-                root_dir=root_dir,
-                config_dir=config_dir,
-                process_type="hpo",
-                model=backbone,
-                base_name=study_name,
-            )
-            return f"{study_name}_v{variant}" if variant > 1 else study_name
-        # If reuse_if_exists, use base name
         return study_name
 
     # Default behavior when no custom study_name is provided
-    base_name = f"hpo_{backbone}"
-    
-    if run_mode == "force_new":
-        # Compute next variant when force_new
-        if root_dir and config_dir:
-            from infrastructure.config.variants import compute_next_variant
-            variant = compute_next_variant(
-                root_dir=root_dir,
-                config_dir=config_dir,
-                process_type="hpo",
-                model=backbone,
-                base_name=base_name,
-            )
-            return f"{base_name}_v{variant}" if variant > 1 else base_name
-        else:
-            # Fallback: use run_id if root_dir/config_dir not available
-            return f"{base_name}_{run_id}"
-    elif checkpoint_enabled or should_resume:
-        # Use consistent name for resumability (no variant suffix)
-        return base_name
+    if checkpoint_enabled:
+        # When checkpointing is enabled, always use consistent name so it can be resumed
+        # This allows future runs to resume even if the checkpoint file doesn't exist yet
+        return f"hpo_{backbone}"
+    elif should_resume:
+        # Use base name to resume existing study (for backward compatibility)
+        return f"hpo_{backbone}"
     else:
         # Use unique name for fresh start (only when checkpointing is disabled)
-        return f"{base_name}_{run_id}"
+        return f"hpo_{backbone}_{run_id}"
 
 
 def find_study_variants(

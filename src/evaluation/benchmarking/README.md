@@ -206,5 +206,66 @@ The benchmarking module is organized with Single Responsibility Principle:
 - `orchestrator.py`: High-level orchestration for HPO trials
 - `utils.py`: Subprocess wrapper and MLflow logging
 
+## Phase 3: Champion-Based Benchmarking
+
+The benchmarking module now supports **champion-based benchmarking** (Phase 3), which uses complete champion data from Phase 2 selection to avoid redundant MLflow lookups and checkpoint finding.
+
+### Primary Entry Point: `benchmark_champions()`
+
+The recommended way to benchmark champions is using `benchmark_champions()`:
+
+```python
+from evaluation.benchmarking.orchestrator import benchmark_champions, filter_missing_benchmarks
+from evaluation.selection.trial_finder import select_champions_for_backbones
+
+# Step 1: Select champions (Phase 2)
+champions = select_champions_for_backbones(...)
+
+# Step 2: Filter missing benchmarks (idempotency check)
+champions_to_benchmark = filter_missing_benchmarks(
+    champions=champions,
+    benchmark_experiment=benchmark_experiment,
+    benchmark_config=benchmark_config,
+    data_fingerprint=data_fp,
+    eval_fingerprint=eval_fp,
+    root_dir=ROOT_DIR,
+    environment=environment,
+    mlflow_client=mlflow_client,
+    run_mode=run_mode,
+)
+
+# Step 3: Benchmark champions (Phase 3 - uses complete data, no redundant lookups)
+benchmark_results = benchmark_champions(
+    champions=champions_to_benchmark,
+    test_data_path=test_data_path,
+    root_dir=ROOT_DIR,
+    environment=environment,
+    data_config=data_config,
+    hpo_config=hpo_config,
+    benchmark_config=benchmark_config,
+    ...
+)
+```
+
+### Benefits of Champion-Based Benchmarking
+
+1. **No Redundant MLflow Lookups**: Champions already have all run_ids (`trial_run_id`, `refit_run_id`, `sweep_run_id`)
+2. **No Redundant Checkpoint Finding**: Champions already have `checkpoint_path` set
+3. **No Redundant Hash Computation**: Champions already have `study_key_hash` and `trial_key_hash`
+4. **Idempotent**: Uses stable benchmark keys and respects `run_mode` configuration
+
+### Legacy Support
+
+The `benchmark_best_trials()` function still supports the legacy `best_trials` format for backward compatibility. However, it now detects champion mode via the `_is_champion` flag and skips redundant operations when using champions.
+
+### Deprecated Functions
+
+The following functions are deprecated but still work for legacy code:
+
+- `find_checkpoint_in_trial_dir()`: Only needed for legacy `best_trials` format
+- `compute_grouping_tags()`: Only needed for legacy `best_trials` format
+
+**Migration**: Use `benchmark_champions()` with champions from Phase 2 selection instead.
+
 
 

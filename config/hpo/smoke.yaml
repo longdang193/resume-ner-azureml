@@ -29,20 +29,14 @@ sampling:
   max_trials: 2
   timeout_minutes: 20
 
-# Run mode configuration (unified behavior control)
-run:
-  # Run mode determines overall behavior:
-  # - reuse_if_exists: Reuse existing study if found (default, respects auto_resume)
-  # - force_new: Always create a new study with next variant (v1, v2, v3...)
-  mode: force_new  # or force_new
-
 # Checkpoint configuration for HPO resume support
 # Enables saving study state to SQLite database for resuming interrupted runs
 checkpoint:
   enabled: true
   # study_name: null  # null = auto-generate base as "hpo_{backbone}" (default)
-  #                    # When run.mode=force_new, code will compute next variant (v1, v2, v3...)
-  study_name: null
+  #                    # To create a new version, explicitly specify: "hpo_{backbone}_v2", "hpo_{backbone}_v3", etc.
+  #                    # Example: study_name: "hpo_distilbert_v2"
+  study_name: hpo_{backbone}_test_v3
   storage_path: "{study_name}/study.db"
   auto_resume: true
   # Only save checkpoints for best trials locally (reduces storage from ~30 GB to ~300 MB)

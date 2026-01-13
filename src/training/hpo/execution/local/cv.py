@@ -182,10 +182,13 @@ def run_training_trial_with_cv(
                 current = current.parent
             
             if root_dir is None:
-                raise RuntimeError(
-                    f"Could not find 'outputs' directory by walking up from {output_dir}. "
-                    f"This indicates an invalid output_dir path."
-                )
+                # Fallback: try to find project root by looking for config directory
+                root_dir = Path.cwd()
+                # Try common locations
+                for candidate in [Path.cwd(), Path.cwd().parent]:
+                    if (candidate / "config").exists():
+                        root_dir = candidate
+                        break
             
             config_dir = root_dir / "config"
             
@@ -230,33 +233,84 @@ def run_training_trial_with_cv(
             f"trial_key_hash={'YES' if computed_trial_key_hash else 'NO'}"
         )
     
-    # If v2 construction failed, we must have hashes to construct manually
+    # Fallback to legacy pattern if v2 construction failed or hashes unavailable
     if trial_base_dir is None:
-        if not is_v2_study_folder:
+        # Check if we're in a v2 study folder (study-{hash})
+        # If so, we MUST use v2 trial naming (trial-{hash}) even if build_output_path failed
+        study_folder_name = output_dir.name
+        is_v2_study_folder = study_folder_name.startswith("study-") and len(study_folder_name) > 7
+        
+        if is_v2_study_folder:
+            if computed_trial_key_hash:
+                # We have the hash, construct v2 trial name manually
+                from infrastructure.naming.context_tokens import build_token_values
+                from infrastructure.naming.context import NamingContext
+                temp_context = NamingContext(
+                    process_type="hpo",
+                    model=backbone.split("-")[0] if "-" in backbone else backbone,
+                    environment=detect_platform(),
+                    trial_key_hash=computed_trial_key_hash
+                )
+                tokens = build_token_values(temp_context)
+                trial8 = tokens["trial8"]
+                trial_base_dir = output_dir / f"trial-{trial8}"
+                trial_base_dir.mkdir(parents=True, exist_ok=True)
+            else:
+                # We're in a v2 study folder but don't have trial_key_hash
+                # This is an error - we can't create v2 trial name without hash
+                # Try to compute it one more time from trial_params
+                logger.error(
+                    f"ERROR: In v2 study folder {study_folder_name} but computed_trial_key_hash is None. "
+                    f"study_key_hash={computed_study_key_hash}, trial_params={trial_params}. "
+                    f"Attempting to compute trial_key_hash from trial_params..."
+                )
+                try:
+                    from infrastructure.tracking.mlflow.naming import (
+                        build_hpo_trial_key,
+                        build_hpo_trial_key_hash,
+                    )
+                    if computed_study_key_hash:
+                        hyperparameters = {
+                            k: v for k, v in trial_params.items()
+                            if k not in ("backbone", "trial_number", "run_id")
+                        }
+                        trial_key = build_hpo_trial_key(computed_study_key_hash, hyperparameters)
+                        computed_trial_key_hash = build_hpo_trial_key_hash(trial_key)
+                        from infrastructure.naming.context_tokens import build_token_values
+                        from infrastructure.naming.context import NamingContext
+                        temp_context = NamingContext(
+                            process_type="hpo",
+                            model=backbone.split("-")[0] if "-" in backbone else backbone,
+                            environment=detect_platform(),
+                            trial_key_hash=computed_trial_key_hash
+                        )
+                        tokens = build_token_values(temp_context)
+                        trial8 = tokens["trial8"]
+                        trial_base_dir = output_dir / f"trial-{trial8}"
+                        trial_base_dir.mkdir(parents=True, exist_ok=True)
+                    else:
+                        raise ValueError("Cannot compute trial_key_hash without study_key_hash")
+                except Exception as e:
+                    logger.error(
+                        f"CRITICAL: Failed to compute trial_key_hash for v2 study folder {study_folder_name}. "
+                        f"study_key_hash={'YES' if computed_study_key_hash else 'NO'}, "
+                        f"trial_params keys: {list(trial_params.keys())}. "
+                        f"Error: {e}"
+                    )
+                    import traceback
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+                    # DO NOT create legacy folder in v2 study folder - raise exception instead
+                    raise RuntimeError(
+                        f"Cannot create trial in v2 study folder {study_folder_name} without trial_key_hash. "
+                        f"Hash computation failed. This is a critical error that must be fixed. "
+                        f"study_key_hash={'YES' if computed_study_key_hash else 'NO'}"
+                    )
+        else:
+            # Should not happen - we only support v2 paths
             raise RuntimeError(
                 f"Cannot create trial in non-v2 study folder. Only v2 paths (study-{{hash}}) are supported. "
                 f"Found study folder: {study_folder_name}"
             )
-        
-        if not computed_trial_key_hash:
-            raise RuntimeError(
-                f"Cannot create trial in v2 study folder {study_folder_name} without trial_key_hash. "
-                f"Hash computation failed earlier. study_key_hash={'YES' if computed_study_key_hash else 'NO'}"
-            )
-        
-        # Construct v2 trial name manually using hash
-        from infrastructure.naming.context_tokens import build_token_values
-        from infrastructure.naming.context import NamingContext
-        temp_context = NamingContext(
-            process_type="hpo",
-            model=backbone.split("-")[0] if "-" in backbone else backbone,
-            environment=detect_platform(),
-            trial_key_hash=computed_trial_key_hash
-        )
-        tokens = build_token_values(temp_context)
-        trial8 = tokens["trial8"]
-        trial_base_dir = output_dir / f"trial-{trial8}"
-        trial_base_dir.mkdir(parents=True, exist_ok=True)
     
     # CRITICAL CHECK: If we're in a v2 study folder, verify we're using v2 naming
     if is_v2_study_folder:

@@ -1846,22 +1846,601 @@ else:
 - [ ] Step 3.3: Add run mode inheritance (uses run_mode.py)
 - [ ] Step 3.4: Update benchmarking to use champions (not all variants)
 - [ ] Step 3.5: Update notebooks (complete 3-step flow)
+- [ ] Step 3.6: Refit-aware checkpoint reuse between steps
+
+### Phase 4: Performance & Efficiency Optimizations
+- [ ] Step 4.1: MLflow query optimization (batch, cache, efficient filters) - **HIGH PRIORITY**
+- [ ] Step 4.2: Parallel benchmarking (queue-based, single GPU default)
+- [ ] Step 4.3: Checkpoint caching (refit_run_id + fingerprints key)
+
+### Phase 5: Observability & Monitoring
+- [ ] Step 5.1: Structured logging (context, timing, checkpoint reuse stats)
+
+### Phase 6: Error Handling & Resilience
+- [ ] Step 6.1: Retry logic (transient MLflow failures, exponential backoff)
+- [ ] Step 6.2: Conditional fallback (local cache, not generic disk)
+
+### Phase 7: Developer Experience (DEFERRED)
+- [ ] CLI tools (defer until core workflow stable)
+- [ ] Enhanced documentation
+- [ ] Type hints and IDE support
+- [ ] Step 3.6: Refit-aware checkpoint reuse between steps
+
+### Phase 3.6: Refit-Aware Checkpoint Reuse (CRITICAL)
+
+**Goal**: Avoid redundant checkpoint downloads when best model was already benchmarked, using **refit checkpoints** (not trial checkpoints).
+
+**Key Requirements**:
+- **Refit-aware**: Cache and reuse **refit checkpoint bundle** keyed by `refit_run_id` (primary), not `trial_key_hash`
+- **Matching order**: `refit_run_id` → fallback `(backbone, study_key_hash, trial_key_hash)`
+- **Validation**: Verify checkpoint integrity before reuse
+
+**Implementation:**
+
+**File:** `notebooks/02_best_config_selection.ipynb`
+
+**Step 1: Store benchmarked champions with refit keys (after Step 6)**
+
+```python
+# After benchmarking step, store champions indexed by refit_run_id
+BENCHMARKED_CHAMPIONS_BY_REFIT = {}
+BENCHMARKED_CHAMPIONS_BY_KEYS = {}
+
+for backbone, champion_data in champions_to_benchmark.items():
+    champion = champion_data.get("champion", {})
+    refit_run_id = champion.get("refit_run_id")
+    checkpoint_path = champion.get("checkpoint_path")
+    
+    if refit_run_id and checkpoint_path:
+        # Primary index: refit_run_id
+        BENCHMARKED_CHAMPIONS_BY_REFIT[refit_run_id] = {
+            "checkpoint_path": Path(checkpoint_path),
+            "backbone": backbone,
+            "champion": champion,
+        }
+        
+        # Fallback index: (backbone, study_key_hash, trial_key_hash)
+        study_key_hash = champion.get("study_key_hash")
+        trial_key_hash = champion.get("trial_key_hash")
+        if study_key_hash and trial_key_hash:
+            BENCHMARKED_CHAMPIONS_BY_KEYS[(backbone, study_key_hash, trial_key_hash)] = {
+                "checkpoint_path": Path(checkpoint_path),
+                "refit_run_id": refit_run_id,
+                "champion": champion,
+            }
+```
+
+**Step 2: Reuse checkpoint in best model selection (Step 7)**
+
+```python
+# Before calling acquire_best_model_checkpoint(), check for reuse
+best_model_checkpoint_path = None
+reuse_reason = None
+
+# Primary match: refit_run_id (most reliable)
+best_refit_run_id = best_model.get("refit_run_id")
+if best_refit_run_id and best_refit_run_id in BENCHMARKED_CHAMPIONS_BY_REFIT:
+    cached = BENCHMARKED_CHAMPIONS_BY_REFIT[best_refit_run_id]
+    checkpoint_path = cached["checkpoint_path"]
+    
+    # Validate checkpoint before reuse
+    if validate_checkpoint_for_reuse(checkpoint_path, best_refit_run_id):
+        best_model_checkpoint_path = checkpoint_path
+        reuse_reason = f"refit_run_id={best_refit_run_id[:12]}..."
+    else:
+        logger.warning(f"Checkpoint validation failed for {best_refit_run_id}, will re-acquire")
+
+# Fallback match: (backbone, study_key_hash, trial_key_hash)
+if best_model_checkpoint_path is None:
+    backbone = best_model.get("backbone")
+    study_key_hash = best_model.get("study_key_hash")
+    trial_key_hash = best_model.get("trial_key_hash")
+    
+    if backbone and study_key_hash and trial_key_hash:
+        key = (backbone, study_key_hash, trial_key_hash)
+        if key in BENCHMARKED_CHAMPIONS_BY_KEYS:
+            cached = BENCHMARKED_CHAMPIONS_BY_KEYS[key]
+            checkpoint_path = cached["checkpoint_path"]
+            refit_run_id = cached.get("refit_run_id")
+            
+            if validate_checkpoint_for_reuse(checkpoint_path, refit_run_id):
+                best_model_checkpoint_path = checkpoint_path
+                reuse_reason = f"keys=(backbone={backbone}, study={study_key_hash[:8]}..., trial={trial_key_hash[:8]}...)"
+
+# Use cached checkpoint or acquire new one
+if best_model_checkpoint_path:
+    best_checkpoint_dir = best_model_checkpoint_path
+    print(f"✓ Reusing checkpoint from benchmarking step ({reuse_reason})")
+else:
+    print("📥 Acquiring checkpoint for best model...")
+    best_checkpoint_dir = acquire_best_model_checkpoint(...)
+```
+
+**Validation Function:**
+
+```python
+def validate_checkpoint_for_reuse(
+    checkpoint_path: Path, 
+    expected_refit_run_id: Optional[str] = None
+) -> bool:
+    """
+    Validate checkpoint integrity before reuse.
+    
+    Args:
+        checkpoint_path: Path to checkpoint directory
+        expected_refit_run_id: Optional refit run_id to verify against metadata
+    
+    Returns:
+        True if checkpoint is valid for reuse
+    """
+    if not checkpoint_path.exists():
+        return False
+    
+    # Check for essential checkpoint files
+    essential_files = ["config.json"]
+    has_model = any(
+        (checkpoint_path / f).exists() 
+        for f in ["pytorch_model.bin", "model.safetensors", "model.bin"]
+    )
+    
+    if not has_model or not (checkpoint_path / "config.json").exists():
+        return False
+    
+    # Optional: Verify metadata matches expected refit_run_id
+    if expected_refit_run_id:
+        metadata_file = checkpoint_path.parent / "metadata.json"
+        if metadata_file.exists():
+            try:
+                metadata = load_json(metadata_file)
+                actual_run_id = metadata.get("mlflow", {}).get("run_id")
+                if actual_run_id and actual_run_id != expected_refit_run_id:
+                    logger.warning(
+                        f"Checkpoint metadata mismatch: "
+                        f"expected {expected_refit_run_id[:12]}..., "
+                        f"found {actual_run_id[:12]}..."
+                    )
+                    return False
+            except Exception as e:
+                logger.debug(f"Could not validate checkpoint metadata: {e}")
+    
+    return True
+```
+
+**Benefits:**
+- Avoids redundant MLflow downloads when best model was benchmarked
+- Faster execution (no re-download)
+- Reduces network/API usage
+- Refit-aware (uses correct checkpoint source)
+
+**Tests:**
+- Test refit_run_id matching
+- Test fallback key matching
+- Test validation logic
+- Test error handling when checkpoint invalid
+
+## Phase 4: Performance & Efficiency Optimizations
+
+### Overview
+Optimize the workflow for speed, resource usage, and scalability while maintaining stability.
+
+### Step 4.1: MLflow Query Optimization (HIGH PRIORITY)
+
+**Goal**: Reduce MLflow API calls and improve query efficiency.
+
+**Implementation:**
+- **Batch experiment metadata**: Fetch all experiment info in one call
+- **Cache experiment IDs**: Store experiment name → ID mapping
+- **Efficient filter_string patterns**: Use indexed tags (study_key_hash, trial_key_hash)
+- **Preload run data**: Fetch run details in bulk where possible
+- **Query deduplication**: Avoid duplicate queries for same data
+
+**File:** `src/infrastructure/tracking/mlflow/queries.py` (NEW or enhance existing)
+
+```python
+class MLflowQueryCache:
+    """Cache for MLflow queries to reduce API calls."""
+    
+    def __init__(self):
+        self.experiment_cache = {}  # name -> {id, last_updated}
+        self.run_cache = {}  # run_id -> run_data
+    
+    def get_experiment_id(self, client, experiment_name: str) -> str:
+        """Get experiment ID with caching."""
+        if experiment_name in self.experiment_cache:
+            return self.experiment_cache[experiment_name]["id"]
+        
+        # Fetch and cache
+        exp = client.get_experiment_by_name(experiment_name)
+        if exp:
+            self.experiment_cache[experiment_name] = {
+                "id": exp.experiment_id,
+                "last_updated": time.time(),
+            }
+            return exp.experiment_id
+        return None
+    
+    def batch_get_runs(self, client, run_ids: List[str]) -> Dict[str, Any]:
+        """Fetch multiple runs efficiently."""
+        # Filter out cached runs
+        uncached_ids = [rid for rid in run_ids if rid not in self.run_cache]
+        
+        # Fetch uncached runs
+        for run_id in uncached_ids:
+            try:
+                run = client.get_run(run_id)
+                self.run_cache[run_id] = run
+            except Exception as e:
+                logger.warning(f"Could not fetch run {run_id}: {e}")
+        
+        # Return all runs (cached + newly fetched)
+        return {rid: self.run_cache[rid] for rid in run_ids if rid in self.run_cache}
+```
+
+**Benefits:**
+- Reduces MLflow API calls significantly
+- Faster execution (fewer network round-trips)
+- Less risk of rate limiting
+- Better performance than parallelization for I/O-bound operations
+
+### Step 4.2: Parallel Benchmarking (Queue-Based, Single GPU Default)
+
+**Goal**: Support parallel benchmarking only when safe (multi-GPU or explicit enable).
+
+**Implementation:**
+- **Default: Sequential** (safe for single GPU)
+- **Optional: Parallel** only if:
+  - Multi-GPU detected (`torch.cuda.device_count() > 1`), OR
+  - Explicitly enabled in config with `parallel_benchmarking: true`
+- **Queue-based**: Use queue with `concurrency = min(gpu_count, len(champions))`
+
+**File:** `src/evaluation/benchmarking/orchestrator.py`
+
+```python
+def benchmark_champions(
+    champions: Dict[str, Dict[str, Any]],
+    ...,
+    enable_parallel: Optional[bool] = None,  # None = auto-detect
+) -> Dict[str, Path]:
+    """
+    Benchmark champions with optional parallel execution.
+    
+    Parallel execution is only enabled if:
+    - Multi-GPU available (auto-detected), OR
+    - Explicitly enabled via enable_parallel=True
+    
+    Default: Sequential (safe for single GPU).
+    """
+    import torch
+    
+    # Auto-detect GPU count
+    gpu_count = torch.cuda.device_count() if torch.cuda.is_available() else 0
+    
+    # Determine if parallel is safe
+    if enable_parallel is None:
+        enable_parallel = gpu_count > 1  # Auto: only if multi-GPU
+    
+    if enable_parallel and gpu_count > 1:
+        concurrency = min(gpu_count, len(champions))
+        logger.info(f"Using parallel benchmarking (concurrency={concurrency}, GPUs={gpu_count})")
+        return _benchmark_champions_parallel(champions, concurrency, ...)
+    else:
+        logger.info("Using sequential benchmarking (safe for single GPU)")
+        return _benchmark_champions_sequential(champions, ...)
+```
+
+**Benefits:**
+- Safe by default (no OOM on single GPU)
+- Faster when multi-GPU available
+- Configurable for advanced users
+
+### Step 4.3: Checkpoint Caching (Refit-Aware)
+
+**Goal**: Cache checkpoints locally to avoid redundant downloads, keyed by refit_run_id + fingerprints.
+
+**Implementation:**
+- **Cache key**: `refit_run_id` (primary) + `data_fingerprint` + `eval_fingerprint` + `code_version` (optional)
+- **Registry**: JSON file mapping keys → local checkpoint paths
+- **Validation**: Check cache before MLflow download
+- **Update**: Add to cache after successful acquisition
+
+**File:** `src/evaluation/selection/checkpoint_cache.py` (NEW)
+
+```python
+def build_checkpoint_cache_key(
+    refit_run_id: str,
+    data_fingerprint: str,
+    eval_fingerprint: str,
+    code_version: Optional[str] = None,
+) -> str:
+    """
+    Build cache key for checkpoint registry.
+    
+    Key format: hash(refit_run_id + data_fp + eval_fp + code_version)
+    """
+    import hashlib
+    
+    key_parts = [
+        refit_run_id,
+        data_fingerprint,
+        eval_fingerprint,
+        code_version or "unknown",
+    ]
+    key_string = ":".join(key_parts)
+    return hashlib.sha256(key_string.encode()).hexdigest()[:32]
+
+def get_cached_checkpoint(
+    cache_file: Path,
+    refit_run_id: str,
+    data_fingerprint: str,
+    eval_fingerprint: str,
+    code_version: Optional[str] = None,
+) -> Optional[Path]:
+    """Get cached checkpoint path if available and valid."""
+    if not cache_file.exists():
+        return None
+    
+    cache_key = build_checkpoint_cache_key(
+        refit_run_id, data_fingerprint, eval_fingerprint, code_version
+    )
+    
+    try:
+        cache = load_json(cache_file)
+        entry = cache.get(cache_key)
+        
+        if entry:
+            checkpoint_path = Path(entry["checkpoint_path"])
+            if checkpoint_path.exists() and validate_checkpoint(checkpoint_path):
+                return checkpoint_path
+            else:
+                # Remove invalid entry
+                del cache[cache_key]
+                save_json(cache, cache_file)
+    
+    except Exception as e:
+        logger.warning(f"Error reading checkpoint cache: {e}")
+    
+    return None
+
+def cache_checkpoint(
+    cache_file: Path,
+    refit_run_id: str,
+    data_fingerprint: str,
+    eval_fingerprint: str,
+    checkpoint_path: Path,
+    code_version: Optional[str] = None,
+):
+    """Add checkpoint to cache registry."""
+    cache_key = build_checkpoint_cache_key(
+        refit_run_id, data_fingerprint, eval_fingerprint, code_version
+    )
+    
+    cache = {}
+    if cache_file.exists():
+        try:
+            cache = load_json(cache_file)
+        except Exception:
+            pass
+    
+    cache[cache_key] = {
+        "refit_run_id": refit_run_id,
+        "checkpoint_path": str(checkpoint_path),
+        "cached_at": datetime.now().isoformat(),
+    }
+    
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
+    save_json(cache, cache_file)
+```
+
+**Integration with artifact_acquisition.py:**
+
+```python
+# In acquire_best_model_checkpoint(), check cache first
+cache_file = root_dir / "outputs" / "cache" / "checkpoint_registry.json"
+cached_path = get_cached_checkpoint(
+    cache_file, refit_run_id, data_fp, eval_fp, code_version
+)
+
+if cached_path:
+    logger.info(f"✓ Using cached checkpoint: {cached_path}")
+    return cached_path
+
+# ... existing acquisition logic ...
+
+# After successful acquisition, cache it
+cache_checkpoint(cache_file, refit_run_id, data_fp, eval_fp, checkpoint_path, code_version)
+```
+
+**Benefits:**
+- Avoids redundant downloads across notebook runs
+- Faster subsequent executions
+- Persistent across sessions
+
+## Phase 5: Observability & Monitoring
+
+### Step 5.1: Structured Logging
+
+**Goal**: Add comprehensive structured logging with context and timing.
+
+**Implementation:**
+- Context: backbone, refit_run_id, phase, operation
+- Timing: Log duration for each major step
+- Checkpoint reuse: Log hits/misses
+- MLflow queries: Log query counts and timing
+
+**File:** `src/evaluation/selection/logging.py` (NEW or enhance existing)
+
+```python
+from contextvars import ContextVar
+from typing import Optional
+import time
+
+# Context variables for structured logging
+current_backbone: ContextVar[Optional[str]] = ContextVar('current_backbone', default=None)
+current_refit_run_id: ContextVar[Optional[str]] = ContextVar('current_refit_run_id', default=None)
+current_phase: ContextVar[Optional[str]] = ContextVar('current_phase', default=None)
+
+def log_with_context(level: str, message: str, **kwargs):
+    """Log with structured context."""
+    context = {
+        "backbone": current_backbone.get(),
+        "refit_run_id": current_refit_run_id.get(),
+        "phase": current_phase.get(),
+    }
+    context.update(kwargs)
+    
+    logger.log(level, f"{message} | {context}")
+
+class TimingContext:
+    """Context manager for timing operations."""
+    def __init__(self, operation: str):
+        self.operation = operation
+        self.start_time = None
+    
+    def __enter__(self):
+        self.start_time = time.time()
+        return self
+    
+    def __exit__(self, *args):
+        duration = time.time() - self.start_time
+        log_with_context("INFO", f"{self.operation} completed", duration_seconds=duration)
+```
+
+## Phase 6: Error Handling & Resilience
+
+### Step 6.1: Retry Logic
+
+**Goal**: Handle transient failures gracefully with retries.
+
+**Implementation:**
+- Retry transient MLflow API failures (network errors, rate limits)
+- Retry checkpoint downloads with exponential backoff
+- Configurable retry counts per operation type
+
+**File:** `src/infrastructure/tracking/mlflow/retry.py` (NEW)
+
+```python
+from functools import wraps
+import time
+import random
+
+def retry_mlflow_operation(
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+    max_delay: float = 60.0,
+    exponential_base: float = 2.0,
+):
+    """Decorator for retrying MLflow operations."""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    last_exception = e
+                    
+                    # Check if error is retryable
+                    if not _is_retryable_error(e):
+                        raise
+                    
+                    if attempt < max_retries - 1:
+                        delay = min(
+                            base_delay * (exponential_base ** attempt),
+                            max_delay
+                        )
+                        # Add jitter
+                        delay += random.uniform(0, delay * 0.1)
+                        
+                        logger.warning(
+                            f"MLflow operation failed (attempt {attempt + 1}/{max_retries}): {e}. "
+                            f"Retrying in {delay:.2f}s..."
+                        )
+                        time.sleep(delay)
+            
+            # All retries exhausted
+            raise last_exception
+        return wrapper
+    return decorator
+
+def _is_retryable_error(error: Exception) -> bool:
+    """Check if error is transient and retryable."""
+    error_str = str(error).lower()
+    retryable_patterns = [
+        "timeout",
+        "connection",
+        "rate limit",
+        "503",
+        "502",
+        "500",
+    ]
+    return any(pattern in error_str for pattern in retryable_patterns)
+```
+
+### Step 6.2: Conditional Fallback (Not Generic Disk)
+
+**Goal**: Fallback to local cache if present, not generic disk.
+
+**Implementation:**
+- Check local checkpoint cache first (from Phase 4.3)
+- Only fallback if cache exists and is valid
+- Don't assume disk fallback always available (artifacts may be remote)
+
+**File:** `src/evaluation/selection/artifact_acquisition.py`
+
+```python
+# In acquire_best_model_checkpoint(), after MLflow unavailable check:
+if mlflow_unavailable:
+    # Check local cache (not generic disk)
+    cached_path = get_cached_checkpoint(
+        cache_file, refit_run_id, data_fp, eval_fp, code_version
+    )
+    
+    if cached_path:
+        logger.info(f"MLflow unavailable, using cached checkpoint: {cached_path}")
+        return cached_path
+    else:
+        raise ValueError(
+            f"MLflow unavailable and no cached checkpoint found for refit_run_id={refit_run_id[:12]}..."
+        )
+```
+
+## Phase 7: Developer Experience (DEFERRED - Low Priority)
+
+**Status**: Defer until core workflow is stable (tagging, trial→refit mapping, idempotency).
+
+**Future Enhancements:**
+- CLI tools for standalone operations
+- Configuration validation utilities
+- Enhanced documentation
+- Type hints and IDE support
 
 ## Testing Strategy
 
 ### Unit Tests
 - `run_mode.py`: Test extraction, helpers
 - `variants.py`: Test computation for both process types
-- `mlflow/queries.py`: Test query patterns
+- `mlflow/queries.py`: Test query patterns, caching
 - `trial_finder.py`: Test MLflow-first priority, fallbacks
-- `benchmarking/orchestrator.py`: Test idempotency, keys
+- `benchmarking/orchestrator.py`: Test idempotency, keys, checkpoint reuse
+- `checkpoint_cache.py`: Test cache key building, validation
+- `retry.py`: Test retry logic, error classification
 
 ### Integration Tests
 - HPO variant creation (v1, v2, v3)
 - Retrieval with MLflow-first priority
 - Benchmarking idempotency
-- Variant completeness check
-- End-to-end notebook flow
+- Checkpoint reuse (refit-aware)
+- MLflow query optimization (cache hits)
+- End-to-end notebook flow with checkpoint reuse
+- Error handling and retries
+
+### Performance Tests
+- MLflow query time (with/without cache)
+- Checkpoint acquisition time (with/without cache)
+- Benchmarking time (sequential vs parallel)
+- Memory usage during operations
 
 ## Migration & Backward Compatibility
 
@@ -1881,8 +2460,25 @@ else:
 - **DRY Compliance**: No code duplication (shared utilities used)
 - **Determinism**: Same inputs → same best trial selection
 - **Efficiency**: Skipped benchmarks reduce compute time
-- **Debuggability**: Explicit retrieval step shows reasoning
+- **Checkpoint Reuse**: Redundant downloads avoided when best model was benchmarked
+- **MLflow Optimization**: Reduced API calls through caching and batching
+- **Debuggability**: Explicit retrieval step shows reasoning, structured logging
 - **Flexibility**: Both overall and per-variant modes work
+- **Reliability**: Retry logic handles transient failures gracefully
+
+## Implementation Priority Order
+
+Based on critical feedback and current pain points:
+
+1. **Phase 3.6: Refit-aware checkpoint reuse** - Immediate value, prevents redundant downloads
+2. **Phase 4.4 → 4.1: MLflow query optimization** - Reduces flakiness and time (renumbered as 4.1)
+3. **Phase 4.3: Checkpoint caching** - Keyed by refit_run_id + fingerprints
+4. **Phase 5.1: Structured logging** - Saves debugging time
+5. **Phase 6.1: Retry logic** - Improves reliability
+6. **Phase 4.2: Parallel benchmarking** - Only after stability (queue-based, single GPU default)
+7. **Phase 7: Developer Experience** - Defer until core workflow stable
+
+**Note**: Parallel champion selection (original 4.1) removed - low ROI, MLflow query optimization is more valuable.
 
 ## References
 
@@ -1930,3 +2526,16 @@ With Phase 1.6 complete, the foundation is in place for Phase 2:
 - ✅ Consistent eval_config derivation utility
 - ✅ Artifact acquisition respects priority config
 - ✅ All code compiles without errors
+
+### Phase 3.6 Prerequisites
+
+- ✅ Phase 3.5 complete (benchmarking uses champions)
+- ✅ Champions have `refit_run_id` and `checkpoint_path` set
+- ✅ Notebook stores champions in accessible scope
+
+### Critical Requirements for Phase 3.6
+
+1. **Refit-aware matching**: Use `refit_run_id` as primary key (not `trial_key_hash`)
+2. **Fallback matching**: Use `(backbone, study_key_hash, trial_key_hash)` if refit_run_id missing
+3. **Validation**: Verify checkpoint integrity before reuse
+4. **Error handling**: Gracefully handle missing refit_run_id or invalid checkpoints

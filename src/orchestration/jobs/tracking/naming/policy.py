@@ -234,12 +234,19 @@ def normalize_value(value: str, rules: Optional[Dict[str, Any]] = None) -> str:
 
 def sanitize_semantic_suffix(study_name: str, max_length: int = 30, model: Optional[str] = None) -> str:
     """
-    Sanitize HPO study semantic suffix.
+    Sanitize HPO study semantic suffix (minimal - just make it valid for MLflow).
+    
+    Only performs minimal sanitization needed for valid MLflow run names:
+    - Replaces spaces and slashes
+    - Removes problematic characters
+    - Truncates to max_length
+    
+    Does NOT strip hpo_ prefix or model name - preserves user's explicit study_name.
 
     Args:
         study_name: Study name to sanitize.
         max_length: Maximum length for the suffix.
-        model: Optional model name to strip from beginning if present (avoids duplication).
+        model: Optional model name (unused - kept for compatibility).
 
     Returns:
         Sanitized suffix (empty string if disabled or invalid).
@@ -247,32 +254,23 @@ def sanitize_semantic_suffix(study_name: str, max_length: int = 30, model: Optio
     if not study_name:
         return ""
 
-    # Remove "hpo_" prefix if present
+    # Minimal sanitization: just make it valid for MLflow run names
     label = study_name
-    if label.startswith("hpo_"):
-        label = label[len("hpo_"):]
-
-    # Strip model name from beginning if present (avoids duplication in run name)
-    if model and label.startswith(model):
-        # Remove model name and any following separator (_, -, etc.)
-        remaining = label[len(model):].lstrip("_-")
-        if remaining:  # Only use if there's something left after stripping
-            label = remaining
-
+    
     # Replace spaces and slashes
     label = label.replace(" ", "").replace("/", "-")
-
-    # Remove other problematic characters
+    
+    # Remove problematic characters (keep alphanumeric, underscore, hyphen)
     label = re.sub(r'[^\w\-]', '', label)
-
+    
     # Truncate to max_length
     if len(label) > max_length:
         label = label[:max_length]
-
+    
     # Add underscore prefix if non-empty
     if label:
         return f"_{label}"
-
+    
     return ""
 
 

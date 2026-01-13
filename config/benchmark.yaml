@@ -1,5 +1,13 @@
 # Benchmarking configuration for inference performance measurement
 
+# Run mode configuration (inherits from HPO if null)
+run:
+  # Run mode determines overall behavior:
+  # - null: Inherit from HPO config (default behavior)
+  # - reuse_if_exists: Reuse existing benchmark results if found
+  # - force_new: Always create new benchmark run (ignores existing)
+  mode: force_new
+
 benchmarking:
   # Batch sizes to test during benchmarking
   batch_sizes: [1]  # [1, 8, 16]
