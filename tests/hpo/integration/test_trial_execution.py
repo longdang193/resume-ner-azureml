@@ -144,7 +144,11 @@ class TestTrialExecutionNoCV:
 class TestTrialExecutionWithCV:
     """Test trial execution with CV (k_fold.enabled=true, n_splits=2)."""
 
-    @patch("training.hpo.execution.local.trial.run_training_trial")
+    # IMPORTANT: patch run_training_trial where it is *used* (cv module),
+    # not where it is defined. The CV orchestrator imports the function
+    # into its own module namespace, so patching trial.run_training_trial
+    # would not prevent subprocess execution.
+    @patch("training.hpo.execution.local.cv.run_training_trial")
     @patch("training.hpo.execution.local.cv.mlflow")
     def test_trial_execution_with_cv_creates_nested_runs(self, mock_mlflow, mock_run_trial, tmp_path):
         """Test that trial execution with CV creates trial run and fold runs."""
@@ -218,7 +222,7 @@ class TestTrialExecutionWithCV:
         # Verify trial run was created
         assert mock_client.create_run.called
 
-    @patch("training.hpo.execution.local.trial.run_training_trial")
+    @patch("training.hpo.execution.local.cv.run_training_trial")
     @patch("training.hpo.execution.local.cv.mlflow")
     def test_trial_execution_with_cv_creates_fold_runs(self, mock_mlflow, mock_run_trial, tmp_path):
         """Test that each fold creates a fold-level MLflow run (child of trial run)."""
@@ -291,7 +295,7 @@ class TestTrialExecutionWithCV:
         # Verify trial run was created
         assert mock_client.create_run.called
 
-    @patch("training.hpo.execution.local.trial.run_training_trial")
+    @patch("training.hpo.execution.local.cv.run_training_trial")
     @patch("training.hpo.execution.local.cv.mlflow")
     def test_trial_execution_with_cv_aggregates_metrics(self, mock_mlflow, mock_run_trial, tmp_path):
         """Test that CV trial aggregates metrics across folds (average)."""
@@ -354,7 +358,7 @@ class TestTrialExecutionWithCV:
         assert avg_metric == pytest.approx(0.775)  # (0.70 + 0.85) / 2
         assert fold_metrics == [0.70, 0.85]
 
-    @patch("training.hpo.execution.local.trial.run_training_trial")
+    @patch("training.hpo.execution.local.cv.run_training_trial")
     @patch("training.hpo.execution.local.cv.mlflow")
     def test_trial_execution_with_cv_output_paths(self, mock_mlflow, mock_run_trial, tmp_path):
         """Test that CV trial creates fold-specific output directories."""
@@ -435,7 +439,7 @@ class TestTrialExecutionWithCV:
         for call in mock_run_trial.call_args_list:
             assert "fold_idx" in call.kwargs or len(call.args) > 0
 
-    @patch("training.hpo.execution.local.trial.run_training_trial")
+    @patch("training.hpo.execution.local.cv.run_training_trial")
     @patch("training.hpo.execution.local.cv.mlflow")
     def test_trial_execution_with_cv_smoke_yaml_params(self, mock_mlflow, mock_run_trial, tmp_path):
         """Test CV trial execution with smoke.yaml parameters (n_splits=2, random_seed=42)."""

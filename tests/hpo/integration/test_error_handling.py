@@ -36,15 +36,21 @@ class TestTrialExecutionErrors:
         """Test that training subprocess failure raises RuntimeError."""
         mock_create_run.return_value = "trial_run_123"
         
-        # Mock subprocess to return non-zero exit code
-        mock_result = Mock()
-        mock_result.returncode = 1
-        mock_result.stdout = "Some output"
-        mock_result.stderr = "Training error: CUDA out of memory"
-        mock_execute.return_value = mock_result
+        # Simulate execute_training_subprocess raising RuntimeError on failure,
+        # matching the refactored implementation.
+        mock_execute.side_effect = RuntimeError(
+            "Training failed with return code 1\n"
+            "STDOUT: Some output\n"
+            "STDERR: Training error: CUDA out of memory"
+        )
         
         config_dir = tmp_path / "config"
         config_dir.mkdir()
+        # Create a minimal training module so environment verification passes and
+        # we exercise the subprocess failure path instead.
+        training_pkg_dir = tmp_path / "src" / "training"
+        training_pkg_dir.mkdir(parents=True)
+        (training_pkg_dir / "__init__.py").write_text("")
         output_dir = tmp_path / "outputs" / "hpo" / "local" / "distilbert" / "study-abc12345" / "trial-def67890"
         output_dir.mkdir(parents=True)
         
@@ -126,14 +132,14 @@ class TestTrialExecutionErrors:
             # Missing "macro-f1"
         }))
         
-        mock_result = Mock()
-        mock_result.returncode = 0
-        mock_result.stdout = "Training output"
-        mock_result.stderr = ""
-        mock_subprocess.return_value = mock_result
-        
         config_dir = tmp_path / "config"
         config_dir.mkdir()
+
+        # Create a minimal training module so environment verification passes and
+        # we exercise the metrics validation path instead of environment errors.
+        training_pkg_dir = tmp_path / "src" / "training"
+        training_pkg_dir.mkdir(parents=True)
+        (training_pkg_dir / "__init__.py").write_text("")
         
         trial_params = {"learning_rate": 3e-5, "batch_size": 4, "backbone": "distilbert", "trial_number": 0}
         
@@ -154,7 +160,7 @@ class TestTrialExecutionErrors:
 class TestCVOrchestratorErrors:
     """Test error handling in CV orchestrator."""
 
-    @patch("training.hpo.execution.local.trial.run_training_trial")
+    @patch("training.hpo.execution.local.cv.run_training_trial")
     @patch("training.hpo.execution.local.cv.mlflow")
     def test_cv_trial_failure_propagates_error(self, mock_mlflow, mock_run_trial, tmp_path):
         """Test that CV trial failure raises RuntimeError."""
@@ -295,8 +301,8 @@ class TestRefitExecutionErrors:
                 trial_key_hash="b" * 64,
             )
 
-    @patch("paths.resolve.build_output_path")
-    @patch("hpo.execution.local.refit.mlflow")
+    @patch("infrastructure.paths.build_output_path")
+    @patch("training.hpo.execution.local.refit.mlflow")
     def test_refit_non_v2_study_folder_raises_error(self, mock_mlflow, mock_build_path, tmp_path):
         """Test that refit in non-v2 study folder raises RuntimeError."""
         # Mock build_output_path to return None (simulating failure)
@@ -516,7 +522,7 @@ class TestPathResolutionErrors:
 
     def test_missing_config_dir_handled_gracefully(self, tmp_path):
         """Test that missing config_dir is handled gracefully."""
-        from paths import resolve_output_path
+        from infrastructure.paths import resolve_output_path
         
         config_dir = tmp_path / "nonexistent_config"
         # Don't create the directory

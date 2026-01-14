@@ -10,7 +10,7 @@ from evaluation.selection.artifact_acquisition import acquire_best_model_checkpo
 class TestArtifactAcquisitionConfig:
     """Test artifact acquisition logic using config options."""
 
-    @patch("orchestration.jobs.selection.artifact_acquisition._validate_checkpoint")
+    @patch("evaluation.selection.artifact_unified.compat._validate_checkpoint")
     @patch("orchestration.jobs.local_selection_v2.find_trial_checkpoint_by_hash")
     def test_priority_order_local_first(
         self,
@@ -48,7 +48,7 @@ class TestArtifactAcquisitionConfig:
         assert mock_find_checkpoint.called
         assert result is not None
 
-    @patch("orchestration.jobs.selection.artifact_acquisition._validate_checkpoint")
+    @patch("evaluation.selection.artifact_unified.compat._validate_checkpoint")
     @patch("orchestration.jobs.local_selection_v2.find_trial_checkpoint_by_hash")
     def test_priority_order_mlflow_first(
         self,
@@ -71,9 +71,9 @@ class TestArtifactAcquisitionConfig:
         
         # Mock MLflow client
         with patch("mlflow.tracking.MlflowClient") as mock_client_class, \
-             patch("orchestration.jobs.selection.artifact_acquisition._build_checkpoint_dir") as mock_build_dir, \
-             patch("orchestration.jobs.selection.artifact_acquisition._find_checkpoint_in_directory") as mock_find_in_dir, \
-             patch("orchestration.jobs.selection.artifact_acquisition.shutil") as mock_shutil:
+             patch("evaluation.selection.artifact_unified.compat._build_checkpoint_dir") as mock_build_dir, \
+             patch("evaluation.selection.artifact_unified.compat._find_checkpoint_in_directory") as mock_find_in_dir, \
+             patch("evaluation.selection.artifact_unified.compat.shutil") as mock_shutil:
             mock_client = Mock()
             mock_client_class.return_value = mock_client
             mock_client.list_artifacts.return_value = []
@@ -101,7 +101,7 @@ class TestArtifactAcquisitionConfig:
                 # Expected if all strategies fail
                 pass
 
-    @patch("orchestration.jobs.selection.artifact_acquisition._validate_checkpoint")
+    @patch("evaluation.selection.artifact_unified.compat._validate_checkpoint")
     @patch("orchestration.jobs.local_selection_v2.find_trial_checkpoint_by_hash")
     def test_local_validate_controls_validation(
         self,
@@ -126,8 +126,8 @@ class TestArtifactAcquisitionConfig:
         acquisition_config = sample_acquisition_config.copy()
         acquisition_config["local"]["validate"] = True
         
-        with patch("orchestration.jobs.selection.artifact_acquisition._build_checkpoint_dir") as mock_build_dir, \
-             patch("orchestration.jobs.selection.artifact_acquisition.shutil") as mock_shutil:
+        with patch("evaluation.selection.artifact_unified.compat._build_checkpoint_dir") as mock_build_dir, \
+             patch("evaluation.selection.artifact_unified.compat.shutil") as mock_shutil:
             mock_build_dir.return_value = mock_checkpoint_path
             
             result = acquire_best_model_checkpoint(
@@ -150,8 +150,8 @@ class TestArtifactAcquisitionConfig:
         mock_validate.reset_mock()
         mock_find_checkpoint.return_value = str(mock_checkpoint_path)
         
-        with patch("orchestration.jobs.selection.artifact_acquisition._build_checkpoint_dir") as mock_build_dir, \
-             patch("orchestration.jobs.selection.artifact_acquisition.shutil") as mock_shutil:
+        with patch("evaluation.selection.artifact_unified.compat._build_checkpoint_dir") as mock_build_dir, \
+             patch("evaluation.selection.artifact_unified.compat.shutil") as mock_shutil:
             mock_build_dir.return_value = mock_checkpoint_path
             
             result = acquire_best_model_checkpoint(

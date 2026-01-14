@@ -25,8 +25,9 @@ def client():
 @pytest.fixture
 def mock_model_loaded():
     """Mock model as loaded."""
-    with patch("src.api.routes.predictions.is_model_loaded", return_value=True):
-        with patch("src.api.routes.predictions.get_engine") as mock_get_engine:
+    # Patch the deployed API routes module used by the FastAPI app
+    with patch("deployment.api.routes.predictions.is_model_loaded", return_value=True):
+        with patch("deployment.api.routes.predictions.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             # Mock predict method for batch predictions
             mock_engine.predict.return_value = [
@@ -80,14 +81,14 @@ class TestHealthEndpoint:
 
     def test_model_info_not_loaded(self, client):
         """Test model info when model not loaded."""
-        with patch("src.api.routes.health.is_model_loaded", return_value=False):
+        with patch("deployment.api.routes.health.is_model_loaded", return_value=False):
             response = client.get("/info")
             assert response.status_code == 503
 
     def test_model_info_loaded(self, client):
         """Test model info when model loaded."""
-        with patch("src.api.routes.health.is_model_loaded", return_value=True):
-            with patch("src.api.routes.health.get_model_info") as mock_info:
+        with patch("deployment.api.routes.health.is_model_loaded", return_value=True):
+            with patch("deployment.api.routes.health.get_model_info") as mock_info:
                 mock_info.return_value = {
                     "backbone": "distilroberta",
                     "entity_types": ["SKILL", "NAME"],

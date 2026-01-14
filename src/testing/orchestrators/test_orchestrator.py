@@ -57,7 +57,7 @@ ROOT_DIR = Path(__file__).resolve().parents[3]
 sys.path.append(str(ROOT_DIR))
 
 
-def test_deterministic_hpo(
+def run_deterministic_hpo(
     dataset_path: Path,
     config_dir: Path,
     hpo_config: Dict[str, Any],
@@ -98,7 +98,7 @@ def test_deterministic_hpo(
     return results
 
 
-def test_random_seed_variants(
+def run_random_seed_variants(
     dataset_base_path: Path,
     seeds: List[int],
     config_dir: Path,
@@ -151,7 +151,7 @@ def test_random_seed_variants(
     return results
 
 
-def test_deterministic_hpo_multiple_backbones(
+def run_deterministic_hpo_multiple_backbones(
     dataset_path: Path,
     config_dir: Path,
     hpo_config: Dict[str, Any],
@@ -192,7 +192,7 @@ def test_deterministic_hpo_multiple_backbones(
     return results
 
 
-def test_random_seed_variants_multiple_backbones(
+def run_random_seed_variants_multiple_backbones(
     dataset_base_path: Path,
     seeds: List[int],
     config_dir: Path,
@@ -232,7 +232,7 @@ def test_random_seed_variants_multiple_backbones(
     return all_results
 
 
-def test_kfold_validation(
+def run_kfold_validation(
     dataset_path: Path,
     hpo_config: Dict[str, Any],
 ) -> Optional[Dict[str, Any]]:
@@ -260,7 +260,7 @@ def test_kfold_validation(
     return results
 
 
-def test_edge_case_k_too_large(
+def run_edge_case_k_too_large(
     dataset_path: Path,
 ) -> Optional[Dict[str, Any]]:
     """
@@ -295,7 +295,7 @@ def test_edge_case_k_too_large(
     return results
 
 
-def test_edge_cases_suite(
+def run_edge_cases_suite(
     dataset_path: Path,
     hpo_config: Dict[str, Any],
     train_config: Dict[str, Any],

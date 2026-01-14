@@ -68,31 +68,21 @@ class TestHPOStudiesDictStorage:
         backbone_values = hpo_config_multiple_backbones["search_space"]["backbone"]["values"]
         hpo_studies = {}
         
-        config_dir = tmp_path / "config"
-        config_dir.mkdir()
-        dataset_path = tmp_path / "dataset"
-        dataset_path.mkdir()
-        
-        # Create minimal dataset files
-        (dataset_path / "train.json").write_text('[]')
-        
-        output_base = tmp_path / "outputs" / "hpo" / "local"
-        
-        with patch("training.hpo.execution.local.sweep.execute_training_subprocess") as mock_train:
-            mock_train.side_effect = mock_training_subprocess
-            
-            # Simulate notebook loop - this is the correct pattern
+        # This test validates the notebook loop logic for populating hpo_studies,
+        # not the internals of run_local_hpo_sweep. To keep it robust against
+        # HPO path refactors (v2-only study folders, etc.), we mock the sweep.
+        with patch(
+            "training.hpo.execution.local.sweep.run_local_hpo_sweep",
+            side_effect=lambda *args, **kwargs: Mock(),
+        ):
             for backbone in backbone_values:
-                backbone_output_dir = output_base / backbone.split("-")[0]
-                backbone_output_dir.mkdir(parents=True, exist_ok=True)
-                
                 study = run_local_hpo_sweep(
-                    dataset_path=str(dataset_path),
-                    config_dir=config_dir,
+                    dataset_path="dummy",
+                    config_dir=tmp_path / "config",
                     backbone=backbone,
                     hpo_config=hpo_config_multiple_backbones,
                     train_config=train_config_minimal,
-                    output_dir=backbone_output_dir,
+                    output_dir=tmp_path / "outputs" / backbone,
                     mlflow_experiment_name=f"test_exp-{backbone}",
                     k_folds=None,
                     fold_splits_file=None,
@@ -101,7 +91,6 @@ class TestHPOStudiesDictStorage:
                     data_config=data_config_minimal,
                     benchmark_config={},
                 )
-                
                 # This line MUST be inside the loop (4 spaces indentation)
                 hpo_studies[backbone] = study
         

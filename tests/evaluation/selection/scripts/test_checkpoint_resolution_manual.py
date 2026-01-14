@@ -129,7 +129,7 @@ def check_artifacts(mlflow_client: MlflowClient, run_id: str) -> List[str]:
         return []
 
 
-def test_checkpoint_resolution(
+def run_checkpoint_resolution(
     experiment_name: str,
     backbone: str,
     config_dir: Path,
@@ -339,7 +339,7 @@ def main():
     print(f"Config directory: {config_dir}")
     print(f"Experiment: {args.experiment_name}")
     
-    success = test_checkpoint_resolution(
+    success = run_checkpoint_resolution(
         experiment_name=args.experiment_name,
         backbone=args.backbone,
         config_dir=config_dir,

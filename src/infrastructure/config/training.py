@@ -44,6 +44,10 @@ from .loader import load_all_configs, ExperimentConfig
 def _get_validate_checkpoint():
     from training.core.checkpoint_loader import validate_checkpoint
     return validate_checkpoint
+    
+# Module-level alias for checkpoint validation, using lazy helper to avoid
+# importing training.core.checkpoint_loader in type-checking only contexts.
+validate_checkpoint = _get_validate_checkpoint()
 from .merging import merge_configs_with_precedence
 from infrastructure.naming import create_naming_context
 from infrastructure.paths import build_output_path
@@ -419,7 +423,8 @@ def _resolve_checkpoint(
         backbone = best_config.get("backbone", "unknown")
         backbone_name = backbone.split("-")[0] if "-" in backbone else backbone
 
-        from naming import create_naming_context
+        # Use unified naming context from infrastructure.naming (post-refactor API)
+        from infrastructure.naming import create_naming_context
 
         parent_context = create_naming_context(
             process_type="final_training",

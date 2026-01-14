@@ -26,11 +26,11 @@ sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from testing.orchestrators.test_orchestrator import (
-    test_deterministic_hpo_multiple_backbones,
-    test_random_seed_variants_multiple_backbones,
-    test_kfold_validation,
-    test_edge_case_k_too_large,
-    test_edge_cases_suite,
+    run_deterministic_hpo_multiple_backbones,
+    run_random_seed_variants_multiple_backbones,
+    run_kfold_validation,
+    run_edge_case_k_too_large,
+    run_edge_cases_suite,
 )
 from testing.aggregators.result_aggregator import (
     collect_test_results,
@@ -235,7 +235,7 @@ Examples:
             print(f"{'=' * 60}")
             seed0_dataset = deterministic_dataset / "seed0"
 
-            seed0_results_by_backbone = test_deterministic_hpo_multiple_backbones(
+            seed0_results_by_backbone = run_deterministic_hpo_multiple_backbones(
                 dataset_path=seed0_dataset,
                 config_dir=config_dir,
                 hpo_config=hpo_config,
@@ -265,7 +265,7 @@ Examples:
             print("Test Suite 2: HPO with Random Seed Variants")
             print(f"{'=' * 60}")
 
-            random_seed_results_by_backbone = test_random_seed_variants_multiple_backbones(
+            random_seed_results_by_backbone = run_random_seed_variants_multiple_backbones(
                 dataset_base_path=deterministic_dataset,
                 seeds=random_seeds_to_test,
                 config_dir=config_dir,
@@ -311,7 +311,7 @@ Examples:
             print(f"{'=' * 60}")
 
             seed0_dataset = deterministic_dataset / "seed0"
-            kfold_results = test_kfold_validation(
+            kfold_results = run_kfold_validation(
                 dataset_path=seed0_dataset,
                 hpo_config=hpo_config,
             )
@@ -330,7 +330,7 @@ Examples:
             print(f"{'=' * 60}")
 
             seed0_dataset = deterministic_dataset / "seed0"
-            k_too_large_results = test_edge_case_k_too_large(dataset_path=seed0_dataset)
+            k_too_large_results = run_edge_case_k_too_large(dataset_path=seed0_dataset)
 
             # Print results
             if k_too_large_results:
@@ -345,7 +345,7 @@ Examples:
             print(f"{'=' * 60}")
 
             seed0_dataset = deterministic_dataset / "seed0"
-            edge_case_results = test_edge_cases_suite(
+            edge_case_results = run_edge_cases_suite(
                 dataset_path=seed0_dataset,
                 hpo_config=hpo_config,
                 train_config=train_config,

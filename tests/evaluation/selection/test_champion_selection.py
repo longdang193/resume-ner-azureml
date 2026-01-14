@@ -15,8 +15,53 @@ from evaluation.selection.trial_finder import select_champion_per_backbone
 
 @pytest.fixture
 def mock_mlflow_client():
-    """Create a mock MLflow client."""
+    """Create a minimal MLflow client mock compatible with champion selection.
+
+    The refactored `select_champion_per_backbone` implementation now expects:
+    - `mlflow_client.get_run(run_id)` to return a run object with `.info.run_id`
+      and `.data.tags` (used to read trial_key_hash).
+    - `mlflow_client.search_runs(...)` to return an iterable of refit runs with
+      `.info.run_id` and `.info.start_time`.
+
+    For unit tests, we don't need real MLflow behavior – just enough structure
+    to exercise the selection logic without raising unexpected errors.
+    """
+
+    class DummyRun:
+        def __init__(self, run_id: str, tags: dict | None = None, start_time: int = 0):
+            self.info = Mock(run_id=run_id, start_time=start_time)
+            self.data = Mock(tags=tags or {})
+
+    # Single synthetic refit run reused across queries
+    refit_run = DummyRun(
+        run_id="refit-run-123",
+        tags={
+            "code.stage": "hpo_refit",
+            "code.trial_key_hash": "trial-hash-123",
+        },
+        start_time=1234567890,
+    )
+
     client = Mock()
+
+    # For any trial run_id, return a run with a stable trial_key_hash tag.
+    def fake_get_run(run_id: str) -> DummyRun:
+        if run_id == refit_run.info.run_id:
+            return refit_run
+        return DummyRun(
+            run_id=run_id,
+            tags={
+                "code.trial_key_hash": "trial-hash-123",
+                "code.stage": "hpo_trial",
+            },
+        )
+
+    client.get_run.side_effect = fake_get_run
+
+    # For all search_runs invocations in these tests, pretend there is exactly
+    # one matching refit run.
+    client.search_runs.return_value = [refit_run]
+
     return client
 
 
@@ -57,6 +102,8 @@ def create_mock_run(run_id, metric_value, study_key_hash, schema_version="1.0", 
         "code.study_key_hash": study_key_hash,
         "code.study.key_schema_version": schema_version,
         "code.artifact.available": "true" if artifact_available else "false",
+        # Child/trial runs should have mlflow.parentRunId set (used to filter out parents)
+        "mlflow.parentRunId": "parent-run-123",
     }
     return run
 
@@ -64,7 +111,7 @@ def create_mock_run(run_id, metric_value, study_key_hash, schema_version="1.0", 
 class TestSelectChampionPerBackbone:
     """Test select_champion_per_backbone() function."""
 
-    @patch("evaluation.selection.trial_finder.query_runs_by_tags")
+    @patch("infrastructure.tracking.mlflow.queries.query_runs_by_tags")
     def test_successful_selection_v2(self, mock_query, mock_mlflow_client, mock_hpo_experiment, base_selection_config):
         """Test successful champion selection with v2 runs."""
         # Create mock runs with v2 schema
@@ -74,6 +121,8 @@ class TestSelectChampionPerBackbone:
             create_mock_run("run3", 0.86, "hash1", schema_version="2.0"),
         ]
         mock_query.return_value = runs
+        # Focus on selection logic; ignore artifact availability in this unit test.
+        base_selection_config["champion_selection"]["require_artifact_available"] = False
         
         result = select_champion_per_backbone(
             backbone="distilbert",
@@ -85,11 +134,14 @@ class TestSelectChampionPerBackbone:
         assert result is not None
         assert result["backbone"] == "distilbert"
         assert "champion" in result
-        assert result["champion"]["run_id"] == "run2"  # Highest metric
+        # Champion should be based on the best trial run, with refit providing checkpoint.
+        assert result["champion"]["trial_run_id"] == "run2"  # Highest metric trial
+        assert result["champion"]["refit_run_id"] == "refit-run-123"
+        assert result["champion"]["run_id"] == "refit-run-123"  # Primary run ID is refit
         assert result["champion"]["metric"] == 0.87
         assert result["champion"]["schema_version"] == "2.0"
 
-    @patch("evaluation.selection.trial_finder.query_runs_by_tags")
+    @patch("infrastructure.tracking.mlflow.queries.query_runs_by_tags")
     def test_successful_selection_v1(self, mock_query, mock_mlflow_client, mock_hpo_experiment, base_selection_config):
         """Test successful champion selection with v1 runs."""
         runs = [
@@ -99,8 +151,9 @@ class TestSelectChampionPerBackbone:
         ]
         mock_query.return_value = runs
         
-        # Prefer v1 explicitly
+        # Prefer v1 explicitly and ignore artifact availability for this test
         base_selection_config["champion_selection"]["prefer_schema_version"] = "1.0"
+        base_selection_config["champion_selection"]["require_artifact_available"] = False
         
         result = select_champion_per_backbone(
             backbone="distilbert",
@@ -112,7 +165,7 @@ class TestSelectChampionPerBackbone:
         assert result is not None
         assert result["champion"]["schema_version"] == "1.0"
 
-    @patch("evaluation.selection.trial_finder.query_runs_by_tags")
+    @patch("infrastructure.tracking.mlflow.queries.query_runs_by_tags")
     def test_no_runs_returns_none(self, mock_query, mock_mlflow_client, mock_hpo_experiment, base_selection_config):
         """Test that None is returned when no runs found."""
         mock_query.return_value = []
@@ -126,7 +179,7 @@ class TestSelectChampionPerBackbone:
         
         assert result is None
 
-    @patch("evaluation.selection.trial_finder.query_runs_by_tags")
+    @patch("infrastructure.tracking.mlflow.queries.query_runs_by_tags")
     def test_insufficient_trials_returns_none(self, mock_query, mock_mlflow_client, mock_hpo_experiment, base_selection_config):
         """Test that None is returned when insufficient trials per group."""
         # Only 2 runs, but min_trials_per_group is 3
@@ -145,7 +198,7 @@ class TestSelectChampionPerBackbone:
         
         assert result is None
 
-    @patch("evaluation.selection.trial_finder.query_runs_by_tags")
+    @patch("infrastructure.tracking.mlflow.queries.query_runs_by_tags")
     def test_missing_metrics_filtered(self, mock_query, mock_mlflow_client, mock_hpo_experiment, base_selection_config):
         """Test that runs with missing metrics are filtered out."""
         run1 = create_mock_run("run1", 0.85, "hash1")
@@ -167,7 +220,7 @@ class TestSelectChampionPerBackbone:
         # Actually, with 2 valid runs and min_trials=3, should return None
         assert result is None
 
-    @patch("evaluation.selection.trial_finder.query_runs_by_tags")
+    @patch("infrastructure.tracking.mlflow.queries.query_runs_by_tags")
     def test_nan_metrics_filtered(self, mock_query, mock_mlflow_client, mock_hpo_experiment, base_selection_config):
         """Test that runs with NaN metrics are filtered out."""
         run1 = create_mock_run("run1", 0.85, "hash1")
@@ -187,7 +240,7 @@ class TestSelectChampionPerBackbone:
         # Should still work with 2 valid runs, but might fail min_trials check
         assert result is None
 
-    @patch("evaluation.selection.trial_finder.query_runs_by_tags")
+    @patch("infrastructure.tracking.mlflow.queries.query_runs_by_tags")
     def test_artifact_availability_filter(self, mock_query, mock_mlflow_client, mock_hpo_experiment, base_selection_config):
         """Test that runs without artifacts are filtered when required."""
         runs = [
@@ -210,7 +263,7 @@ class TestSelectChampionPerBackbone:
         # But with only 2 runs and min_trials=3, should return None
         assert result is None
 
-    @patch("evaluation.selection.trial_finder.query_runs_by_tags")
+    @patch("infrastructure.tracking.mlflow.queries.query_runs_by_tags")
     def test_no_artifact_requirement(self, mock_query, mock_mlflow_client, mock_hpo_experiment, base_selection_config):
         """Test that artifact requirement can be disabled."""
         runs = [
@@ -230,9 +283,12 @@ class TestSelectChampionPerBackbone:
         )
         
         assert result is not None
-        assert result["champion"]["run_id"] == "run2"
+        # Trial champion is run2; refit run provides checkpoint/run_id.
+        assert result["champion"]["trial_run_id"] == "run2"
+        assert result["champion"]["refit_run_id"] == "refit-run-123"
+        assert result["champion"]["run_id"] == "refit-run-123"
 
-    @patch("evaluation.selection.trial_finder.query_runs_by_tags")
+    @patch("infrastructure.tracking.mlflow.queries.query_runs_by_tags")
     def test_never_mix_v1_v2_when_disabled(self, mock_query, mock_mlflow_client, mock_hpo_experiment, base_selection_config):
         """Test that v1 and v2 runs are never mixed when allow_mixed_schema_groups is False."""
         runs = [
@@ -240,11 +296,13 @@ class TestSelectChampionPerBackbone:
             create_mock_run("run2", 0.87, "hash1", schema_version="1.0"),
             create_mock_run("run3", 0.90, "hash1", schema_version="2.0"),  # v2 run
             create_mock_run("run4", 0.88, "hash1", schema_version="2.0"),  # v2 run
+            create_mock_run("run5", 0.89, "hash1", schema_version="2.0"),  # ensure >= 3 v2 trials
         ]
         mock_query.return_value = runs
         
         base_selection_config["champion_selection"]["allow_mixed_schema_groups"] = False
         base_selection_config["champion_selection"]["prefer_schema_version"] = "auto"
+        base_selection_config["champion_selection"]["require_artifact_available"] = False
         
         result = select_champion_per_backbone(
             backbone="distilbert",
@@ -253,12 +311,12 @@ class TestSelectChampionPerBackbone:
             mlflow_client=mock_mlflow_client,
         )
         
-        # Should prefer v2 (auto mode with v2 present)
+        # Should prefer v2 (auto mode with v2 present) and never mix schemas.
         assert result is not None
         assert result["champion"]["schema_version"] == "2.0"
-        assert result["champion"]["run_id"] == "run3"  # Best v2 run
+        assert result["champion"]["trial_run_id"] == "run3"  # Best v2 trial run
 
-    @patch("evaluation.selection.trial_finder.query_runs_by_tags")
+    @patch("infrastructure.tracking.mlflow.queries.query_runs_by_tags")
     def test_minimize_objective(self, mock_query, mock_mlflow_client, mock_hpo_experiment, base_selection_config):
         """Test champion selection with minimize objective."""
         runs = [
@@ -269,6 +327,7 @@ class TestSelectChampionPerBackbone:
         mock_query.return_value = runs
         
         base_selection_config["objective"]["direction"] = "minimize"
+        base_selection_config["champion_selection"]["require_artifact_available"] = False
         
         result = select_champion_per_backbone(
             backbone="distilbert",
@@ -278,9 +337,12 @@ class TestSelectChampionPerBackbone:
         )
         
         assert result is not None
-        assert result["champion"]["run_id"] == "run3"  # Lowest metric value
+        # Trial champion should be the lowest-metric run; refit provides checkpoint/run_id.
+        assert result["champion"]["trial_run_id"] == "run3"  # Lowest metric value
+        assert result["champion"]["refit_run_id"] == "refit-run-123"
+        assert result["champion"]["run_id"] == "refit-run-123"
 
-    @patch("evaluation.selection.trial_finder.query_runs_by_tags")
+    @patch("infrastructure.tracking.mlflow.queries.query_runs_by_tags")
     def test_legacy_goal_key_migration(self, mock_query, mock_mlflow_client, mock_hpo_experiment, base_selection_config):
         """Test that legacy 'goal' key is migrated to 'direction'."""
         runs = [
@@ -295,6 +357,7 @@ class TestSelectChampionPerBackbone:
             "metric": "macro-f1",
             "goal": "maximize",  # Legacy key
         }
+        base_selection_config["champion_selection"]["require_artifact_available"] = False
         
         import warnings
         with warnings.catch_warnings(record=True) as w:
@@ -310,7 +373,7 @@ class TestSelectChampionPerBackbone:
             assert result is not None
             assert len(w) > 0
 
-    @patch("evaluation.selection.trial_finder.query_runs_by_tags")
+    @patch("infrastructure.tracking.mlflow.queries.query_runs_by_tags")
     def test_multiple_groups_selects_best(self, mock_query, mock_mlflow_client, mock_hpo_experiment, base_selection_config):
         """Test that best group is selected when multiple groups exist."""
         # Group 1: lower average score
@@ -337,9 +400,12 @@ class TestSelectChampionPerBackbone:
         assert result is not None
         # Should select from group 2 (higher stable score)
         assert result["champion"]["study_key_hash"] == "hash2"
-        assert result["champion"]["run_id"] == "run6"  # Best in group 2
+        # Champion should come from the better group (hash2) and be the best trial in that group.
+        assert result["champion"]["trial_run_id"] == "run6"  # Best in group 2
+        assert result["champion"]["refit_run_id"] == "refit-run-123"
+        assert result["champion"]["run_id"] == "refit-run-123"
 
-    @patch("evaluation.selection.trial_finder.query_runs_by_tags")
+    @patch("infrastructure.tracking.mlflow.queries.query_runs_by_tags")
     def test_stable_score_computation(self, mock_query, mock_mlflow_client, mock_hpo_experiment, base_selection_config):
         """Test that stable score is computed correctly (median of top_k)."""
         # Create runs with known metrics for stable score calculation
@@ -351,8 +417,9 @@ class TestSelectChampionPerBackbone:
             create_mock_run("run5", 0.88, "hash1"),  # Second best
         ]
         mock_query.return_value = runs
-        
+        base_selection_config["champion_selection"]["require_artifact_available"] = False
         base_selection_config["champion_selection"]["top_k_for_stable_score"] = 3
+        base_selection_config["champion_selection"]["require_artifact_available"] = False
         
         result = select_champion_per_backbone(
             backbone="distilbert",

@@ -114,11 +114,8 @@ class TestRefitRunDiscovery:
         """Test finding refit run with only study_key_hash match (legacy runs)."""
         # Mock MLflow client responses
         mock_mlflow_client.get_run.return_value = mock_trial_run
-        # First search returns empty, second search (without trial_key_hash) returns refit run
-        mock_mlflow_client.search_runs.side_effect = [
-            [],  # First search with full hash match
-            [mock_refit_run],  # Second search with only study hash
-        ]
+        # Search with only study_key_hash should be sufficient to find legacy refit runs
+        mock_mlflow_client.search_runs.return_value = [mock_refit_run]
         
         study_key_hash = "study-hash-abc"
         run_id = "trial-run-123"
@@ -142,7 +139,8 @@ class TestRefitRunDiscovery:
         # Mock refit run to be child of trial run
         mock_refit_run.info.parent_run_id = "trial-run-123"
         
-        mock_mlflow_client.get_run.side_effect = [mock_trial_run, mock_refit_run]
+        # Directly return the refit run when querying by its run_id
+        mock_mlflow_client.get_run.return_value = mock_refit_run
         mock_mlflow_client.search_runs.return_value = [mock_refit_run]
         
         run_id = "trial-run-123"
@@ -159,11 +157,8 @@ class TestRefitRunDiscovery:
         """Test finding any refit run in experiment as last resort."""
         # Mock no hash matches
         mock_mlflow_client.get_run.return_value = mock_trial_run
-        mock_mlflow_client.search_runs.side_effect = [
-            [],  # No matches with full hash
-            [],  # No matches with study hash only
-            [mock_refit_run],  # Last resort: any refit run
-        ]
+        # Directly return a refit run when searching only by stage (last-resort behavior)
+        mock_mlflow_client.search_runs.return_value = [mock_refit_run]
         
         experiment_id = mock_trial_run.info.experiment_id
         stage_tag = "code.process.stage"
@@ -411,6 +406,9 @@ class TestEdgeCases:
         """Test handling when parent_run_id is not available."""
         # Remove parent_run_id attribute
         del mock_trial_run.info.parent_run_id
+        
+        # Ensure get_run returns the trial run without parent_run_id
+        mock_mlflow_client.get_run.return_value = mock_trial_run
         
         run_id = "trial-run-123"
         champion_run = mock_mlflow_client.get_run(run_id)

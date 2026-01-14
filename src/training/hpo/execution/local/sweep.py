@@ -179,8 +179,11 @@ def create_local_hpo_objective(
         logger.debug(
             f"[CV Setup] CV disabled: k_folds={k_folds} (must be > 1 to enable CV)")
 
-    # Capture run_id in closure to avoid UnboundLocalError
-    captured_run_id = run_id
+    # Capture run_id in closure to avoid UnboundLocalError.
+    # Coerce to string where possible so downstream JSON serialization
+    # (e.g. trial_meta.json) does not break when tests or callers pass
+    # non-serializable objects such as MagicMock.
+    captured_run_id = str(run_id) if run_id is not None else None
 
     # Initialize checkpoint cleanup manager
     cleanup_manager = CheckpointCleanupManager(
@@ -311,6 +314,9 @@ def create_local_hpo_objective(
                         "trial_key_hash": trial_key_hash,
                         "trial_number": trial.number,
                         "study_name": study_folder_name,
+                        # run_id is stored as a simple string token for robustness.
+                        # In production this is already a string, but in tests it
+                        # may be a Mock – we normalise it via captured_run_id above.
                         "run_id": captured_run_id,
                         "created_at": datetime.now().isoformat(),
                     }
@@ -538,8 +544,9 @@ def _set_phase2_hpo_tags(
         except Exception as e:
             logger.warning(f"Could not set artifact.available tag: {e}")
         
+        parent_run_id_display = parent_run_id[:12] if parent_run_id else "None"
         logger.info(
-            f"✓ Set Phase 2 tags on parent run {parent_run_id[:12]}...: "
+            f"✓ Set Phase 2 tags on parent run {parent_run_id_display}...: "
             f"schema_version={schema_version}, "
             f"data_fp={'set' if data_fp else 'missing'}, "
             f"eval_fp={'set' if eval_fp else 'missing'}, "
@@ -940,8 +947,9 @@ def run_local_hpo_sweep(
 
             # Set Phase 2 tags (schema_version, fingerprints, artifact.available, objective.direction)
             try:
+                parent_run_id_display = parent_run_id[:12] if parent_run_id else "None"
                 logger.info(
-                    f"Setting Phase 2 tags on parent run {parent_run_id[:12]}... "
+                    f"Setting Phase 2 tags on parent run {parent_run_id_display}... "
                     f"(data_config={'present' if data_config else 'missing'}, "
                     f"train_config={'present' if train_config else 'missing'})"
                 )
@@ -953,10 +961,11 @@ def run_local_hpo_sweep(
                     backbone=backbone,
                     config_dir=project_config_dir,
                 )
-                logger.info(f"✓ Successfully completed Phase 2 tag setting for parent run {parent_run_id[:12]}...")
+                logger.info(f"✓ Successfully completed Phase 2 tag setting for parent run {parent_run_id_display}...")
             except Exception as e:
+                parent_run_id_display = parent_run_id[:12] if parent_run_id else "None"
                 logger.error(
-                    f"✗ Could not set Phase 2 tags on parent run {parent_run_id[:12]}...: {e}",
+                    f"✗ Could not set Phase 2 tags on parent run {parent_run_id_display}...: {e}",
                     exc_info=True
                 )
 
@@ -1289,7 +1298,7 @@ def run_local_hpo_sweep(
                             if artifact_exists and parent_run_id:
                                 client.set_tag(parent_run_id, artifact_tag, "true")
                                 logger.info(
-                                    f"[HPO] Updated {artifact_tag}=true on parent run {parent_run_id[:12]}... "
+                                    f"[HPO] Updated {artifact_tag}=true on parent run {parent_run_id[:12] if parent_run_id else 'None'}... "
                                     f"(artifacts exist on disk, MLflow upload was skipped)"
                                 )
                         except Exception as tag_error:

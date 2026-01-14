@@ -24,7 +24,6 @@ class TestCreateStudyNameWithVariants:
             should_resume=False,
             checkpoint_config={"enabled": True},
             hpo_config={"run": {"mode": "force_new"}},
-            run_mode="force_new",
             root_dir=tmp_path,
             config_dir=config_dir,
         )
@@ -32,7 +31,13 @@ class TestCreateStudyNameWithVariants:
         assert study_name == "hpo_distilbert"
 
     def test_create_study_name_force_new_with_existing(self, tmp_path):
-        """Test study name generation with force_new when variants exist."""
+        """
+        Test study name generation with force_new when variants exist.
+
+        In the simplified design, existing variant folders do not affect the
+        study_name – users must bump study_name explicitly in config when they
+        want a new version.
+        """
         config_dir = tmp_path / "config"
         config_dir.mkdir()
         
@@ -48,12 +53,11 @@ class TestCreateStudyNameWithVariants:
             should_resume=False,
             checkpoint_config={"enabled": True},
             hpo_config={"run": {"mode": "force_new"}},
-            run_mode="force_new",
             root_dir=tmp_path,
             config_dir=config_dir,
         )
-        # Should create variant 3
-        assert study_name == "hpo_distilbert_v3"
+        # Simplified behavior: still use base name (no automatic _vN suffix)
+        assert study_name == "hpo_distilbert"
 
     def test_create_study_name_reuse_if_exists(self, tmp_path):
         """Test study name generation with reuse_if_exists mode."""
@@ -66,7 +70,6 @@ class TestCreateStudyNameWithVariants:
             should_resume=False,
             checkpoint_config={"enabled": True},
             hpo_config={"run": {"mode": "reuse_if_exists"}},
-            run_mode="reuse_if_exists",
             root_dir=tmp_path,
             config_dir=config_dir,
         )
@@ -92,12 +95,11 @@ class TestCreateStudyNameWithVariants:
                 "study_name": "hpo_{backbone}_prod",
             },
             hpo_config={"run": {"mode": "force_new"}},
-            run_mode="force_new",
             root_dir=tmp_path,
             config_dir=config_dir,
         )
-        # Should create variant 2
-        assert study_name == "hpo_distilbert_prod_v2"
+        # Simplified behavior: use template as-is (no automatic _vN suffix)
+        assert study_name == "hpo_distilbert_prod"
 
     def test_create_study_name_custom_study_name_reuse_if_exists(self, tmp_path):
         """Test study name generation with custom study_name and reuse_if_exists."""
@@ -113,45 +115,11 @@ class TestCreateStudyNameWithVariants:
                 "study_name": "hpo_{backbone}_prod",
             },
             hpo_config={"run": {"mode": "reuse_if_exists"}},
-            run_mode="reuse_if_exists",
             root_dir=tmp_path,
             config_dir=config_dir,
         )
         # Should use base name (no variant suffix)
         assert study_name == "hpo_distilbert_prod"
-
-    def test_create_study_name_force_new_no_root_dir_fallback(self):
-        """Test study name generation with force_new but no root_dir (fallback)."""
-        study_name = create_study_name(
-            backbone="distilbert",
-            run_id="test123",
-            should_resume=False,
-            checkpoint_config={"enabled": True},
-            hpo_config={"run": {"mode": "force_new"}},
-            run_mode="force_new",
-            root_dir=None,
-            config_dir=None,
-        )
-        # Should fallback to run_id-based name
-        assert study_name == "hpo_distilbert_test123"
-
-    def test_create_study_name_extracts_run_mode_from_config(self, tmp_path):
-        """Test that run_mode is extracted from config if not provided."""
-        config_dir = tmp_path / "config"
-        config_dir.mkdir()
-        
-        study_name = create_study_name(
-            backbone="distilbert",
-            run_id="test123",
-            should_resume=False,
-            checkpoint_config={"enabled": True},
-            hpo_config={"run": {"mode": "force_new"}},
-            run_mode=None,  # Should be extracted from config
-            root_dir=tmp_path,
-            config_dir=config_dir,
-        )
-        # Should use force_new behavior (base name for first variant)
-        assert study_name == "hpo_distilbert"
 
     def test_create_study_name_checkpoint_disabled_force_new(self):
         """Test study name with checkpoint disabled and force_new."""
@@ -161,7 +129,6 @@ class TestCreateStudyNameWithVariants:
             should_resume=False,
             checkpoint_config={"enabled": False},
             hpo_config={"run": {"mode": "force_new"}},
-            run_mode="force_new",
             root_dir=None,
             config_dir=None,
         )

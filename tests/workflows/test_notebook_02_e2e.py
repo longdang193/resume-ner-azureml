@@ -248,13 +248,15 @@ def test_best_config_selection_e2e(tmp_path, monkeypatch):
 
     # Mock training subprocess execution
     from unittest.mock import Mock
+
+    # Patch the unified training execution API used after the refactor
     def fake_execute_training_subprocess(*args, **kwargs):
         result = Mock()
         result.returncode = 0
         result.stdout = ""
         result.stderr = ""
         return result
-    monkeypatch.setattr("training.execution.subprocess_runner.execute_training_subprocess", fake_execute_training_subprocess)
+    monkeypatch.setattr("training.execution.execute_training_subprocess", fake_execute_training_subprocess)
     
     # Mock MLflow client
     mock_client = Mock()
@@ -317,6 +319,27 @@ def test_best_config_selection_e2e(tmp_path, monkeypatch):
 
     # Conversion
     from deployment.conversion import execute_conversion
+
+    # Mock conversion to avoid loading a real tokenizer/model from the fake checkpoint.
+    # The goal of this test is to validate wiring, naming, and paths, not ONNX export.
+    def fake_execute_conversion(
+        root_dir,
+        config_dir,
+        parent_training_output_dir,
+        parent_spec_fp,
+        parent_exec_fp,
+        experiment_config,
+        conversion_experiment_name,
+        platform,
+        parent_training_run_id,
+    ):
+        # Reproduce the expected output directory used for assertions below.
+        return fake_conversion_output_dir
+
+    monkeypatch.setattr(
+        "deployment.conversion.execute_conversion",
+        fake_execute_conversion,
+    )
 
     conversion_output_dir = execute_conversion(
         root_dir=ROOT_DIR,

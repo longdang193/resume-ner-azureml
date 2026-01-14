@@ -379,7 +379,7 @@ class TestNotebookE2E_Core:
         assert mlflow.get_tracking_uri() == tracking_uri
     
     @patch('orchestration.jobs.hpo.local.trial.execution.subprocess.run')
-    @patch('hpo.execution.local.sweep.mlflow')
+    @patch('training.hpo.execution.local.sweep.mlflow')
     def test_hpo_sweep_execution_mocked(
         self,
         mock_mlflow,
@@ -697,7 +697,7 @@ class TestNotebookE2E_Core:
         benchmark_warmup = benchmark_settings.get("warmup_iterations", 10)
         benchmark_max_length = benchmark_settings.get("max_length", 512)
         
-        from tracking.mlflow.trackers.benchmark_tracker import MLflowBenchmarkTracker
+        from infrastructure.tracking.mlflow.trackers.benchmark_tracker import MLflowBenchmarkTracker
         benchmark_tracker = MLflowBenchmarkTracker("test-benchmark-experiment")
         
         benchmark_results = benchmark_champions(

@@ -50,7 +50,13 @@ class TestHPORunModeForceNew:
         assert is_force_new(hpo_config) is True
 
     def test_force_new_creates_variant_2_on_second_run(self, tmp_path, tmp_config_dir):
-        """Test that force_new creates variant 2 on second run."""
+        """
+        Test that force_new no longer auto-creates variant 2 on second run.
+
+        After the HPO simplification, study_name versioning is explicit and no longer
+        depends on existing output folders or run.mode. With checkpointing enabled
+        and no explicit study_name, we always use the base name for resumability.
+        """
         hpo_config = {
             "run": {"mode": "force_new"},
             "sampling": {"algorithm": "random", "max_trials": 1},
@@ -75,12 +81,17 @@ class TestHPORunModeForceNew:
             root_dir=tmp_path,
             config_dir=tmp_config_dir,
         )
-        
-        # Second variant should have _v2 suffix
-        assert study_name == "hpo_distilbert_v2"
+        # Simplified behavior: still use base name (no automatic _v2 suffix)
+        assert study_name == "hpo_distilbert"
 
     def test_force_new_creates_variant_3_on_third_run(self, tmp_path, tmp_config_dir):
-        """Test that force_new creates variant 3 on third run."""
+        """
+        Test that force_new no longer auto-creates variant 3 on third run.
+
+        Existing variant folders should not change the study_name – users are expected
+        to bump study_name explicitly (e.g. hpo_distilbert_v2) when they want a new
+        version, as per the merged refactor plan.
+        """
         hpo_config = {
             "run": {"mode": "force_new"},
             "sampling": {"algorithm": "random", "max_trials": 1},
@@ -106,12 +117,16 @@ class TestHPORunModeForceNew:
             root_dir=tmp_path,
             config_dir=tmp_config_dir,
         )
-        
-        # Third variant should have _v3 suffix
-        assert study_name == "hpo_distilbert_v3"
+        # Simplified behavior: still use base name (no automatic _v3 suffix)
+        assert study_name == "hpo_distilbert"
 
     def test_force_new_with_custom_study_name(self, tmp_path, tmp_config_dir):
-        """Test force_new with custom study_name template."""
+        """
+        Test force_new with custom study_name template.
+
+        In the simplified design, the custom study_name template is used as-is
+        (with {backbone} substitution) and is not auto-suffixed with _vN.
+        """
         hpo_config = {
             "run": {"mode": "force_new"},
             "sampling": {"algorithm": "random", "max_trials": 1},
@@ -137,9 +152,8 @@ class TestHPORunModeForceNew:
             root_dir=tmp_path,
             config_dir=tmp_config_dir,
         )
-        
-        # Should create variant 3
-        assert study_name == "hpo_distilbert_smoke_test_v3"
+        # Simplified behavior: still use base template (no automatic _vN suffix)
+        assert study_name == "hpo_distilbert_smoke_test"
 
 
 class TestHPORunModeReuseIfExists:
@@ -232,7 +246,13 @@ class TestStudyManagerWithRunMode:
         assert run_mode == "force_new"
 
     def test_study_manager_passes_run_mode_to_create_study_name(self, tmp_path, tmp_config_dir):
-        """Test that StudyManager passes run_mode to create_study_name."""
+        """
+        Test that StudyManager wires through contextual arguments to create_study_name.
+
+        After the refactor, study naming no longer depends on run.mode, so this test
+        only verifies that StudyManager provides root_dir/config_dir and does not
+        rely on run_mode being propagated.
+        """
         hpo_config = {
             "run": {"mode": "force_new"},
             "sampling": {"algorithm": "random"},
@@ -266,9 +286,10 @@ class TestStudyManagerWithRunMode:
                 run_id="test123",
             )
             
-            # Verify create_study_name was called with run_mode
+            # Verify create_study_name wiring – root_dir/config_dir are passed through
             call_kwargs = mock_create.call_args[1]
-            assert call_kwargs.get("run_mode") == "force_new"
+            # run_mode is no longer required for study naming; it may be absent or None
+            assert "run_mode" not in call_kwargs or call_kwargs["run_mode"] is None
             assert call_kwargs.get("root_dir") == tmp_path
             assert call_kwargs.get("config_dir") == tmp_config_dir
 
@@ -334,7 +355,13 @@ class TestSmokeYamlRunModeConfig:
         assert study_name == "hpo_distilbert"
 
     def test_smoke_yaml_variant_sequence(self, tmp_path, tmp_config_dir):
-        """Test complete variant sequence as specified in smoke.yaml."""
+        """
+        Test that smoke.yaml no longer drives implicit variant sequencing.
+
+        With the simplified HPO design, repeated runs with checkpointing enabled and
+        no explicit study_name always use the same base study name. Version bumps are
+        performed explicitly via the study_name field in config, not inferred here.
+        """
         hpo_config = {
             "run": {"mode": "force_new"},
             "sampling": {"algorithm": "random", "max_trials": 1},
@@ -362,11 +389,9 @@ class TestSmokeYamlRunModeConfig:
             )
             variants.append(study_name)
             
-            # Create the folder for next iteration
-            (hpo_output / study_name).mkdir()
+            # Create the folder for next iteration (idempotent under simplified naming)
+            (hpo_output / study_name).mkdir(exist_ok=True)
         
-        # Should create: hpo_distilbert, hpo_distilbert_v2, hpo_distilbert_v3
-        assert variants[0] == "hpo_distilbert"
-        assert variants[1] == "hpo_distilbert_v2"
-        assert variants[2] == "hpo_distilbert_v3"
+        # All variants should use the same base name under the simplified design
+        assert variants == ["hpo_distilbert", "hpo_distilbert", "hpo_distilbert"]
 

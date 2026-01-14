@@ -83,7 +83,7 @@ class TestArtifactAcquisitionEdgeCases:
         assert mlflow_enabled is True  # Default value
         assert mlflow_validate is True  # Default value
 
-    @patch("orchestration.jobs.selection.artifact_acquisition._validate_checkpoint")
+    @patch("evaluation.selection.artifact_unified.compat._validate_checkpoint")
     @patch("orchestration.jobs.local_selection_v2.find_trial_checkpoint_by_hash")
     def test_validation_false_allows_invalid_checkpoints(
         self,
@@ -108,8 +108,8 @@ class TestArtifactAcquisitionEdgeCases:
         acquisition_config = sample_acquisition_config.copy()
         acquisition_config["local"]["validate"] = False
         
-        with patch("orchestration.jobs.selection.artifact_acquisition._build_checkpoint_dir") as mock_build_dir, \
-             patch("orchestration.jobs.selection.artifact_acquisition.shutil") as mock_shutil:
+        with patch("evaluation.selection.artifact_unified.compat._build_checkpoint_dir") as mock_build_dir, \
+             patch("evaluation.selection.artifact_unified.compat.shutil") as mock_shutil:
             mock_build_dir.return_value = mock_checkpoint_path
             
             # Call function
@@ -128,7 +128,7 @@ class TestArtifactAcquisitionEdgeCases:
             # Should succeed even with invalid checkpoint when validate=False
             assert result is not None
 
-    @patch("orchestration.jobs.selection.artifact_acquisition._validate_checkpoint")
+    @patch("evaluation.selection.artifact_unified.compat._validate_checkpoint")
     @patch("orchestration.jobs.local_selection_v2.find_trial_checkpoint_by_hash")
     def test_validation_true_rejects_invalid_checkpoints(
         self,
@@ -153,8 +153,8 @@ class TestArtifactAcquisitionEdgeCases:
         acquisition_config = sample_acquisition_config.copy()
         acquisition_config["local"]["validate"] = True
         
-        with patch("orchestration.jobs.selection.artifact_acquisition._build_checkpoint_dir") as mock_build_dir, \
-             patch("orchestration.jobs.selection.artifact_acquisition.shutil") as mock_shutil:
+        with patch("evaluation.selection.artifact_unified.compat._build_checkpoint_dir") as mock_build_dir, \
+             patch("evaluation.selection.artifact_unified.compat.shutil") as mock_shutil:
             mock_build_dir.return_value = mock_checkpoint_path
             
             # Call function - should fail because checkpoint is invalid

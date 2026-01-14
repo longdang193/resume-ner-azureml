@@ -33,9 +33,11 @@ def mock_mlflow_tracking(monkeypatch, tmp_path):
         mlflow.set_experiment(experiment_name)
         return tracking_uri
     
+    # After refactor, setup_mlflow_from_config lives in common.shared.mlflow_setup
     monkeypatch.setattr(
-        "shared.mlflow_setup.setup_mlflow_from_config",
-        mock_setup_mlflow_from_config
+        "common.shared.mlflow_setup.setup_mlflow_from_config",
+        mock_setup_mlflow_from_config,
+        raising=False,
     )
     
     # Mock Azure ML client creation if attempted

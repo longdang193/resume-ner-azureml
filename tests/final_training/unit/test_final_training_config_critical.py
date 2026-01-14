@@ -67,11 +67,12 @@ def _patch_context_builders(monkeypatch, tmp_path):
             return tmp_path / "outputs" / "final_training" / f"spec-{spec8}_exec-{exec8}" / f"v{variant}"
         return tmp_path / "outputs" / "final_training" / f"v{variant}"
     
-    monkeypatch.setattr("naming.create_naming_context", fake_create_context)
-    monkeypatch.setattr("paths.build_output_path", fake_build_output_path)
-    monkeypatch.setattr("paths.resolve.build_output_path", fake_build_output_path)
-    monkeypatch.setattr("config.training.build_output_path", fake_build_output_path)
-    monkeypatch.setattr("shared.platform_detection.detect_platform", lambda: "local")
+    # Updated module paths after infrastructure/naming + paths refactor.
+    monkeypatch.setattr("infrastructure.naming.create_naming_context", fake_create_context)
+    monkeypatch.setattr("infrastructure.paths.build_output_path", fake_build_output_path)
+    monkeypatch.setattr("infrastructure.paths.resolve.build_output_path", fake_build_output_path)
+    monkeypatch.setattr("infrastructure.config.training.build_output_path", fake_build_output_path)
+    monkeypatch.setattr("common.shared.platform_detection.detect_platform", lambda: "local")
 
 
 class TestSourceParentDictFormat:
@@ -365,7 +366,7 @@ class TestVariantNumber:
         variant_config = {"number": 5}
         run_mode = "force_new"  # Should ignore explicit variant and increment
         
-        with patch("config.training._compute_next_variant", return_value=6):
+        with patch("infrastructure.config.training._compute_next_variant", return_value=6):
             result = _resolve_variant(
                 root_dir=tmp_path,
                 config_dir=tmp_config_dir,
@@ -385,7 +386,7 @@ class TestVariantNumber:
         variant_config = {"number": None}
         run_mode = "reuse_if_exists"
         
-        with patch("config.training._compute_next_variant", return_value=2):
+        with patch("infrastructure.config.training._compute_next_variant", return_value=2):
             result = _resolve_variant(
                 root_dir=tmp_path,
                 config_dir=tmp_config_dir,
@@ -443,20 +444,20 @@ training:
                 return load_yaml(path_obj)  # Load actual train.yaml file
             return {}
         
-        monkeypatch.setattr("shared.yaml_utils.load_yaml", fake_load_yaml)
+        monkeypatch.setattr("common.shared.yaml_utils.load_yaml", fake_load_yaml)
         
         # Mock other dependencies
-        monkeypatch.setattr("shared.platform_detection.detect_platform", lambda: "local")
-        monkeypatch.setattr("config.training._compute_fingerprints", lambda *args, **kwargs: ("spec123", "exec456"))
-        monkeypatch.setattr("config.training._resolve_variant", lambda *args, **kwargs: 1)
-        monkeypatch.setattr("config.training._resolve_checkpoint", lambda *args, **kwargs: None)
-        monkeypatch.setattr("config.training._resolve_seed", lambda *args, **kwargs: 42)
-        monkeypatch.setattr("config.training._resolve_dataset_config", lambda *args, **kwargs: {})
+        monkeypatch.setattr("common.shared.platform_detection.detect_platform", lambda: "local")
+        monkeypatch.setattr("infrastructure.config.training._compute_fingerprints", lambda *args, **kwargs: ("spec123", "exec456"))
+        monkeypatch.setattr("infrastructure.config.training._resolve_variant", lambda *args, **kwargs: 1)
+        monkeypatch.setattr("infrastructure.config.training._resolve_checkpoint", lambda *args, **kwargs: None)
+        monkeypatch.setattr("infrastructure.config.training._resolve_seed", lambda *args, **kwargs: 42)
+        monkeypatch.setattr("infrastructure.config.training._resolve_dataset_config", lambda *args, **kwargs: {})
         # Mock load_all_configs to return empty dict to avoid loading data_config
         # Patch it where it's imported in config.training
         def fake_load_all_configs(experiment_config):
             return {}
-        monkeypatch.setattr("config.training.load_all_configs", fake_load_all_configs)
+        monkeypatch.setattr("infrastructure.config.training.load_all_configs", fake_load_all_configs)
         
         from types import SimpleNamespace
         # Create a train.yaml file for the test
@@ -522,18 +523,18 @@ training:
                 return load_yaml(path_obj)  # Load actual train.yaml file
             return {}
         
-        monkeypatch.setattr("shared.yaml_utils.load_yaml", fake_load_yaml)
-        monkeypatch.setattr("shared.platform_detection.detect_platform", lambda: "local")
-        monkeypatch.setattr("config.training._compute_fingerprints", lambda *args, **kwargs: ("spec123", "exec456"))
-        monkeypatch.setattr("config.training._resolve_variant", lambda *args, **kwargs: 1)
-        monkeypatch.setattr("config.training._resolve_checkpoint", lambda *args, **kwargs: None)
-        monkeypatch.setattr("config.training._resolve_seed", lambda *args, **kwargs: 42)
-        monkeypatch.setattr("config.training._resolve_dataset_config", lambda *args, **kwargs: {})
+        monkeypatch.setattr("common.shared.yaml_utils.load_yaml", fake_load_yaml)
+        monkeypatch.setattr("common.shared.platform_detection.detect_platform", lambda: "local")
+        monkeypatch.setattr("infrastructure.config.training._compute_fingerprints", lambda *args, **kwargs: ("spec123", "exec456"))
+        monkeypatch.setattr("infrastructure.config.training._resolve_variant", lambda *args, **kwargs: 1)
+        monkeypatch.setattr("infrastructure.config.training._resolve_checkpoint", lambda *args, **kwargs: None)
+        monkeypatch.setattr("infrastructure.config.training._resolve_seed", lambda *args, **kwargs: 42)
+        monkeypatch.setattr("infrastructure.config.training._resolve_dataset_config", lambda *args, **kwargs: {})
         # Mock load_all_configs to return empty dict to avoid loading data_config
         # Patch it where it's imported in config.training
         def fake_load_all_configs(experiment_config):
             return {}
-        monkeypatch.setattr("config.training.load_all_configs", fake_load_all_configs)
+        monkeypatch.setattr("infrastructure.config.training.load_all_configs", fake_load_all_configs)
         
         from types import SimpleNamespace
         # Create a train.yaml file for the test

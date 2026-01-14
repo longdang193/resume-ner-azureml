@@ -35,8 +35,8 @@ class TestSearchRootsIntegration:
             metadata={}
         )
 
-    @patch("evaluation.selection.artifact_unified.discovery.discover_artifact_local")
-    @patch("evaluation.selection.artifact_unified.selectors.select_artifact_run_from_request")
+    @patch("evaluation.selection.artifact_unified.acquisition.discover_artifact_local")
+    @patch("evaluation.selection.artifact_unified.acquisition.select_artifact_run_from_request")
     def test_search_roots_used_in_local_discovery(
         self,
         mock_select_run,
@@ -121,9 +121,9 @@ class TestArtifactKindsPriorityIntegration:
             metadata={}
         )
 
-    @patch("evaluation.selection.artifact_unified.discovery.discover_artifact_mlflow")
-    @patch("evaluation.selection.artifact_unified.discovery.discover_artifact_local")
-    @patch("evaluation.selection.artifact_unified.selectors.select_artifact_run_from_request")
+    @patch("evaluation.selection.artifact_unified.acquisition.discover_artifact_mlflow")
+    @patch("evaluation.selection.artifact_unified.acquisition.discover_artifact_local")
+    @patch("evaluation.selection.artifact_unified.acquisition.select_artifact_run_from_request")
     def test_artifact_kinds_priority_overrides_global(
         self,
         mock_select_run,
@@ -184,8 +184,8 @@ class TestArtifactKindsPriorityIntegration:
         # Local should not be called if MLflow succeeds
         # (but might be called during acquisition, so we just verify MLflow was tried)
 
-    @patch("evaluation.selection.artifact_unified.discovery.discover_artifact_local")
-    @patch("evaluation.selection.artifact_unified.selectors.select_artifact_run_from_request")
+    @patch("evaluation.selection.artifact_unified.acquisition.discover_artifact_local")
+    @patch("evaluation.selection.artifact_unified.acquisition.select_artifact_run_from_request")
     def test_artifact_kinds_fallback_to_global_priority(
         self,
         mock_select_run,

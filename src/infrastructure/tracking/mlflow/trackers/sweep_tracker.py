@@ -83,7 +83,7 @@ class MLflowSweepTracker(BaseTracker):
         hpo_config: Dict[str, Any],
         backbone: str,
         study_name: str,
-        checkpoint_config: Dict[str, Any],
+        checkpoint_config: Optional[Dict[str, Any]],
         storage_path: Optional[Any],
         should_resume: bool,
         context: Optional[Any] = None,  # NamingContext
@@ -237,7 +237,7 @@ class MLflowSweepTracker(BaseTracker):
         hpo_config: Dict[str, Any],
         backbone: str,
         study_name: str,
-        checkpoint_config: Dict[str, Any],
+        checkpoint_config: Optional[Dict[str, Any]],
         storage_path: Optional[Any],
         should_resume: bool,
         output_dir: Optional[Path] = None,
@@ -273,7 +273,7 @@ class MLflowSweepTracker(BaseTracker):
         mlflow.log_param("study_name", study_name)
         mlflow.log_param("objective_metric", objective_metric)
         mlflow.log_param("checkpoint_enabled",
-                         checkpoint_config.get("enabled", False))
+                         checkpoint_config.get("enabled", False) if checkpoint_config else False)
 
         # Log checkpoint path (even if disabled, log None)
         if storage_path is not None:
