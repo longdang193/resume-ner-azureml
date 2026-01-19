@@ -1,0 +1,70 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist
+build
+.pytest_cache
+.coverage
+htmlcov
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Logs
+*.log
+logs/
+aml_logs/
+
+# Data
+dataset/
+dataset_tiny/
+tmp/
+
+# MLflow
+mlflow.db
+
+# Config (may contain secrets)
+config.env
+*.env
+!config.env.example
+
+# Tests
+tests/
+pytest.ini
+
+# Notebooks
+notebooks/
+
+# Outputs (only copy specific model files)
+outputs/*
+!outputs/conversion/local/distilbert/spec-1e6acb58_exec-2cfc5e4f/v1/conv-6781b0fa/onnx_model/model.onnx
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+

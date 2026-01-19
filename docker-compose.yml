@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  resume-ner-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: resume-ner-api
+    ports:
+      - "8000:8000"
+    environment:
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - API_WORKERS=1
+      - LOG_LEVEL=INFO
+      - MAX_FILE_SIZE=10485760
+      - MAX_BATCH_SIZE=32
+      - MAX_SEQUENCE_LENGTH=512
+    volumes:
+      # Mount model files from host (uncomment and update paths as needed)
+      # Replace with your actual model paths:
+      # - ./path/to/your/model.onnx:/app/models/model.onnx
+      # - ./path/to/your/checkpoint:/app/models/checkpoint
+      #
+      # Example:
+      # - ./outputs/conversion/local/distilbert/spec-1e6acb58_exec-2cfc5e4f/v1/conv-6781b0fa/onnx_model/model.onnx:/app/models/model.onnx
+      # - ./outputs/training/checkpoint-1000:/app/models/checkpoint
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
