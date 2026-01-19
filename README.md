@@ -333,10 +333,6 @@ All flows use configuration files (`config/*.yaml`) and adapt automatically to t
 ## Documentation
 
 - `docs/DOCKER.md` – Docker build and deployment guide
-- `docs/rules/CLEAN_CODE.md` – Code style and best practices
-- `docs/rules/CLEAN_DOC.md` – Documentation standards
-- `docs/qa/` – Quality assurance guides and test data descriptions
-- `docs/implementation_plans/` – Detailed implementation plans and architecture
 
 ---
 
@@ -404,9 +400,3 @@ See `docs/DOCKER.md` for detailed Docker usage instructions.
 ## Acknowledgments
 
 This project demonstrates production-ready MLOps practices for Named Entity Recognition using Azure Machine Learning, following industry best practices for model development, optimization, and deployment.
-
----
-
-## License
-
-[Add your license here]
