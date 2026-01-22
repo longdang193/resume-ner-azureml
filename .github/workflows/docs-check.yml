@@ -21,10 +21,14 @@ jobs:
       - name: Install uv and project dependencies
         run: |
           pip install uv
-          uv pip install -e .
+          uv pip install -e . --system
 
       - name: Run module README docs check
         run: |
-          uvx python .cursor/rules/module-readmes-two-tier/scripts/docs_check.py --diff origin/main...HEAD
+          if [ -d ".cursor/rules/module-readmes-two-tier" ]; then
+            uvx python .cursor/rules/module-readmes-two-tier/scripts/docs_check.py --diff origin/main...HEAD
+          else
+            echo "Skipping docs check: .cursor folder is private and not available in CI"
+          fi
 
 
