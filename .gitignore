@@ -41,6 +41,16 @@ dataset_backup/
 # Planning documents (temporary)
 docs/plans/
 
+# Private documentation folders
+.cursor/
+docs/architecture/
+docs/audits/
+docs/design/
+docs/implementation_plans/
+docs/modules/
+docs/qa/
+docs/templates/
+
 # Output directories (generated files)
 outputs/
 mlruns/

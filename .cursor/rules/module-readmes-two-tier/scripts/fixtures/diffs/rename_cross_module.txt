@@ -1,5 +1,0 @@
-R100	src/common/shared/file_utils.py	src/training/utils/file_utils.py
-R100	src/training/old_script.py	src/training/new_script.py
-R100	src/deployment/serving.py	scripts/serving.py
-
-
